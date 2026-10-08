@@ -5,6 +5,7 @@ import torch
 from .activations import Collector, load_model
 from .interpret import load_sae
 from .steering import generate, make_hook
+from .textdecode import token_pieces
 
 
 class Runtime:
@@ -36,12 +37,15 @@ class Runtime:
         acts, _ = self.sae.encode((h - self.mu) * self.scale)
         vals, idx = acts.topk(min(top_n, self.d_sae), dim=-1)
         vals, idx = vals.cpu().tolist(), idx.cpu().tolist()
+        # decode the whole text as one byte stream: tokens can split a character (e.g. a
+        # curly apostrophe), so decoding each id alone gives U+FFFD. One string per token.
+        pieces = token_pieces(self.tok, ids[0].tolist())
         out = []
         for t in range(ids.shape[1]):
             feats = [] if t == 0 else [  # position 0 is an outlier; SAE not trained on it
                 {"feature_id": i, "activation": v}
                 for v, i in zip(vals[t], idx[t]) if v > 0]
-            out.append({"index": t, "text": self.tok.decode([int(ids[0, t])]),
+            out.append({"index": t, "text": pieces[t],
                         "features": feats})
         return out
 

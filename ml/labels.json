@@ -1,0 +1,21 @@
+{
+  "8619": "'post' prefix (post-mortem, post hoc, post-traumatic)",
+  "9662": "'Civil' (civil war, civil service, civilization)",
+  "5639": "'half' (half a dozen, half-truths)",
+  "9271": "'counter' prefix (counter-reaction, counterintuitive)",
+  "9242": {
+    "label": "dates and list separators (March 1, 05/13/2009, dashes)",
+    "status": "ambiguous"
+  },
+  "7888": "'Case' (case in point, case study)",
+  "10517": "hyphen in 'so-called'",
+  "2610": "'deep' (deep-rooted, deep sleep)",
+  "2644": "'not' in 'including but not limited to'",
+  "6380": "repeated-word pattern (year after year, layer by layer)",
+  "4289": "'siege'",
+  "9558": "'South' in 'New South Wales'",
+  "11582": "'Prospect' / prospects",
+  "9518": "legal orders (decree, edict)",
+  "9124": "'of' after abstract nouns (fineness of, brevity of)",
+  "5809": "'or' after a time amount (years or so, an hour or two)"
+}

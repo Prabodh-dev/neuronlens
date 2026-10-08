@@ -1,0 +1,21 @@
+run_id: gpt2-l8-k32-smoke
+model_name: gpt2
+hook_layer: 8
+d_model: 768
+d_sae: 12288
+k: 32
+seq_len: 1024
+drop_bos: true
+
+dataset: HuggingFaceFW/fineweb-edu
+dataset_config: sample-10BT
+
+n_train_activations: 5_000_000
+shuffle_buffer: 100_000
+batch_size: 4096
+lr: 3.0e-4
+lr_schedule: cosine
+aux_k: 512
+aux_coef: 0.03125
+dead_steps_threshold: 500
+seed: 42

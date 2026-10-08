@@ -1,0 +1,14 @@
+.footer {
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.footInner {
+  max-width: var(--col);
+  margin-inline: auto;
+  padding: 18px var(--gutter);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+  justify-content: space-between;
+  color: var(--muted);
+}

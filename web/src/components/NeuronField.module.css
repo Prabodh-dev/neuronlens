@@ -1,0 +1,84 @@
+.wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  outline: none;
+  border-radius: 50%;
+}
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+.tip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-width: 220px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: #fff;
+  color: #000;
+  font-size: 13px;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.tip[data-on="1"] {
+  opacity: 1;
+}
+.tip b {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tip span {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: #555;
+}
+.zoomBox {
+  position: absolute;
+  right: 2%;
+  bottom: 2%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--line-3);
+  background: rgb(0 0 0 / 0.7);
+  backdrop-filter: blur(8px);
+}
+.zoomRead {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  min-width: 38px;
+  text-align: center;
+}
+.zb {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.zb:hover {
+  background: rgb(255 255 255 / 0.12);
+}

@@ -1,0 +1,452 @@
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.page {
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  padding-block: 20px 40px;
+}
+
+/* sentence + transport */
+.bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sentence {
+  flex: 0 1 640px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 46px;
+  padding: 4px 4px 4px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line-3);
+  background: var(--bg-2);
+  transition: border-color 0.2s;
+}
+.sentence:focus-within {
+  border-color: rgb(255 255 255 / 0.5);
+}
+.sentence input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+}
+.transport {
+  display: flex;
+  gap: 4px;
+}
+.tokens {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 14px auto 0;
+  max-width: 900px;
+  min-height: 28px;
+}
+.tok {
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+  border-radius: 6px;
+  padding: 3px 4px;
+  font-family: var(--f-mono);
+  font-size: 13px;
+  white-space: pre;
+  cursor: pointer;
+  transition: color 0.3s var(--ease), background 0.3s var(--ease), box-shadow 0.3s;
+}
+.tok:hover {
+  color: var(--ink);
+}
+.tokPast {
+  color: var(--ink-2);
+}
+.tokOn {
+  color: #000;
+  background: #fff;
+  box-shadow: 0 0 22px rgb(255 255 255 / 0.55);
+}
+.inlineErr {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* stage */
+.stage {
+  position: relative;
+  margin-top: 10px;
+  min-height: calc(100vh - 200px);
+  display: grid;
+  place-items: center;
+}
+.lens {
+  width: min(100%, calc(100vh - 210px), 920px);
+  min-width: 280px;
+}
+.lensMsg {
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+.loadRing {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-3);
+  border-top-color: #fff;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* left hud */
+.hud {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 220px;
+}
+.count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.count b {
+  font-size: 44px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.count span {
+  color: var(--muted);
+}
+.countSub {
+  font-size: 12.5px;
+  color: var(--faint);
+  margin-bottom: 14px;
+}
+.find {
+  position: relative;
+}
+.findInput {
+  width: 100%;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-3);
+  background: var(--bg-2);
+  outline: none;
+  font-size: 13.5px;
+}
+.findInput:focus {
+  border-color: rgb(255 255 255 / 0.5);
+}
+.findList {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  background: #0c0c0c;
+  border: 1px solid var(--line-3);
+  border-radius: 14px;
+}
+.findList button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.findList button:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+
+/* right drawer */
+.drawer {
+  position: absolute;
+  right: 0;
+  top: 8px;
+  width: 340px;
+  max-height: calc(100% - 16px);
+  overflow: auto;
+  border-radius: 20px;
+  transition: transform 0.45s var(--ease), background 0.3s, border-color 0.3s;
+}
+.drawerOpen {
+  background: rgb(10 10 10 / 0.86);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: slideIn 0.45s var(--ease) both;
+}
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+.bigTok {
+  font-family: var(--f-mono);
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 26px rgb(255 255 255 / 0.55);
+  animation: rise 0.45s var(--ease) both;
+}
+.fireList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fireList li {
+  animation: rise 0.45s var(--ease) both;
+}
+.fireList button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 10px;
+  align-items: center;
+  padding: 9px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.fireList button:hover .fireName {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fireName {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.specHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.close {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line-3);
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  transition: background 0.2s, transform 0.2s var(--ease);
+}
+.close:hover {
+  background: rgb(255 255 255 / 0.1);
+  transform: rotate(90deg);
+}
+.specName {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+.specMeta {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: -6px;
+}
+.meter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 10px;
+  align-items: center;
+  font-size: 12.5px;
+}
+.meter > span {
+  text-align: right;
+}
+.meterTrack {
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.08);
+  overflow: hidden;
+}
+.meterTrack i {
+  display: block;
+  height: 100%;
+  background: #fff;
+  box-shadow: 0 0 10px #fff;
+  transition: width 0.35s var(--ease);
+}
+.sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-2);
+}
+.mini {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 2;
+  overflow-wrap: anywhere;
+}
+.mini :global(.tok) {
+  white-space: pre-wrap;
+}
+.strength {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 40px;
+  gap: 10px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.strength .mono {
+  color: var(--ink);
+  text-align: right;
+}
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: rise 0.45s var(--ease) both;
+}
+.compare > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.compare p {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.after {
+  border-color: rgb(255 255 255 / 0.3) !important;
+  background: rgb(255 255 255 / 0.03);
+}
+.changed {
+  background: #fff;
+  color: #000;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.hint kbd {
+  margin-right: 3px;
+}
+
+@media (max-width: 1180px) {
+  .stage {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+  }
+  .lens {
+    width: min(100%, 720px);
+  }
+  .hud,
+  .drawer,
+  .hint {
+    position: static;
+    transform: none;
+  }
+  .hud {
+    width: min(100%, 720px);
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+  .countSub {
+    margin: 0;
+  }
+  .find {
+    margin-left: auto;
+    width: 220px;
+  }
+  .drawer {
+    width: min(100%, 720px);
+    max-height: none;
+    background: rgb(10 10 10 / 0.86);
+    border: 1px solid var(--line);
+  }
+  .hint {
+    display: none;
+  }
+}
+@media (max-width: 520px) {
+  .find {
+    width: 100%;
+    margin-left: 0;
+  }
+  .sentence {
+    flex-basis: 100%;
+  }
+}

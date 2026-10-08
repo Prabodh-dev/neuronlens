@@ -1,3 +1,5 @@
+HACKERING 2.0 Round 2 Project Repository for Team Yvl (Open Innovation Track)
+
 # NeuronLens
 
 NeuronLens is a web app that shows which concepts a language model's learned features were active on in any text, and lets users test those concepts by steering (turning a feature up or down and comparing outputs). Model: GPT-2 small, layer 8, TopK sparse autoencoder (k=32, 12,288 features).

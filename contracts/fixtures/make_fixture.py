@@ -115,7 +115,7 @@ def main():
     for i in range(8):
         f = named[i * 7]
         mode = "amplify" if i % 2 == 0 else "ablate"
-        strength = 8.0 if mode == "amplify" else 0.0
+        strength = [0.5, 1.0, 1.5, 2.0][(i // 2) % 4] if mode == "amplify" else 1.0
         con.execute(
             "INSERT INTO steering_examples (feature_id, mode, strength, prompt, seed, baseline_text,"
             " steered_text, is_curated) VALUES (?,?,?,?,?,?,?,?)",

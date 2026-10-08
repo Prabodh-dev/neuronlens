@@ -78,12 +78,22 @@ def test_window_slice_keeps_alignment():
     assert len(pieces[1:]) == len(acts[1:])  # a window starting mid-character stays aligned
 
 
-def test_real_gpt2_tokenizer():
+def real_tokenizer():
+    """The cached GPT-2 tokenizer, or skip. (Newer transformers return an EMPTY tokenizer
+    instead of raising when nothing is cached, so check that it can actually encode.)"""
     tr = pytest.importorskip("transformers")
     try:
         tok = tr.GPT2TokenizerFast.from_pretrained("gpt2", local_files_only=True)
+        usable = len(tok.encode("They’re")) > 0
     except Exception:
+        usable = False
+    if not usable:
         pytest.skip("gpt2 tokenizer not cached")
+    return tok
+
+
+def test_real_gpt2_tokenizer():
+    tok = real_tokenizer()
     text = "They’re here — “quoted” naïve 日本語 😀"
     ids = tok.encode(text)
     pieces = token_pieces(tok, ids)

@@ -1,0 +1,62 @@
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(48px, 22%) minmax(0, 1fr) 1px minmax(0, 1fr) minmax(48px, 22%);
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+}
+.tokL,
+.tokR {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tokL {
+  text-align: right;
+  color: var(--suppress);
+}
+.tokR {
+  color: var(--h5);
+}
+.left,
+.right {
+  display: flex;
+  height: 9px;
+}
+.left {
+  justify-content: flex-end;
+}
+.left i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(270deg, #8a6d68, #4d3a37);
+  border-radius: 1px 0 0 1px;
+}
+.right i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--h3), var(--h5));
+  border-radius: 0 1px 1px 0;
+}
+.axis {
+  height: 100%;
+  min-height: 20px;
+  background: var(--line-3);
+}

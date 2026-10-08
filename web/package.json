@@ -1,0 +1,25 @@
+{
+  "name": "neuronlens-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "gen:types": "openapi-typescript ../contracts/openapi.json -o src/lib/api/schema.d.ts && openapi-typescript src/lib/api/pending.openapi.json -o src/lib/api/pending.d.ts",
+    "gen:pending": "python3 scripts/gen_pending_types.py"
+  },
+  "dependencies": {
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

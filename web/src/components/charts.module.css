@@ -1,0 +1,89 @@
+.wrap {
+  position: relative;
+  width: 100%;
+}
+.wrap svg {
+  display: block;
+  overflow: visible;
+}
+.grid {
+  stroke: var(--line-2);
+  stroke-width: 1;
+}
+.tick {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: var(--f-mono);
+}
+.axis {
+  fill: var(--muted);
+  font-size: 11.5px;
+}
+.line {
+  fill: none;
+  stroke: #fff;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: drawLine 1.4s var(--ease) forwards;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.area {
+  fill: rgb(255 255 255 / 0.06);
+  animation: fadeArea 1.4s var(--ease) both;
+}
+@keyframes drawLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes fadeArea {
+  from {
+    opacity: 0;
+  }
+}
+.end {
+  fill: #fff;
+  stroke: #000;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px #fff);
+}
+.cross {
+  stroke: var(--muted);
+  stroke-dasharray: 3 3;
+}
+.dot {
+  fill: #000;
+  stroke: #fff;
+  stroke-width: 2;
+}
+.barRect {
+  fill: rgb(255 255 255 / 0.55);
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: barUp 0.9s var(--ease) both;
+}
+.barOn {
+  fill: #fff;
+}
+@keyframes barUp {
+  from {
+    transform: scaleY(0);
+  }
+}
+.readout {
+  position: absolute;
+  top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  border: 0;
+  font-size: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+}

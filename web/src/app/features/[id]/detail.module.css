@@ -1,0 +1,220 @@
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.back {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.back:hover {
+  color: var(--ink);
+}
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: 28px 40px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(600px 300px at 100% 0%, rgb(255 138 46 / 0.07), transparent 70%),
+    var(--surface);
+}
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.fid {
+  color: var(--h5);
+}
+.title {
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.readouts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  padding-left: 28px;
+}
+.readouts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-2);
+}
+.readouts > div:first-child {
+  padding-top: 0;
+}
+.readouts > div:last-child {
+  border-bottom: 0;
+}
+.readouts dt {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.readouts dd {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-size: 26px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.readouts span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 18px;
+  align-items: start;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  min-width: 0;
+}
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line-2);
+}
+.panelHead h2 {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.panelBody {
+  padding: 16px 18px;
+}
+.note {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 12px;
+}
+.examples {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.example {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 44px;
+  gap: 14px;
+  align-items: start;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-2);
+}
+.example:last-child {
+  border-bottom: 0;
+}
+.example:hover {
+  background: var(--bg-2);
+}
+.rank {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--faint);
+  padding-top: 4px;
+}
+.exBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.exText {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  line-height: 2;
+  overflow-wrap: anywhere;
+}
+.exText :global(.tok) {
+  white-space: pre-wrap;
+}
+.trace {
+  width: 100%;
+  height: 18px;
+  opacity: 0.85;
+}
+.exMax {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--h5);
+  text-align: right;
+  padding-top: 4px;
+}
+.moreRow {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 18px;
+}
+
+@media (max-width: 920px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .readouts {
+    border-left: 0;
+    padding-left: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 28px;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+  }
+  .readouts > div {
+    border-bottom: 0;
+    padding: 0;
+  }
+}
+@media (max-width: 560px) {
+  .header {
+    padding: 20px;
+  }
+  .example {
+    grid-template-columns: minmax(0, 1fr) 40px;
+    padding: 12px 14px;
+  }
+  .rank {
+    display: none;
+  }
+}

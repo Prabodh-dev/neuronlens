@@ -187,3 +187,13 @@ class MetricsResponse(BaseModel):
     metrics: list[MetricValue]
     density_hist: list[DensityBin]
     training_curve: list[CurvePoint]
+
+
+# Fixed descriptions so contracts/openapi.json does not change with the Python version
+# (3.13 renamed the 413 and 422 reason phrases).
+_ERROR_DESCRIPTIONS = {404: "Not Found", 413: "Content Too Large", 422: "Unprocessable Content",
+                       500: "Internal Server Error", 503: "Service Unavailable"}
+
+
+def error_responses(*statuses: int) -> dict:
+    return {s: {"model": ErrorResponse, "description": _ERROR_DESCRIPTIONS[s]} for s in statuses}

@@ -1,0 +1,12 @@
+data/*
+!data/.gitkeep
+*.pt
+*.db
+!contracts/fixtures/sample.db
+.env
+node_modules/
+.next/
+__pycache__/
+.venv/
+*.pyc
+.pytest_cache/

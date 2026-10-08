@@ -31,6 +31,14 @@ Needs a CUDA GPU (developed on an RTX 4070 Laptop, 8 GB, in WSL2).
     PYTHONPATH=. python scripts/steer_examples.py
     pytest tests
 
+## Comparison with the published GPT-2 SAE
+Compares our SAE with OpenAI's TopK SAE for GPT-2 small, `resid_post_mlp` layer 8, `v5_32k` (32,768 latents, k=32). Both are scored by the same `evals.evaluate` on the same token sequences (positions 1 and up), the same model and the same hook (output of `transformer.h[8]`). The published SAE is layer-normed inside itself; the script undoes our normalisation and applies its own (see the header of `scripts/compare_published.py` for what was verified and what was not). The capacity differs (12,288 vs 32,768 latents), so this is not a fair fight on equal size.
+
+    cd ml
+    PYTHONPATH=. python scripts/compare_published.py --ours ~/runs/gpt2-l8-k32/final.pt --data-dir ~/data/fineweb/sample/10BT --n-seqs 256 --seed 999 --out-json ~/runs/gpt2-l8-k32/compare.json
+
+Results: not run yet (to be filled in after the GPU run).
+
 ## Layout
 - neuronlens/activations.py: model loading, activation hook and streaming buffer
 - neuronlens/sae.py: TopK SAE

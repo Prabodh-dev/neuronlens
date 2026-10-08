@@ -1,10 +1,10 @@
 from collections import defaultdict
-from functools import lru_cache
 
 import numpy as np
 import torch
 
 from .sae import TopKSAE
+from .textdecode import token_pieces
 
 TOP_N = 32
 WIN_BEFORE, WIN_AFTER = 48, 16  # window = 64 tokens max
@@ -68,7 +68,6 @@ def build_examples(model, col, tok, sae, ck, seqs, S, device="cuda", batch=4):
     rs, fs = np.nonzero(top_v > 0)
     for r, f in zip(rs, fs):
         need[int(top_s[r, f])].append((int(f), int(r)))
-    dec = lru_cache(maxsize=None)(lambda t: tok.decode([t]))
     ex = defaultdict(list)
     order = sorted(need)
     for i in range(0, len(order), batch):
@@ -79,11 +78,12 @@ def build_examples(model, col, tok, sae, ck, seqs, S, device="cuda", batch=4):
             items = need[s]
             sub = acts[b][:, [f for f, _ in items]].cpu().numpy()
             toks = seqs[s].tolist()
+            text = token_pieces(tok, toks)  # decoded over the whole sequence so windows cut mid-character stay clean
             for j, (f, r) in enumerate(items):
                 p = int(top_p[r, f])
                 lo, hi = max(0, p - WIN_BEFORE), min(len(toks), p + WIN_AFTER)
                 a = np.concatenate([[0.0], sub[:, j]])[lo:hi]
-                ex[f].append((r, [dec(t) for t in toks[lo:hi]],
+                ex[f].append((r, text[lo:hi],
                               [round(float(x), 2) for x in a], p - lo,
                               float(top_v[r, f])))
         if (i // batch) % 100 == 0:

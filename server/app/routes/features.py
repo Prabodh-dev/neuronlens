@@ -6,11 +6,10 @@ from fastapi import APIRouter, Depends, Query
 from ..db import Database
 from ..deps import get_db
 from ..errors import ApiError
-from ..models import (ErrorResponse, Example, FeatureDetail, FeatureList, FeatureListItem,
+from ..models import (Example, error_responses, FeatureDetail, FeatureList, FeatureListItem,
                       LabelStatus, LogitEntry, Logits)
 
-router = APIRouter(tags=["features"], responses={
-    422: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
+router = APIRouter(tags=["features"], responses=error_responses(422, 500))
 
 SORT_COLUMNS = {"feature_id": "feature_id", "density": "density",
                 "max_activation": "max_activation"}
@@ -71,6 +70,16 @@ def list_features(
         "LIMIT ? OFFSET ?", tuple(params) + (limit, offset))
     return FeatureList(total=total, limit=limit, offset=offset,
                        items=[FeatureListItem(**list_item(r)) for r in rows])
+
+
+@router.get("/features/random", response_model=FeatureDetail,
+            responses=error_responses(404))
+def random_feature(db: Database = Depends(get_db)):
+    # Registered before /features/{feature_id} so "random" is not parsed as an id.
+    row = db.one("SELECT * FROM features WHERE is_dead = 0 ORDER BY random() LIMIT 1")
+    if row is None:
+        raise ApiError("NOT_FOUND", "no live features in this database")
+    return feature_detail(db, row)
 
 
 @router.get("/features/{feature_id}", response_model=FeatureDetail)

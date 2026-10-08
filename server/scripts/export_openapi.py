@@ -14,7 +14,8 @@ from app.main import create_app  # noqa: E402
 def main() -> None:
     spec = create_app(Settings()).openapi()
     out = SERVER.parent / "contracts" / "openapi.json"
-    out.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+                   newline="\n")
     print(f"wrote {out}")
 
 

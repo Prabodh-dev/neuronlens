@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Request
 
 from ..deps import get_meta
-from ..models import ErrorResponse, Health
+from ..models import Health, error_responses
 
-router = APIRouter(tags=["health"], responses={500: {"model": ErrorResponse}})
+router = APIRouter(tags=["health"], responses=error_responses(500))
 
 
 @router.get("/health", response_model=Health)

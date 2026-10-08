@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { Histogram, LineChart } from "@/components/charts";
 import { CountUp } from "@/components/CountUp";
-import { isSimulated, useHealth } from "@/components/HealthProvider";
+import { isSampleData, useHealth } from "@/components/HealthProvider";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
 import type { MetricsResponse, Run } from "@/lib/api/types";
-import { fmtInt, fmtNum } from "@/lib/format";
+import { fmtInt, fmtNum, pctDigits } from "@/lib/format";
+import { t } from "@/lib/copy";
 import { useApi } from "@/lib/useApi";
 import s from "./metrics.module.css";
 
@@ -15,7 +16,7 @@ type CurveKey = "loss" | "fvu" | "dead_pct";
 const CURVES: { k: CurveKey; label: string; fmt: (v: number) => string }[] = [
   { k: "loss", label: "Loss", fmt: (v) => fmtNum(v, 2) },
   { k: "fvu", label: "Unexplained", fmt: (v) => fmtNum(v, 2) },
-  { k: "dead_pct", label: "Dead %", fmt: (v) => `${fmtNum(v, 1)}%` },
+  { k: "dead_pct", label: "Dead %", fmt: (v) => `${v.toFixed(pctDigits(v))}%` },
 ];
 
 function densityTick(v: number): string {
@@ -37,7 +38,7 @@ export default function MetricsPage() {
           <h1>Metrics</h1>
           <p className="lede">How well the autoencoder copies the model.</p>
         </div>
-        {h && isSimulated(h) && <span className="pill pill-sim">Fixture numbers</span>}
+        {isSampleData(h) && <span className="pill pill-sim">Sample data</span>}
       </div>
 
       {metrics.error && <ErrorState error={metrics.error} onRetry={metrics.reload} />}
@@ -75,16 +76,16 @@ function Body({ m, run }: { m: MetricsResponse; run: Run | null }) {
     <>
       <section className={s.big} aria-label="Headline numbers">
         <Num label="Loss recovered" hint="Higher is better">
-          {ceRec !== null ? <CountUp to={ceRec * 100} decimals={1} suffix="%" /> : "–"}
+          {ceRec !== null ? <CountUp to={ceRec * 100} decimals={1} suffix="%" /> : "—"}
         </Num>
         <Num label="Unexplained" hint="Lower is better">
-          {fvu !== null ? <CountUp to={fvu} decimals={3} /> : "–"}
+          {fvu !== null ? <CountUp to={fvu} decimals={3} /> : "—"}
         </Num>
         <Num label="Active per token" hint="On average">
-          {l0 !== null ? <CountUp to={l0} /> : "–"}
+          {l0 !== null ? <CountUp to={l0} decimals={1} /> : "—"}
         </Num>
         <Num label="Dead" hint="Never fired">
-          {dead !== null ? <CountUp to={dead} decimals={1} suffix="%" /> : "–"}
+          {dead !== null ? <CountUp to={dead} decimals={pctDigits(dead)} suffix="%" /> : "—"}
         </Num>
       </section>
 
@@ -125,7 +126,7 @@ function Body({ m, run }: { m: MetricsResponse; run: Run | null }) {
                 label={`${cdef.label} by training step`}
               />
             ) : (
-              <EmptyState title="No curve" icon="chart" />
+              <EmptyState title={t("empty.curve")} icon="chart" />
             )}
           </div>
         </section>
@@ -143,7 +144,7 @@ function Body({ m, run }: { m: MetricsResponse; run: Run | null }) {
                 label="Histogram of feature density"
               />
             ) : (
-              <EmptyState title="No histogram" icon="chart" />
+              <EmptyState title={t("empty.hist")} icon="chart" />
             )}
           </div>
         </section>
@@ -182,7 +183,7 @@ function LossBar({ label, v, max, hot, dim }: { label: string; v: number; max: n
       <span className={s.lossTrack}>
         <i style={{ width: `${Math.max(1.5, (v / (max || 1)) * 100)}%` }} />
       </span>
-      <span className="mono">{fmtNum(v, 2)}</span>
+      <span className="mono">{fmtNum(v, 3)}</span>
     </div>
   );
 }

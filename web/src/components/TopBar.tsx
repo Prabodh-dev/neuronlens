@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api/client";
-import { isSimulated, useHealth } from "./HealthProvider";
+import { fmtInt } from "@/lib/format";
+import { isMockModel, isSampleData, useHealth } from "./HealthProvider";
 import { Logo } from "./Logo";
+import { ModeBanner } from "./ModeBanner";
 import s from "./TopBar.module.css";
 
 const NAV = [
@@ -18,7 +19,7 @@ const NAV = [
 
 export function TopBar() {
   const path = usePathname();
-  const { data: h, error, reload } = useHealth();
+  const { data: h, error } = useHealth();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -51,14 +52,15 @@ export function TopBar() {
           </nav>
 
           <div className={s.right}>
-            {h && isSimulated(h) && (
-              <span className={s.status} title="Mock mode: fixture data, not real model output.">
-                <i className={s.dotSim} /> Simulated
+            {h && (
+              <span className={s.chip} title={`Run ${h.run_id}`}>
+                {h.model_name} · layer {h.hook_layer} · {fmtInt(h.d_sae)} features · k={h.k}
               </span>
             )}
-            {h && !isSimulated(h) && (
+            {h && (
               <span className={s.status}>
-                <i className={s.dotLive} /> Live
+                <i className={isSampleData(h) || isMockModel(h) ? s.dotSim : s.dotLive} />
+                {isSampleData(h) ? "Sample data" : isMockModel(h) ? "Mock" : "Live"}
               </span>
             )}
             {error && (
@@ -75,23 +77,8 @@ export function TopBar() {
             </button>
           </div>
         </div>
+        <ModeBanner />
       </header>
-      {error && (
-        <div className={s.banner} role="status">
-          <span>
-            {error.code === "UNREACHABLE" ? (
-              <>
-                API not running. Start it in <code>server/</code> ({API_BASE}).
-              </>
-            ) : (
-              error.message
-            )}
-          </span>
-          <button className="btn btn-ghost btn-sm" onClick={reload}>
-            Retry
-          </button>
-        </div>
-      )}
     </>
   );
 }

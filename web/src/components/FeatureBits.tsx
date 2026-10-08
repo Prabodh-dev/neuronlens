@@ -1,5 +1,6 @@
 import type { LabelStatus } from "@/lib/api/types";
-import { densityScale, featureName } from "@/lib/format";
+import { t } from "@/lib/copy";
+import { densityScale } from "@/lib/format";
 
 const STATUS_TEXT: Record<LabelStatus, string> = {
   named: "Named",
@@ -28,7 +29,8 @@ export function StatusPill({ status, dead }: { status: LabelStatus; dead?: boole
 
 export function FeatureTitle({ label, id }: { label: string | null; id: number }) {
   if (label && label.trim()) return <>{label}</>;
-  return <span style={{ color: "var(--muted)", fontStyle: "italic" }}>{featureName(null, id)} (unnamed)</span>;
+  void id;
+  return <span style={{ color: "var(--muted)" }}>{t("feature.unlabelled")}</span>;
 }
 
 export function DensityBar({ density }: { density: number }) {

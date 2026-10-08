@@ -634,9 +634,10 @@ function draw(ctx: CanvasRenderingContext2D, S: State, t: number) {
       if (x < 0 || y < 0 || x > w || y > h) continue;
       const f = S.neurons[i];
       const a = S.act[i];
-      ctx.globalAlpha = S.dim[i] ? 0.2 : a > 0.04 ? 1 : 0.5;
+      // named features get their label; the many unlabelled ones only their number
+      ctx.globalAlpha = S.dim[i] ? 0.2 : a > 0.04 ? 1 : f.label ? 0.6 : 0.28;
       ctx.fillStyle = "#ffffff";
-      const txt = featureName(f.label, f.feature_id);
+      const txt = f.label ? f.label : `#${f.feature_id}`;
       ctx.fillText(txt.length > 26 ? txt.slice(0, 25) + "…" : txt, x + dotR + 7, y);
       drawn++;
     }

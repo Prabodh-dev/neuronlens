@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/features/random": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Random Feature */
+        get: operations["random_feature_api_v1_features_random_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/features/{feature_id}": {
         parameters: {
             query?: never;
@@ -55,10 +72,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inspect */
+        post: operations["inspect_api_v1_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metrics */
+        get: operations["metrics_api_v1_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Runs */
+        get: operations["runs_api_v1_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/steer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Steer */
+        post: operations["steer_api_v1_steer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/steering-examples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Steering Examples */
+        get: operations["steering_examples_api_v1_steering_examples_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CurvePoint */
+        CurvePoint: {
+            /**
+             * Dead Pct
+             * @description PERCENT 0-100
+             */
+            dead_pct: number | null;
+            /** Fvu */
+            fvu: number | null;
+            /** Loss */
+            loss: number;
+            /** Step */
+            step: number;
+        };
+        /** DensityBin */
+        DensityBin: {
+            /** Bin Hi */
+            bin_hi: number;
+            /**
+             * Bin Lo
+             * @description log10(density), live features only
+             */
+            bin_lo: number;
+            /** Count */
+            count: number;
+        };
         /** ErrorBody */
         ErrorBody: {
             /**
@@ -181,6 +309,37 @@ export interface components {
              */
             status: "ok";
         };
+        /** InspectRequest */
+        InspectRequest: {
+            /** Text */
+            text: string;
+            /**
+             * Top N
+             * @default 5
+             */
+            top_n: number;
+        };
+        /** InspectResponse */
+        InspectResponse: {
+            /** Model Name */
+            model_name: string;
+            /** Tokens */
+            tokens: components["schemas"]["InspectToken"][];
+        };
+        /** InspectToken */
+        InspectToken: {
+            /** Features */
+            features: components["schemas"]["TokenFeature"][];
+            /** Index */
+            index: number;
+            /** Is Outlier Position */
+            is_outlier_position: boolean;
+            /**
+             * Text
+             * @description Leading space kept exactly as tokenised
+             */
+            text: string;
+        };
         /** LogitEntry */
         LogitEntry: {
             /** Score */
@@ -194,6 +353,147 @@ export interface components {
             promoted: components["schemas"]["LogitEntry"][];
             /** Suppressed */
             suppressed: components["schemas"]["LogitEntry"][];
+        };
+        /** MetricValue */
+        MetricValue: {
+            /** Name */
+            name: string;
+            /**
+             * Value
+             * @description fvu and ce_recovered are fractions; dead_pct is PERCENT 0-100
+             */
+            value: number;
+        };
+        /** MetricsResponse */
+        MetricsResponse: {
+            /** Density Hist */
+            density_hist: components["schemas"]["DensityBin"][];
+            /** Metrics */
+            metrics: components["schemas"]["MetricValue"][];
+            /** Run Id */
+            run_id: string;
+            /** Training Curve */
+            training_curve: components["schemas"]["CurvePoint"][];
+        };
+        /** Run */
+        Run: {
+            /** Checkpoint Name */
+            checkpoint_name: string | null;
+            /** Created At */
+            created_at: string;
+            /** D Model */
+            d_model: number;
+            /** D Sae */
+            d_sae: number;
+            /** Hook Layer */
+            hook_layer: number;
+            /** Is Primary */
+            is_primary: boolean;
+            /** K */
+            k: number;
+            /** Model Name */
+            model_name: string;
+            /** N Train Activations */
+            n_train_activations: number | null;
+            /** Notes */
+            notes: string | null;
+            /** Run Id */
+            run_id: string;
+        };
+        /** RunList */
+        RunList: {
+            /** Items */
+            items: components["schemas"]["Run"][];
+        };
+        /** SteerFeature */
+        SteerFeature: {
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+        };
+        /** SteerRequest */
+        SteerRequest: {
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * Max New Tokens
+             * @default 60
+             */
+            max_new_tokens: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "amplify" | "ablate";
+            /** Prompt */
+            prompt: string;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number;
+            /**
+             * Strength
+             * @description 1.0 = the feature's own max activation; amplify only
+             * @default 1
+             */
+            strength: number;
+        };
+        /** SteerResponse */
+        SteerResponse: {
+            /** Baseline Text */
+            baseline_text: string;
+            feature: components["schemas"]["SteerFeature"];
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "amplify" | "ablate";
+            /** Seed */
+            seed: number;
+            /** Steered Text */
+            steered_text: string;
+            /** Strength */
+            strength: number;
+        };
+        /** SteeringExample */
+        SteeringExample: {
+            /** Baseline Text */
+            baseline_text: string;
+            /** Example Id */
+            example_id: number;
+            /** Feature Id */
+            feature_id: number;
+            /** Is Curated */
+            is_curated: boolean;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "amplify" | "ablate";
+            /** Prompt */
+            prompt: string;
+            /** Seed */
+            seed: number;
+            /** Steered Text */
+            steered_text: string;
+            /** Strength */
+            strength: number;
+        };
+        /** SteeringExampleList */
+        SteeringExampleList: {
+            /** Items */
+            items: components["schemas"]["SteeringExample"][];
+        };
+        /** TokenFeature */
+        TokenFeature: {
+            /** Activation */
+            activation: number;
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
         };
     };
     responses: never;
@@ -229,6 +529,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeatureList"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    random_feature_api_v1_features_random_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unprocessable Content */
@@ -307,6 +654,289 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    inspect_api_v1_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    metrics_api_v1_metrics_get: {
+        parameters: {
+            query?: {
+                run_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    runs_api_v1_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    steer_api_v1_steer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    steering_examples_api_v1_steering_examples_get: {
+        parameters: {
+            query?: {
+                feature_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteeringExampleList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

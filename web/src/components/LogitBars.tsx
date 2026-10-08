@@ -2,7 +2,7 @@ import type { LogitEntry } from "@/lib/api/types";
 import { fmtNum, showToken } from "@/lib/format";
 import s from "./LogitBars.module.css";
 
-const shown = (t: string) => showToken(t).replace(/^ /, "·");
+const shown = (t: string) => showToken(t);
 
 /** One diverging chart: tokens the feature pushes toward grow right, tokens it pushes away grow left. */
 export function LogitBars({ promoted, suppressed }: { promoted: LogitEntry[]; suppressed: LogitEntry[] }) {

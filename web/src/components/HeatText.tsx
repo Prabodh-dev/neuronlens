@@ -6,6 +6,8 @@ import { tokenColors } from "@/lib/heat";
 
 export type HeatToken = {
   text: string;
+  /** Raw activation, for the accessible label (meaning never relies on shading alone). */
+  value?: number;
   /** 0..1 share of the reference activation. */
   heat: number;
   peak?: boolean;
@@ -33,6 +35,8 @@ export function HeatText({ tokens, selected, onSelect, className, label }: Props
         const cls = ["tok", t.peak ? "peak" : "", t.skip ? "skip" : "", selected === i ? "selected" : ""].join(" ").trim();
         const common = {
           className: cls,
+          title: t.value !== undefined ? `token "${t.text}", activation ${t.value.toFixed(2)}` : undefined,
+          "aria-label": t.value !== undefined ? `token "${t.text}", activation ${t.value.toFixed(2)}` : undefined,
           style: t.skip ? undefined : tokenColors(a),
           onMouseMove: (e: React.MouseEvent) => setHover({ i, x: e.clientX, y: e.clientY }),
         };

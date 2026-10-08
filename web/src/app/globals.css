@@ -502,6 +502,8 @@ input[type="range"]:disabled {
 }
 .tok.skip {
   color: var(--faint);
+  outline: 1px dashed rgb(255 255 255 / 0.3);
+  outline-offset: -1px;
 }
 button.tok {
   border: 0;

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { CountUp } from "@/components/CountUp";
-import { isSimulated, useHealth } from "@/components/HealthProvider";
+import { isSampleData, useHealth } from "@/components/HealthProvider";
 import { NetworkBg } from "@/components/landing/NetworkBg";
 import { NeuronArt } from "@/components/landing/NeuronArt";
 import s from "@/components/landing/landing.module.css";
@@ -33,7 +33,7 @@ function useReveal<T extends HTMLElement>() {
 
 export default function Landing() {
   const { data: h } = useHealth();
-  const sim = isSimulated(h);
+  const sample = isSampleData(h);
   const names = useApi((sig) => api.features({ status: "named", sort: "max_activation", order: "desc", limit: 40 }, sig), "landing:names");
   const metrics = useApi((sig) => api.metrics(null, sig), "landing:metrics");
   const ceRec = metrics.data?.metrics.find((m) => m.name === "ce_recovered")?.value ?? null;
@@ -185,7 +185,7 @@ export default function Landing() {
               <span>loss recovered</span>
             </div>
           )}
-          {sim && <p className={s.simNote}>Fixture numbers in mock mode.</p>}
+          {sample && <p className={s.simNote}>Sample data, not a trained model.</p>}
         </section>
       )}
 

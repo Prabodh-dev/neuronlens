@@ -38,6 +38,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/features/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search
+         * @description W8. The features that fired most on the words of the query. A fixed prefix is scored
+         *     as token 0 (an outlier position with no features) so every query word is scored; it is
+         *     never returned. Shows which features fired on the query, not what the query means.
+         */
+        post: operations["search_api_v1_features_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/features/{feature_id}": {
         parameters: {
             query?: never;
@@ -47,6 +69,27 @@ export interface paths {
         };
         /** Get Feature */
         get: operations["get_feature_api_v1_features__feature_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/features/{feature_id}/cofire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cofire
+         * @description W4. Features that fired on the same tokens as this one in a token sample, with counts.
+         *     It shows shared tokens only, not shared meaning.
+         */
+        get: operations["cofire_api_v1_features__feature_id__cofire_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -83,6 +126,46 @@ export interface paths {
         put?: never;
         /** Inspect */
         post: operations["inspect_api_v1_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inspect/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare Texts
+         * @description X7. Features whose max activation differs most between two texts.
+         */
+        post: operations["compare_texts_api_v1_inspect_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inspect/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report
+         * @description X6. For each sentence, the features with the highest activation on its tokens.
+         */
+        post: operations["report_api_v1_inspect_report_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -140,6 +223,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/steer/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check
+         * @description X1. Baseline and steered with the same seed, plus the target feature's activation on
+         *     each finished text (re-encoded without steering). Not a quality score.
+         */
+        post: operations["check_api_v1_steer_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/steer/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare
+         * @description X3. Baseline and steered with the same seed, compared token by token.
+         */
+        post: operations["compare_api_v1_steer_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/steer/multi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Multi
+         * @description W5. Amplify 2 or 3 features together (same seed as the baseline), with each feature's
+         *     activation on the finished texts: shows which concepts were active. Optional controls run
+         *     each feature alone. Higher strengths often loop; see `degenerate`.
+         */
+        post: operations["multi_api_v1_steer_multi_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/steer/prompt-only": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prompt Only
+         * @description X4. What the model writes from the prompt alone: no steering, same seed. Its text
+         *     equals the baseline_text of the steering calls with the same prompt, seed and length.
+         */
+        post: operations["prompt_only_api_v1_steer_prompt_only_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/steer/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sweep
+         * @description X2. Amplify at several strengths (default 0 to 2) with one seed; flags degenerate text.
+         *     One generation per strength plus the baseline, so this is the slowest call.
+         */
+        post: operations["sweep_api_v1_steer_sweep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/steering-examples": {
         parameters: {
             query?: never;
@@ -161,6 +349,58 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CofirePartner */
+        CofirePartner: {
+            /**
+             * Co Count
+             * @description tokens in the sample on which both features were active
+             */
+            co_count: number;
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * In Dictionary
+             * @description the partner exists in this server's database; the UI links a partner only when true
+             */
+            in_dictionary: boolean;
+            /**
+             * Jaccard
+             * @description co_count / (count_a + count_b - co_count), 4 decimals
+             */
+            jaccard: number;
+            /** Label */
+            label: string | null;
+        };
+        /**
+         * CofireResponse
+         * @description W4: the features that fired on the same tokens as this one in a token sample, best
+         *     (highest Jaccard) first, up to 10. Shared tokens only; not a statement about meaning.
+         */
+        CofireResponse: {
+            /**
+             * Available
+             * @description false when the co-fire file is missing, belongs to another run, or has no entry for this feature
+             */
+            available: boolean;
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * Min Count
+             * @description a pair needs at least this many shared tokens
+             */
+            min_count: number | null;
+            /** Partners */
+            partners: components["schemas"]["CofirePartner"][];
+            /** Seed */
+            seed: number | null;
+            /** Simulated */
+            simulated: boolean;
+            /**
+             * Tokens Scanned
+             * @description sample size; null when not available
+             */
+            tokens_scanned: number | null;
+        };
         /** CurvePoint */
         CurvePoint: {
             /**
@@ -375,6 +615,220 @@ export interface components {
             /** Training Curve */
             training_curve: components["schemas"]["CurvePoint"][];
         };
+        /** MultiActivation */
+        MultiActivation: {
+            /**
+             * Activation Verdict
+             * @enum {string}
+             */
+            activation_verdict: "higher" | "lower" | "about the same";
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /** Target Activation Baseline */
+            target_activation_baseline: number;
+            /** Target Activation Steered */
+            target_activation_steered: number;
+        };
+        /** MultiSteer */
+        MultiSteer: {
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * Strength
+             * @description 1.0 = the feature's own max activation. Default 0.5: several features loop at 1.0 and above, and steers add together
+             * @default 0.5
+             */
+            strength: number;
+        };
+        /** MultiSteerEcho */
+        MultiSteerEcho: {
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /** Strength */
+            strength: number;
+        };
+        /** MultiSteerRequest */
+        MultiSteerRequest: {
+            /**
+             * Max New Tokens
+             * @default 60
+             */
+            max_new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number;
+            /**
+             * Steers
+             * @description 2 or 3 different features, amplify only
+             */
+            steers: components["schemas"]["MultiSteer"][];
+            /**
+             * With Single Controls
+             * @description also run each feature alone (one more generation each)
+             * @default false
+             */
+            with_single_controls: boolean;
+        };
+        /**
+         * MultiSteerResponse
+         * @description W5: 2 or 3 features amplified together, same seed as the baseline. The activations
+         *     are read on the finished texts and show which concepts were active; steering is a test
+         *     of what features do. `degenerate` flags loops and broken text.
+         */
+        MultiSteerResponse: {
+            /** Activations */
+            activations: components["schemas"]["MultiActivation"][];
+            /** Baseline Text */
+            baseline_text: string;
+            /** Degenerate */
+            degenerate: boolean;
+            /** Differs */
+            differs: boolean;
+            /** First Divergence Index */
+            first_divergence_index: number | null;
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /** Reason */
+            reason: string | null;
+            /** Seed */
+            seed: number;
+            /** Simulated */
+            simulated: boolean;
+            /**
+             * Single Feature Runs
+             * @description null unless with_single_controls
+             */
+            single_feature_runs: components["schemas"]["SingleFeatureRun"][] | null;
+            /** Steered Text */
+            steered_text: string;
+            /** Steers */
+            steers: components["schemas"]["MultiSteerEcho"][];
+        };
+        /** PromptOnlyRequest */
+        PromptOnlyRequest: {
+            /**
+             * Max New Tokens
+             * @default 60
+             */
+            max_new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number;
+        };
+        /**
+         * PromptOnlyResponse
+         * @description X4: what the model writes from the prompt alone, same seed, no steering.
+         */
+        PromptOnlyResponse: {
+            /** Continuation */
+            continuation: string;
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /** New Tokens */
+            new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /** Seed */
+            seed: number;
+            /** Text */
+            text: string;
+        };
+        /** ReportFeature */
+        ReportFeature: {
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /**
+             * Max Activation
+             * @description highest activation on this sentence's tokens
+             */
+            max_activation: number;
+            /**
+             * Peak Token
+             * @description index (as in /inspect) of the token with the highest activation
+             */
+            peak_token: number;
+            /**
+             * Relative To Max
+             * @description max_activation / the feature's max_activation in the dictionary
+             */
+            relative_to_max: number | null;
+            /**
+             * Tokens Active
+             * @description tokens in the sentence where the feature was active
+             */
+            tokens_active: number;
+        };
+        /** ReportRequest */
+        ReportRequest: {
+            /**
+             * Max Density
+             * @description hide features whose density (share of tokens they fire on) is above this; off by default
+             */
+            max_density?: number | null;
+            /**
+             * Sort
+             * @description activation: rank by raw max activation (default). relative: rank by relative_to_max, how strongly each feature fired for that feature
+             * @default activation
+             * @enum {string}
+             */
+            sort: "activation" | "relative";
+            /** Text */
+            text: string;
+            /**
+             * Top N
+             * @description features per sentence
+             * @default 5
+             */
+            top_n: number;
+        };
+        /**
+         * ReportResponse
+         * @description X6: the features active in each sentence, ranked by max activation (token 0 skipped,
+         *     as in /inspect). Shows which features were active, not what the sentence means.
+         */
+        ReportResponse: {
+            /** Model Name */
+            model_name: string;
+            /** Sentences */
+            sentences: components["schemas"]["ReportSentence"][];
+            /** Simulated */
+            simulated: boolean;
+        };
+        /** ReportSentence */
+        ReportSentence: {
+            /**
+             * End Token
+             * @description one past the last token index
+             */
+            end_token: number;
+            /** Features */
+            features: components["schemas"]["ReportFeature"][];
+            /** Index */
+            index: number;
+            /**
+             * Start Token
+             * @description first token index, as in /inspect
+             */
+            start_token: number;
+            /** Text */
+            text: string;
+        };
         /** Run */
         Run: {
             /** Checkpoint Name */
@@ -404,6 +858,207 @@ export interface components {
         RunList: {
             /** Items */
             items: components["schemas"]["Run"][];
+        };
+        /** SearchFeature */
+        SearchFeature: {
+            /**
+             * Density
+             * @description share of tokens this feature fires on in the dictionary
+             */
+            density: number;
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /**
+             * Max Activation
+             * @description highest activation on the query's tokens
+             */
+            max_activation: number;
+            /**
+             * Peak Token
+             * @description index into `tokens` of the strongest token
+             */
+            peak_token: number;
+            /** Relative To Max */
+            relative_to_max: number | null;
+            /** Tokens Active */
+            tokens_active: number;
+        };
+        /** SearchRequest */
+        SearchRequest: {
+            /**
+             * Max Density
+             * @description hide features whose density (share of tokens they fire on) is above this; off by default
+             */
+            max_density?: number | null;
+            /**
+             * Query
+             * @description 1 to 32 tokens of the query itself
+             */
+            query: string;
+            /**
+             * Sort
+             * @description activation: rank by raw max activation (default). relative: rank by relative_to_max
+             * @default activation
+             * @enum {string}
+             */
+            sort: "activation" | "relative";
+            /**
+             * Top N
+             * @default 10
+             */
+            top_n: number;
+        };
+        /**
+         * SearchResponse
+         * @description W8: the features that fired most on the words of the query. It shows which features
+         *     fired on the query, not what the query means.
+         */
+        SearchResponse: {
+            /** Features */
+            features: components["schemas"]["SearchFeature"][];
+            /** Model Name */
+            model_name: string;
+            /** Query */
+            query: string;
+            /** Simulated */
+            simulated: boolean;
+            /**
+             * Tokens
+             * @description the query's own tokens, as the model split them
+             */
+            tokens: string[];
+        };
+        /** SingleFeatureRun */
+        SingleFeatureRun: {
+            /**
+             * Activation Verdict
+             * @enum {string}
+             */
+            activation_verdict: "higher" | "lower" | "about the same";
+            /** Degenerate */
+            degenerate: boolean;
+            /** Differs */
+            differs: boolean;
+            /** Feature Id */
+            feature_id: number;
+            /** First Divergence Index */
+            first_divergence_index: number | null;
+            /** Label */
+            label: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Steered Text */
+            steered_text: string;
+            /** Strength */
+            strength: number;
+            /** Target Activation Baseline */
+            target_activation_baseline: number;
+            /** Target Activation Steered */
+            target_activation_steered: number;
+        };
+        /**
+         * SteerCheckResponse
+         * @description X1: baseline vs steered (same seed) and the target feature's activation on each
+         *     finished text, re-encoded without steering. It reports whether the feature fires on the
+         *     resulting text; it does not say the output is better.
+         */
+        SteerCheckResponse: {
+            /**
+             * Activation Change
+             * @description (steered max - baseline max) / the feature's max_activation
+             */
+            activation_change: number;
+            /**
+             * Activation Verdict
+             * @enum {string}
+             */
+            activation_verdict: "higher" | "lower" | "about the same";
+            /** Baseline Text */
+            baseline_text: string;
+            /** Differs */
+            differs: boolean;
+            feature: components["schemas"]["SteerFeature"];
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "amplify" | "ablate";
+            /** Seed */
+            seed: number;
+            /** Steered Text */
+            steered_text: string;
+            /** Strength */
+            strength: number;
+            /**
+             * Target Activation Baseline
+             * @description max activation of the target feature over the new tokens of the baseline
+             */
+            target_activation_baseline: number;
+            /** Target Activation Baseline Mean */
+            target_activation_baseline_mean: number;
+            /** Target Activation Steered */
+            target_activation_steered: number;
+            /** Target Activation Steered Mean */
+            target_activation_steered_mean: number;
+        };
+        /**
+         * SteerCompareResponse
+         * @description X3: baseline and steered with the same seed, compared token by token. Indices are
+         *     0-based over newly generated tokens. In mock mode tokens are a word split.
+         */
+        SteerCompareResponse: {
+            /** Baseline From Divergence */
+            baseline_from_divergence: string[];
+            /** Baseline From Divergence Text */
+            baseline_from_divergence_text: string;
+            /** Baseline New Tokens */
+            baseline_new_tokens: number;
+            /** Baseline Text */
+            baseline_text: string;
+            /** Diverges */
+            diverges: boolean;
+            feature: components["schemas"]["SteerFeature"];
+            /** First Divergence Index */
+            first_divergence_index: number | null;
+            /** Identical Prefix Text */
+            identical_prefix_text: string;
+            /** Identical Prefix Tokens */
+            identical_prefix_tokens: string[];
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "amplify" | "ablate";
+            /** Percent Changed From Divergence */
+            percent_changed_from_divergence: number | null;
+            /** Percent Changed Raw */
+            percent_changed_raw: number;
+            /** Percent Changed Raw Note */
+            percent_changed_raw_note: string;
+            /** Prompt Tokens */
+            prompt_tokens: number;
+            /** Seed */
+            seed: number;
+            /** Steered From Divergence */
+            steered_from_divergence: string[];
+            /** Steered From Divergence Text */
+            steered_from_divergence_text: string;
+            /** Steered New Tokens */
+            steered_new_tokens: number;
+            /** Steered Text */
+            steered_text: string;
+            /** Strength */
+            strength: number;
+            /** Tokens Changed */
+            tokens_changed: number;
+            /** Tokens Compared From Divergence */
+            tokens_compared_from_divergence: number;
         };
         /** SteerFeature */
         SteerFeature: {
@@ -457,6 +1112,53 @@ export interface components {
             /** Strength */
             strength: number;
         };
+        /** SteerSweepRequest */
+        SteerSweepRequest: {
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * Max New Tokens
+             * @default 60
+             */
+            max_new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number;
+            /**
+             * Strengths
+             * @description amplify strengths, each 0 to 3, order kept
+             */
+            strengths?: number[];
+        };
+        /**
+         * SteerSweepResponse
+         * @description X2: amplify at several strengths with one seed. `degenerate` flags repetition loops,
+         *     non-word runs and broken characters; it is not a quality score.
+         */
+        SteerSweepResponse: {
+            /** Baseline Degenerate */
+            baseline_degenerate: boolean;
+            /** Baseline Reason */
+            baseline_reason: string | null;
+            /** Baseline Text */
+            baseline_text: string;
+            feature: components["schemas"]["SteerFeature"];
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "amplify";
+            /** Results */
+            results: components["schemas"]["SweepResult"][];
+            /** Seed */
+            seed: number;
+        };
         /** SteeringExample */
         SteeringExample: {
             /** Baseline Text */
@@ -485,6 +1187,105 @@ export interface components {
         SteeringExampleList: {
             /** Items */
             items: components["schemas"]["SteeringExample"][];
+        };
+        /** SweepMetrics */
+        SweepMetrics: {
+            /** New Tokens */
+            new_tokens: number;
+            /** Non Word Fraction */
+            non_word_fraction: number;
+            /** Repeated Token Fraction */
+            repeated_token_fraction: number;
+            /** Repeated Trigram Fraction */
+            repeated_trigram_fraction: number;
+            /** Replacement Chars */
+            replacement_chars: number;
+        };
+        /** SweepResult */
+        SweepResult: {
+            /** Degenerate */
+            degenerate: boolean;
+            /** Differs From Baseline */
+            differs_from_baseline: boolean;
+            /** First Divergence Index */
+            first_divergence_index: number | null;
+            metrics: components["schemas"]["SweepMetrics"];
+            /** Reason */
+            reason: string | null;
+            /** Strength */
+            strength: number;
+            /** Text */
+            text: string;
+        };
+        /** TextCompareFeature */
+        TextCompareFeature: {
+            /**
+             * Difference
+             * @description max_activation_b - max_activation_a
+             */
+            difference: number;
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /**
+             * Max Activation A
+             * @description 0 when not active in text_a
+             */
+            max_activation_a: number;
+            /** Max Activation B */
+            max_activation_b: number;
+            /** Relative To Max A */
+            relative_to_max_a: number | null;
+            /** Relative To Max B */
+            relative_to_max_b: number | null;
+            /** Tokens Active A */
+            tokens_active_a: number;
+            /** Tokens Active B */
+            tokens_active_b: number;
+        };
+        /** TextCompareRequest */
+        TextCompareRequest: {
+            /**
+             * Max Density
+             * @description hide features whose density (share of tokens they fire on) is above this; off by default
+             */
+            max_density?: number | null;
+            /**
+             * Sort
+             * @description activation: rank by raw max activation (default). relative: rank by relative_to_max, how strongly each feature fired for that feature
+             * @default activation
+             * @enum {string}
+             */
+            sort: "activation" | "relative";
+            /** Text A */
+            text_a: string;
+            /** Text B */
+            text_b: string;
+            /**
+             * Top N
+             * @default 10
+             */
+            top_n: number;
+        };
+        /**
+         * TextCompareResponse
+         * @description X7: features whose max activation differs most between two texts (|difference|).
+         */
+        TextCompareResponse: {
+            /** Features */
+            features: components["schemas"]["TextCompareFeature"][];
+            /** Model Name */
+            model_name: string;
+            /** Simulated */
+            simulated: boolean;
+            /**
+             * Tokens A
+             * @description number of tokens in text_a
+             */
+            tokens_a: number;
+            /** Tokens B */
+            tokens_b: number;
         };
         /** TokenFeature */
         TokenFeature: {
@@ -598,6 +1399,66 @@ export interface operations {
             };
         };
     };
+    search_api_v1_features_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_feature_api_v1_features__feature_id__get: {
         parameters: {
             query?: never;
@@ -616,6 +1477,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeatureDetail"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cofire_api_v1_features__feature_id__cofire_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feature_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CofireResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unprocessable Content */
@@ -696,6 +1606,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    compare_texts_api_v1_inspect_compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextCompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextCompareResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    report_api_v1_inspect_report_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportResponse"];
                 };
             };
             /** @description Content Too Large */
@@ -852,6 +1882,351 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SteerResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_api_v1_steer_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerCheckResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    compare_api_v1_steer_compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerCompareResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    multi_api_v1_steer_multi_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MultiSteerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MultiSteerResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    prompt_only_api_v1_steer_prompt_only_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptOnlyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptOnlyResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sweep_api_v1_steer_sweep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerSweepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerSweepResponse"];
                 };
             };
             /** @description Not Found */

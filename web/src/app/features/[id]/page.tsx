@@ -7,6 +7,7 @@ import { FeatureTitle, StatusPill } from "@/components/FeatureBits";
 import { HeatText } from "@/components/HeatText";
 import { isSampleData, useHealth } from "@/components/HealthProvider";
 import { LogitBars } from "@/components/LogitBars";
+import { Cofire } from "./cofire";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
 import type { Example, FeatureDetail } from "@/lib/api/types";
@@ -121,7 +122,7 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
                 {t("button.steerFeature")}
               </Link>
             )}
-            <Link href={`/?neuron=${f.feature_id}`} className="btn btn-ghost">
+            <Link href={`/microscope?neuron=${f.feature_id}`} className="btn btn-ghost">
               Microscope
             </Link>
             <button className="btn btn-ghost" onClick={randomFeature} disabled={rolling}>
@@ -188,6 +189,8 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
               <LogitBars promoted={f.logits.promoted} suppressed={f.logits.suppressed} />
             </div>
           </section>
+
+          <Cofire id={f.feature_id} />
 
         </aside>
       </div>

@@ -243,11 +243,12 @@ export default function Microscope() {
         {/* top left: how many fire, and find one by number or name */}
         <div className={s.hud} data-away={open !== null ? "1" : "0"}>
           <div className={s.count}>
+            <span>top</span>
             <b className="mono">{fmtInt(activity.size)}</b>
             <span>firing</span>
           </div>
           <div className={s.countSub}>
-            of {fmtInt(neurons?.length ?? h?.d_sae ?? 0)} · {sim ? "simulated" : "live"}
+            of {fmtInt(neurons?.length ?? h?.d_sae ?? 0)} features · {sim ? "simulated" : "real data"}
           </div>
           <div className={s.find}>
             <input
@@ -374,7 +375,7 @@ function Specimen(props: {
   const peak = f?.max_activation ?? list?.max_activation ?? 1;
   const ex = f?.examples[0];
   const [mode, setMode] = useState<SteerMode>("amplify");
-  const [strength, setStrength] = useState(1.5);
+  const [strength, setStrength] = useState(0.5);
   const steer = useAction((body: SteerRequest, sig) => api.steer(body, sig));
 
   const across = tokens.map((t) => {
@@ -492,11 +493,14 @@ function Compare({ r, sim }: { r: SteerResponse; sim: boolean }) {
   return (
     <div className={s.compare}>
       <div>
-        <span className="eyebrow">Before</span>
+        <span className="eyebrow">Before · seed {r.seed}</span>
         <p>{r.baseline_text}</p>
       </div>
       <div className={s.after}>
-        <span className="eyebrow">After{sim ? " · simulated" : ""}</span>
+        <span className="eyebrow">
+          After · {r.mode === "amplify" ? `up ${+r.strength.toFixed(2)}×` : "off"} · seed {r.seed}
+          {sim ? " · simulated" : ""}
+        </span>
         <p>
           {segs.map((sg, i) =>
             sg.changed ? (

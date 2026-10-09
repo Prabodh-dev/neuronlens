@@ -6,12 +6,14 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { FeaturePicker, type PickedFeature } from "@/components/FeaturePicker";
 import { isMockModel, useHealth } from "@/components/HealthProvider";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
-import { api } from "@/lib/api/client";
-import type { SteerMode, SteerRequest, SteeringExample } from "@/lib/api/types";
-import { changedShare, diffWords } from "@/lib/diff";
+import { api, serverHas, type ApiError } from "@/lib/api/client";
+import type { SteerCheckResponse, SteerCompareResponse, SteerMode, SteerRequest, SteeringExample } from "@/lib/api/types";
+import { diffWords } from "@/lib/diff";
 import { featureName, fmtNum } from "@/lib/format";
 import { t } from "@/lib/copy";
 import { useAction, useApi } from "@/lib/useApi";
+import { ActivationCheck, PromptOnlyPanel, SplitView, SweepPanel } from "./checks";
+import { CombinePanel } from "./combine";
 import s from "./steer.module.css";
 
 type Shown = {
@@ -24,7 +26,17 @@ type Shown = {
   prompt: string;
   baseline: string;
   steered: string;
+  cmp?: SteerCompareResponse;
+  chk?: SteerCheckResponse | null;
 };
+type Tab = "compare" | "sweep" | "prompt" | "combine";
+
+// the demo runs checked on the GPU (demo/phase4_examples.json, seed 42); a click reruns them live.
+// #1863 stays a recorded example only: it depends on the prompt and touches a hot-button topic.
+const DEMOS = [
+  { id: 3446, prompt: "The band walked on stage and", mode: "amplify" as SteerMode, strength: 0.5 },
+  { id: 13, prompt: "The acrobat hung", mode: "amplify" as SteerMode, strength: 0.5 },
+];
 
 export default function SteerPage() {
   return (
@@ -44,11 +56,14 @@ function Steer() {
 
   const [feature, setFeature] = useState<PickedFeature | null>(null);
   const [mode, setMode] = useState<SteerMode>("amplify");
-  const [strength, setStrength] = useState(1);
+  const [strength, setStrength] = useState(0.5);
   const [prompt, setPrompt] = useState("The weather here is");
   const [seed, setSeed] = useState(42);
   const [maxTokens, setMaxTokens] = useState(60);
   const [shown, setShown] = useState<Shown | null>(null);
+  const [tab, setTab] = useState<Tab>("compare");
+  // W5: the Combine tab shows only on a server that has the endpoint
+  const hasCombine = useApi((sig) => serverHas("/steer/multi", sig), "has:steer-multi").data === true;
 
   // Load the feature named in the URL so the picker shows its name.
   const urlFeature = useApi((sig) => api.feature(urlId as number, sig), urlId !== null && feature?.feature_id !== urlId ? `sf:${urlId}` : null);
@@ -63,19 +78,14 @@ function Steer() {
   }
 
   const saved = useApi((sig) => api.steeringExamples(feature?.feature_id ?? null, sig), `se:${feature?.feature_id ?? "all"}`);
-  const steer = useAction((body: SteerRequest, sig) => api.steer(body, sig));
+  // X3: the run compares the two outputs token by token and finds where they split
+  const steer = useAction((body: SteerRequest, sig) => api.steerCompare(body, sig));
+  // X1: the same run, plus the feature's activation on each finished text
+  const check = useAction((body: SteerRequest, sig) => api.steerCheck(body, sig));
 
-  async function run() {
-    if (!feature || !prompt.trim()) return;
-    const body: SteerRequest = {
-      feature_id: feature.feature_id,
-      mode,
-      strength: mode === "amplify" ? strength : 0,
-      prompt,
-      seed,
-      max_new_tokens: maxTokens,
-    };
-    const res = await steer.run(body);
+  async function compareWith(body: SteerRequest) {
+    setTab("compare");
+    const [res, chk] = await Promise.all([steer.run(body), check.run(body)]);
     if (res)
       setShown({
         source: "live",
@@ -83,10 +93,34 @@ function Steer() {
         mode: res.mode,
         strength: res.strength,
         seed: res.seed,
-        prompt,
+        prompt: body.prompt,
         baseline: res.baseline_text,
         steered: res.steered_text,
+        cmp: res,
+        chk,
       });
+  }
+
+  async function run() {
+    if (!feature || !prompt.trim()) return;
+    await compareWith({ feature_id: feature.feature_id, mode, strength: mode === "amplify" ? strength : 0, prompt, seed, max_new_tokens: maxTokens });
+  }
+
+  async function loadDemo(d: (typeof DEMOS)[number]) {
+    let label: string | null = null;
+    try {
+      label = (await api.feature(d.id)).label;
+    } catch {
+      /* the run below reports any problem */
+    }
+    setFeature({ feature_id: d.id, label });
+    router.replace(`${pathname}?feature=${d.id}`, { scroll: false });
+    setMode(d.mode);
+    if (d.mode === "amplify") setStrength(d.strength);
+    setPrompt(d.prompt);
+    setSeed(42);
+    setMaxTokens(60);
+    await compareWith({ feature_id: d.id, mode: d.mode, strength: d.mode === "amplify" ? d.strength : 0, prompt: d.prompt, seed: 42, max_new_tokens: 60 });
   }
 
   function showSaved(e: SteeringExample) {
@@ -111,6 +145,14 @@ function Steer() {
         <div>
           <h1>Steer</h1>
           <p className="lede">Turn one feature up or off. Same seed, two outputs.</p>
+          <div className={s.demos}>
+            <span className="small muted">Saved runs:</span>
+            {DEMOS.map((d) => (
+              <button key={d.id} type="button" className={s.demo} onClick={() => loadDemo(d)} disabled={steer.loading || check.loading}>
+                <span className="mono">#{d.id}</span> {d.mode === "amplify" ? "up" : "off"} · “{d.prompt.length > 26 ? `${d.prompt.slice(0, 26)}…` : d.prompt}”
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -213,13 +255,75 @@ function Steer() {
             </div>
           </div>
 
-          <button className="btn btn-lg" type="submit" disabled={!feature || !prompt.trim() || steer.loading}>
-            {steer.loading ? "Generating…" : t("button.steer")}
+          <button className="btn btn-lg" type="submit" disabled={!feature || !prompt.trim() || steer.loading || check.loading}>
+            {steer.loading || check.loading ? "Generating…" : t("button.steer")}
           </button>
           <p className={s.limit}>{t("note.steering")}</p>
         </form>
 
         <div className="stack" style={{ minWidth: 0 }}>
+          <div className={s.tabs}>
+            <div className="seg" role="group" aria-label="Which test">
+              <button type="button" aria-pressed={tab === "compare"} onClick={() => setTab("compare")}>
+                Compare
+              </button>
+              <button type="button" aria-pressed={tab === "sweep"} onClick={() => setTab("sweep")}>
+                Every strength
+              </button>
+              <button type="button" aria-pressed={tab === "prompt"} onClick={() => setTab("prompt")}>
+                Prompt only
+              </button>
+              {hasCombine && (
+                <button type="button" aria-pressed={tab === "combine"} onClick={() => setTab("combine")}>
+                  Combine
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div hidden={tab !== "sweep"}>
+            <SweepPanel
+              feature={feature}
+              prompt={prompt}
+              seed={seed}
+              maxTokens={maxTokens}
+              simulated={isMockModel(h)}
+              onUse={(v) => {
+                setMode("amplify");
+                setStrength(v);
+                if (feature) compareWith({ feature_id: feature.feature_id, mode: "amplify", strength: v, prompt, seed, max_new_tokens: maxTokens });
+              }}
+            />
+          </div>
+          <div hidden={tab !== "prompt"}>
+            <PromptOnlyPanel
+              prompt={prompt}
+              seed={seed}
+              maxTokens={maxTokens}
+              simulated={isMockModel(h)}
+              steered={
+                shown
+                  ? { prompt: shown.prompt, text: shown.steered, seed: shown.seed, what: shown.mode === "amplify" ? `Steering · up ${+shown.strength.toFixed(2)}×` : "Steering · off" }
+                  : null
+              }
+            />
+          </div>
+
+          {hasCombine && (
+            <div hidden={tab !== "combine"}>
+              <CombinePanel
+                prompt={prompt}
+                seed={seed}
+                maxTokens={maxTokens}
+                onSetup={(v) => {
+                  setPrompt(v.prompt);
+                  setSeed(v.seed);
+                  setMaxTokens(v.maxTokens);
+                }}
+              />
+            </div>
+          )}
+          <div hidden={tab !== "compare"} className="stack">
           {steer.error && (
             <ErrorState
               error={steer.error}
@@ -232,7 +336,7 @@ function Steer() {
 
           {steer.loading && !shown && <ResultSkeleton />}
           {shown ? (
-            <Comparison shown={shown} simulated={isMockModel(h)} busy={steer.loading} />
+            <Comparison shown={shown} simulated={isMockModel(h)} busy={steer.loading || check.loading} checkError={check.error} />
           ) : (
             !steer.loading &&
             !steer.error && (
@@ -285,15 +389,15 @@ function Steer() {
               </ul>
             )}
           </section>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function Comparison({ shown, simulated, busy }: { shown: Shown; simulated: boolean; busy: boolean }) {
+function Comparison({ shown, simulated, busy, checkError }: { shown: Shown; simulated: boolean; busy: boolean; checkError: ApiError | null }) {
   const segs = useMemo(() => diffWords(shown.baseline, shown.steered), [shown.baseline, shown.steered]);
-  const share = changedShare(segs);
   return (
     <section className={`card ${s.result} ${busy ? s.dim : ""}`} aria-labelledby="cmp-h">
       <div className="card-head">
@@ -309,6 +413,13 @@ function Comparison({ shown, simulated, busy }: { shown: Shown; simulated: boole
           {shown.curated && <span className="pill pill-outline">Curated</span>}
         </div>
       </div>
+      {shown.cmp ? (
+        <>
+          <SplitView c={shown.cmp} prompt={shown.prompt} />
+          <ActivationCheck c={shown.chk ?? null} error={shown.chk ? null : checkError} />
+        </>
+      ) : (
+        <>
       <div className={s.promptRow}>
         <span className="eyebrow">Prompt</span>
         <p>{shown.prompt}</p>
@@ -341,9 +452,11 @@ function Comparison({ shown, simulated, busy }: { shown: Shown; simulated: boole
       </div>
       <div className={s.foot}>
         <span className="small muted">
-          <mark className={s.changed}>Highlighted</mark> = changed · {Math.round(share * 100)}% of words
+          <mark className={s.changed}>Highlighted</mark> = changed words
         </span>
       </div>
+        </>
+      )}
     </section>
   );
 }

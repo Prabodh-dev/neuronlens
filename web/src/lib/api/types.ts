@@ -52,36 +52,8 @@ export type SearchRequest = C["SearchRequest"];
 export type SearchResponse = C["SearchResponse"];
 export type SearchFeature = C["SearchFeature"];
 
-// W5 multi-feature steering (POST /steer/combine). Provisional: the endpoint is not in
-// contracts/openapi.json yet (Mirdul proposes the shape, Prabodh signs off). The fields mirror
-// multi_steering_check in ml/neuronlens/steering_checks.py; switch to C["..."] once it lands.
-export type CombineSteer = { feature_id: number; strength: number };
-export type CombineRequest = {
-  prompt: string;
-  seed: number;
-  max_new_tokens: number;
-  steers: CombineSteer[];
-  with_single_controls?: boolean;
-};
-export type CombineActivation = {
-  feature_id: number;
-  target_activation_baseline: number;
-  target_activation_steered: number;
-  activation_verdict: string;
-};
-export type CombineSingleRun = CombineActivation & { strength: number; degenerate: boolean; reason: string | null };
-export type CombineResponse = {
-  prompt: string;
-  seed: number;
-  max_new_tokens: number;
-  steers: CombineSteer[];
-  baseline_text: string;
-  steered_text: string;
-  differs: boolean;
-  first_divergence_index: number | null;
-  degenerate: boolean;
-  reason: string | null;
-  activations: CombineActivation[];
-  single_feature_runs?: CombineSingleRun[];
-  simulated: boolean;
-};
+// W5: two or three features steered together, each one optionally alone beside it
+export type MultiSteerRequest = C["MultiSteerRequest"];
+export type MultiSteerResponse = C["MultiSteerResponse"];
+export type MultiActivation = C["MultiActivation"];
+export type SingleFeatureRun = C["SingleFeatureRun"];

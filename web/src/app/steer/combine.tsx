@@ -4,15 +4,16 @@ import { useState } from "react";
 import { FeaturePicker, type PickedFeature } from "@/components/FeaturePicker";
 import { ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
-import type { CombineRequest, CombineResponse } from "@/lib/api/types";
+import type { MultiSteerRequest, MultiSteerResponse } from "@/lib/api/types";
 import { featureName } from "@/lib/format";
 import { useAction } from "@/lib/useApi";
 import { after, LiveTag, strengthLabel } from "./checks";
 import s from "./steer.module.css";
 
-/* W5: two or three features turned up together on one prompt, with each one run alone beside it,
-   shown as activation numbers only. The readings show which concepts were active in the finished
-   text, nothing more (docs/features/W5.md). Seed and strength are always shown. */
+/* W5 (POST /steer/multi): two or three features turned up together on one prompt, with each one run
+   alone beside it, shown as activation numbers only (their texts can be harsh: server/README.md). The
+   readings show which concepts were active in the finished text, nothing more (docs/features/W5.md).
+   Seed and strength are always shown. */
 
 // the recorded pair (demo/phase4_examples.json, "multi"), found by an automated search
 const PAIR = { ids: [4280, 9530], strength: 0.5, prompt: "The man walked into the room and", seed: 42, maxTokens: 60 };
@@ -21,7 +22,7 @@ type Slot = { f: PickedFeature | null; strength: number };
 const empty = (): Slot => ({ f: null, strength: 0.5 });
 const act = (v: number) => v.toFixed(2);
 
-const isPair = (r: CombineResponse) =>
+const isPair = (r: MultiSteerResponse) =>
   r.prompt === PAIR.prompt &&
   r.seed === PAIR.seed &&
   r.steers.length === PAIR.ids.length &&
@@ -36,7 +37,7 @@ export function CombinePanel(props: {
   const { prompt, seed, maxTokens } = props;
   const [slots, setSlots] = useState<Slot[]>([empty(), empty()]);
   const [labels, setLabels] = useState<Record<number, string | null>>({});
-  const combine = useAction((body: CombineRequest, sig) => api.steerCombine(body, sig));
+  const combine = useAction((body: MultiSteerRequest, sig) => api.steerMulti(body, sig));
   const res = combine.data;
 
   const ids = slots.map((x) => x.f?.feature_id);
@@ -44,7 +45,7 @@ export function CombinePanel(props: {
   const ready = slots.every((x) => x.f) && !dup && !!prompt.trim();
 
   const remember = (fs: PickedFeature[]) => setLabels((m) => ({ ...m, ...Object.fromEntries(fs.map((f) => [f.feature_id, f.label])) }));
-  const go = (body: Omit<CombineRequest, "with_single_controls">) => combine.run({ ...body, with_single_controls: true });
+  const go = (body: Omit<MultiSteerRequest, "with_single_controls">) => combine.run({ ...body, with_single_controls: true });
   const run = () =>
     ready && go({ prompt, seed, max_new_tokens: maxTokens, steers: slots.map((x) => ({ feature_id: x.f!.feature_id, strength: x.strength })) });
 
@@ -136,7 +137,7 @@ export function CombinePanel(props: {
   );
 }
 
-function CombineResult({ res, labels, busy }: { res: CombineResponse; labels: Record<number, string | null>; busy: boolean }) {
+function CombineResult({ res, labels, busy }: { res: MultiSteerResponse; labels: Record<number, string | null>; busy: boolean }) {
   const found = isPair(res);
   const alone = new Map((res.single_feature_runs ?? []).map((r) => [r.feature_id, r]));
   const strengthOf = (id: number) => res.steers.find((x) => x.feature_id === id)?.strength;
@@ -162,7 +163,7 @@ function CombineResult({ res, labels, busy }: { res: CombineResponse; labels: Re
             {after(res.baseline_text, res.prompt)}
           </p>
         </div>
-        <div className={`${s.col} ${s.colSteered}`}>
+        <div className={`${s.col} ${s.colSteered}`} data-bad={res.degenerate ? "1" : "0"}>
           <div className={s.colHead}>
             <b>Together</b>
             <span className="mono muted small">
@@ -195,7 +196,7 @@ function CombineResult({ res, labels, busy }: { res: CombineResponse; labels: Re
               <li key={a.feature_id} className={s.actRow}>
                 <span className={s.actName}>
                   <span className="mono">#{a.feature_id}</span>
-                  {st !== undefined && <span className="mono muted small"> up {strengthLabel(st)}</span>} {featureName(labels[a.feature_id] ?? null, a.feature_id)}
+                  {st !== undefined && <span className="mono muted small"> up {strengthLabel(st)}</span>} {featureName(a.label ?? labels[a.feature_id] ?? null, a.feature_id)}
                 </span>
                 <span className="mono" title="The normal run">
                   {act(a.target_activation_baseline)}

@@ -7,7 +7,7 @@ import s from "./inspect.module.css";
 
 /* Phase 4 views on the Inspect page: X6 the most active features in each sentence, X7 the features that
    differ most between two texts. Strength bars are relative_to_max (activation / the feature's peak in
-   the dictionary); the order is the server's: raw activation, or share of its peak with "Rank by". */
+   the dictionary); the order is the server's: raw activation, or closest to its own peak with "Rank by". */
 
 const peakShare = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.max(0, v));
 const pctOfPeak = (v: number | null | undefined) => (v === null || v === undefined ? "—" : `${Math.round(v * 100)}%`);
@@ -19,8 +19,8 @@ function rankNote(cut: number | null, rank: Rank, compare = false) {
   const by =
     rank === "relative"
       ? compare
-        ? "Ranked by the change in share of each feature's own peak; the difference shown is raw activation."
-        : "Ranked by share of each feature's own peak."
+        ? "Ranked by the change in how close each feature came to its own peak; the difference shown is raw activation."
+        : "Ranked by how close each feature came to its own peak."
       : cut === null
         ? "Ranked by raw activation, so word-piece and common-word features often come first."
         : "Ranked by raw activation.";

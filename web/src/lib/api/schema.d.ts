@@ -264,6 +264,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/steer/multi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Multi
+         * @description W5. Amplify 2 or 3 features together (same seed as the baseline), with each feature's
+         *     activation on the finished texts: shows which concepts were active. Optional controls run
+         *     each feature alone. Higher strengths often loop; see `degenerate`.
+         */
+        post: operations["multi_api_v1_steer_multi_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/steer/prompt-only": {
         parameters: {
             query?: never;
@@ -593,6 +615,105 @@ export interface components {
             /** Training Curve */
             training_curve: components["schemas"]["CurvePoint"][];
         };
+        /** MultiActivation */
+        MultiActivation: {
+            /**
+             * Activation Verdict
+             * @enum {string}
+             */
+            activation_verdict: "higher" | "lower" | "about the same";
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /** Target Activation Baseline */
+            target_activation_baseline: number;
+            /** Target Activation Steered */
+            target_activation_steered: number;
+        };
+        /** MultiSteer */
+        MultiSteer: {
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * Strength
+             * @description 1.0 = the feature's own max activation. Default 0.5: several features loop at 1.0 and above, and steers add together
+             * @default 0.5
+             */
+            strength: number;
+        };
+        /** MultiSteerEcho */
+        MultiSteerEcho: {
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /** Strength */
+            strength: number;
+        };
+        /** MultiSteerRequest */
+        MultiSteerRequest: {
+            /**
+             * Max New Tokens
+             * @default 60
+             */
+            max_new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number;
+            /**
+             * Steers
+             * @description 2 or 3 different features, amplify only
+             */
+            steers: components["schemas"]["MultiSteer"][];
+            /**
+             * With Single Controls
+             * @description also run each feature alone (one more generation each)
+             * @default false
+             */
+            with_single_controls: boolean;
+        };
+        /**
+         * MultiSteerResponse
+         * @description W5: 2 or 3 features amplified together, same seed as the baseline. The activations
+         *     are read on the finished texts and show which concepts were active; steering is a test
+         *     of what features do. `degenerate` flags loops and broken text.
+         */
+        MultiSteerResponse: {
+            /** Activations */
+            activations: components["schemas"]["MultiActivation"][];
+            /** Baseline Text */
+            baseline_text: string;
+            /** Degenerate */
+            degenerate: boolean;
+            /** Differs */
+            differs: boolean;
+            /** First Divergence Index */
+            first_divergence_index: number | null;
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /** Reason */
+            reason: string | null;
+            /** Seed */
+            seed: number;
+            /** Simulated */
+            simulated: boolean;
+            /**
+             * Single Feature Runs
+             * @description null unless with_single_controls
+             */
+            single_feature_runs: components["schemas"]["SingleFeatureRun"][] | null;
+            /** Steered Text */
+            steered_text: string;
+            /** Steers */
+            steers: components["schemas"]["MultiSteerEcho"][];
+        };
         /** PromptOnlyRequest */
         PromptOnlyRequest: {
             /**
@@ -808,6 +929,34 @@ export interface components {
              * @description the query's own tokens, as the model split them
              */
             tokens: string[];
+        };
+        /** SingleFeatureRun */
+        SingleFeatureRun: {
+            /**
+             * Activation Verdict
+             * @enum {string}
+             */
+            activation_verdict: "higher" | "lower" | "about the same";
+            /** Degenerate */
+            degenerate: boolean;
+            /** Differs */
+            differs: boolean;
+            /** Feature Id */
+            feature_id: number;
+            /** First Divergence Index */
+            first_divergence_index: number | null;
+            /** Label */
+            label: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Steered Text */
+            steered_text: string;
+            /** Strength */
+            strength: number;
+            /** Target Activation Baseline */
+            target_activation_baseline: number;
+            /** Target Activation Steered */
+            target_activation_steered: number;
         };
         /**
          * SteerCheckResponse
@@ -1871,6 +2020,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SteerCompareResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    multi_api_v1_steer_multi_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MultiSteerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MultiSteerResponse"];
                 };
             };
             /** @description Not Found */

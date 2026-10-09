@@ -42,7 +42,7 @@ const PAIR = { a: "The band walked on stage and played a new song.", b: "The jud
 // "Hide very common features": max_density for X6 and X7. 549 of the 12,288 features fire on more than 1% of
 // tokens; every named feature fires on far fewer.
 const COMMON = 0.01;
-// "Rank by" for X6 and X7: raw activation (the server's default) or share of each feature's own peak
+// "Rank by" for X6 and X7: raw activation (the server's default) or closest to its own peak (relative_to_max)
 type Rank = "activation" | "relative";
 
 function Inspector() {
@@ -231,9 +231,9 @@ function Inspector() {
                 <label className="small muted" htmlFor="ins-rank">
                   Rank by
                 </label>
-                <select id="ins-rank" className="select" style={{ width: 150 }} value={rank} onChange={(e) => rankBy(e.target.value as Rank)}>
+                <select id="ins-rank" className="select" style={{ width: 190 }} value={rank} onChange={(e) => rankBy(e.target.value as Rank)}>
                   <option value="activation">Strongest</option>
-                  <option value="relative">Share of its peak</option>
+                  <option value="relative">Closest to its own peak</option>
                 </select>
               </>
             )}

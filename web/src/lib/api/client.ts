@@ -1,8 +1,6 @@
 import { copy, t, type CopyKey } from "../copy";
 import type {
   CofireResponse,
-  CombineRequest,
-  CombineResponse,
   ErrorBody,
   FeatureDetail,
   FeatureList,
@@ -11,6 +9,8 @@ import type {
   InspectResponse,
   LabelStatus,
   MetricsResponse,
+  MultiSteerRequest,
+  MultiSteerResponse,
   PromptOnlyRequest,
   PromptOnlyResponse,
   ReportRequest,
@@ -153,8 +153,8 @@ export const api = {
   steerSweep: (body: SteerSweepRequest, signal?: AbortSignal) =>
     request<SteerSweepResponse>("/steer/sweep", { method: "POST", body: JSON.stringify(body) }, signal, SWEEP_MS),
   // W5: two or three features steered together, with each one alone beside it
-  steerCombine: (body: CombineRequest, signal?: AbortSignal) =>
-    request<CombineResponse>("/steer/combine", { method: "POST", body: JSON.stringify(body) }, signal, SWEEP_MS),
+  steerMulti: (body: MultiSteerRequest, signal?: AbortSignal) =>
+    request<MultiSteerResponse>("/steer/multi", { method: "POST", body: JSON.stringify(body) }, signal, SWEEP_MS),
   promptOnly: (body: PromptOnlyRequest, signal?: AbortSignal) =>
     request<PromptOnlyResponse>("/steer/prompt-only", { method: "POST", body: JSON.stringify(body) }, signal, STEER_MS),
   steeringExamples: (featureId: number | null, signal?: AbortSignal) =>

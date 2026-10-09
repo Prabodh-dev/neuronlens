@@ -63,7 +63,7 @@ function Steer() {
   const [shown, setShown] = useState<Shown | null>(null);
   const [tab, setTab] = useState<Tab>("compare");
   // W5: the Combine tab shows only on a server that has the endpoint
-  const hasCombine = useApi((sig) => serverHas("/steer/combine", sig), "has:steer-combine").data === true;
+  const hasCombine = useApi((sig) => serverHas("/steer/multi", sig), "has:steer-multi").data === true;
 
   // Load the feature named in the URL so the picker shows its name.
   const urlFeature = useApi((sig) => api.feature(urlId as number, sig), urlId !== null && feature?.feature_id !== urlId ? `sf:${urlId}` : null);

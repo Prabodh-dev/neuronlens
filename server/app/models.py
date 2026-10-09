@@ -130,6 +130,112 @@ class SteerResponse(BaseModel):
     steered_text: str
 
 
+# ---- Phase 4 steering checks (fields as in docs/phase4-ml-api.md) ----
+
+DEFAULT_SWEEP_STRENGTHS = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+
+
+class _PromptRequest(BaseModel):
+    prompt: str
+    max_new_tokens: int = Field(default=60, ge=1, le=120)
+    seed: int = Field(default=42, ge=0, le=2147483647)
+
+    @field_validator("prompt")
+    @classmethod
+    def _prompt_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("prompt must not be empty")
+        return v
+
+
+class SteerCompareResponse(BaseModel):
+    """X3: baseline and steered with the same seed, compared token by token. Indices are
+    0-based over newly generated tokens. In mock mode tokens are a word split."""
+    feature: SteerFeature
+    mode: Literal["amplify", "ablate"]
+    strength: float
+    seed: int
+    max_new_tokens: int
+    baseline_text: str
+    steered_text: str
+    prompt_tokens: int
+    baseline_new_tokens: int
+    steered_new_tokens: int
+    diverges: bool
+    first_divergence_index: Optional[int]
+    identical_prefix_tokens: list[str]
+    identical_prefix_text: str
+    baseline_from_divergence: list[str]
+    baseline_from_divergence_text: str
+    steered_from_divergence: list[str]
+    steered_from_divergence_text: str
+    tokens_changed: int
+    tokens_compared_from_divergence: int
+    percent_changed_from_divergence: Optional[float]
+    percent_changed_raw: float
+    percent_changed_raw_note: str
+
+
+class SteerSweepRequest(_PromptRequest):
+    feature_id: int
+    strengths: list[float] = Field(default_factory=lambda: list(DEFAULT_SWEEP_STRENGTHS),
+                                   min_length=1, max_length=12,
+                                   description="amplify strengths, each 0 to 3, order kept")
+
+    @field_validator("strengths")
+    @classmethod
+    def _strengths_in_range(cls, v: list[float]) -> list[float]:
+        bad = [s for s in v if not 0 <= s <= 3]
+        if bad:
+            raise ValueError(f"each strength must be from 0 to 3, got {bad}")
+        return v
+
+
+class SweepMetrics(BaseModel):
+    new_tokens: int
+    repeated_token_fraction: float
+    repeated_trigram_fraction: float
+    non_word_fraction: float
+    replacement_chars: int
+
+
+class SweepResult(BaseModel):
+    strength: float
+    text: str
+    differs_from_baseline: bool
+    first_divergence_index: Optional[int]
+    degenerate: bool
+    reason: Optional[str]
+    metrics: SweepMetrics
+
+
+class SteerSweepResponse(BaseModel):
+    """X2: amplify at several strengths with one seed. `degenerate` flags repetition loops,
+    non-word runs and broken characters; it is not a quality score."""
+    feature: SteerFeature
+    mode: Literal["amplify"]
+    seed: int
+    max_new_tokens: int
+    baseline_text: str
+    baseline_degenerate: bool
+    baseline_reason: Optional[str]
+    results: list[SweepResult]
+
+
+class PromptOnlyRequest(_PromptRequest):
+    pass
+
+
+class PromptOnlyResponse(BaseModel):
+    """X4: what the model writes from the prompt alone, same seed, no steering."""
+    prompt: str
+    seed: int
+    max_new_tokens: int
+    text: str
+    continuation: str
+    new_tokens: int
+
+
 class SteeringExample(BaseModel):
     example_id: int
     feature_id: int

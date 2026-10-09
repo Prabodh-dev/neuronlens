@@ -6,7 +6,8 @@
     PYTHONPATH=. python scripts/phase4_demo.py [--out ../demo/phase4_examples.json]
 
 Runs the X1 to X4 functions (neuronlens.steering_checks) for three examples: feature 7
-("hon") amplified at 3x, feature 13 ("upside") amplified at 3x, and one ablate example.
+(label "upside") amplified at 0.5 on two prompts, feature 7 (label "hon") amplified at 1.0 as
+a limit example, and one ablate example on feature 7.
 Each amplify example also gets a strength sweep with the degeneration flags. The database is
 opened read-only; the only file written is the JSON output. Steering is a test of what a
 feature does, not a fix: the outputs shift the text and are not an improvement.
@@ -37,11 +38,20 @@ from neuronlens import steering_checks as sc
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# Strengths follow what real runs showed: amplify at 3x produced repetition loops for these
+# features, so the amplify examples use 0.5 to 1.0 (the API cap on strength is 3).
+LIMIT_NOTE_7 = (
+    "Kept as an example of a limit. In real runs this feature, amplified, shifted the text toward "
+    "word fragments (for example \"ing\", \"ours\") rather than toward honking, the concept in "
+    "its label, and produced repetition loops from strength 3. One feature, one prompt, one seed.")
+
 EXAMPLES = [
-    {"feature_id": 7, "expect_label": "hon", "mode": "amplify", "strength": 3.0,
-     "prompt": "She looked out of the window and saw"},
-    {"feature_id": 13, "expect_label": "upside", "mode": "amplify", "strength": 3.0,
+    {"feature_id": 13, "expect_label": "upside", "mode": "amplify", "strength": 0.5,
+     "prompt": "The acrobat hung"},
+    {"feature_id": 13, "expect_label": "upside", "mode": "amplify", "strength": 0.5,
      "prompt": "He turned the picture"},
+    {"feature_id": 7, "expect_label": "hon", "mode": "amplify", "strength": 1.0,
+     "prompt": "She looked out of the window and saw", "note": LIMIT_NOTE_7},
     {"feature_id": 7, "expect_label": "hon", "mode": "ablate", "strength": 1.0,
      "prompt": "Drivers began to honk their horns while the traffic"},
 ]
@@ -99,6 +109,8 @@ def build_examples(rt, con, examples=EXAMPLES, seed=SEED, max_new_tokens=MAX_NEW
                  "percent_changed_raw": cmp["percent_changed_raw"],
                  "percent_changed_raw_note": cmp["percent_changed_raw_note"],
                  "sweep": None}
+        if ex.get("note"):
+            check["note"] = ex["note"]
         if sweep and ex["mode"] == "amplify":
             sw = sc.strength_sweep(rt, ex["prompt"], fid, max_act, max_new_tokens=max_new_tokens,
                                    seed=seed)

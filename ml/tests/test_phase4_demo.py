@@ -34,8 +34,11 @@ def test_build_examples_fields_and_read_only(db):
     con = demo.open_readonly(db)
     msgs = []
     out = demo.build_examples(FakeRuntime(baseline_len=20), con, max_new_tokens=20, log=msgs.append)
-    assert [(e["feature_id"], e["mode"], e["strength"]) for e in out] == [
-        (7, "amplify", 3.0), (13, "amplify", 3.0), (7, "ablate", 0.0)]
+    assert [(e["feature_id"], e["prompt"], e["mode"], e["strength"]) for e in out] == [
+        (13, "The acrobat hung", "amplify", 0.5), (13, "He turned the picture", "amplify", 0.5),
+        (7, "She looked out of the window and saw", "amplify", 1.0),
+        (7, "Drivers began to honk their horns while the traffic", "ablate", 0.0)]
+    assert max(e["strength"] for e in out) <= 3.0         # nothing above the API cap
     e = out[0]
     for key in ("prompt", "seed", "feature_id", "mode", "strength", "baseline", "steered",
                 "first_divergence_index", "label", "max_activation", "tokens_changed",
@@ -44,7 +47,13 @@ def test_build_examples_fields_and_read_only(db):
     assert e["differs"] and e["first_divergence_index"] == 5 and e["label_matches_expected"]
     assert [r["strength"] for r in e["sweep"]["results"]] == list(demo.sc.DEFAULT_SWEEP_STRENGTHS)
     assert all("degenerate" in r and "reason" in r for r in e["sweep"]["results"])
-    assert out[2]["sweep"] is None and msgs == []        # ablate has no sweep
+    assert all(x["sweep"] is not None for x in out[:3])   # every amplify example has a sweep
+    assert out[3]["sweep"] is None and msgs == []        # ablate has no sweep
+    # only the feature 7 amplify example carries a note, in neutral wording
+    assert [("note" in x) for x in out] == [False, False, True, False]
+    note = out[2]["note"]
+    assert "word fragments" in note and "rather than toward honking" in note
+    assert not any(w in note.lower() for w in ("proves", "detects", "fixes", "explains why", "novel"))
     json.dumps(out)                                       # serialisable
     with pytest.raises(sqlite3.OperationalError):
         con.execute("UPDATE features SET label='x'")
@@ -70,7 +79,8 @@ def test_skips_missing_dead_and_warns_on_label_mismatch(db):
 def test_summary_is_readable(db):
     out = demo.build_examples(FakeRuntime(), demo.open_readonly(db), max_new_tokens=20)
     text = demo.summary(out)
-    assert "feature 7 (hon- – honing, honk) amplify x3" in text and "sweep" in text
+    assert "feature 13 (upside – upside down) amplify x0.5" in text and "sweep" in text
+    assert "feature 7 (hon- – honing, honk) amplify x1" in text
     assert "first divergence at new token 5" in text
 
 
@@ -209,5 +219,5 @@ def test_default_mode_unchanged_by_explore_options(db, tmp_path, monkeypatch):
     out = tmp_path / "phase4_examples.json"
     demo.main(["--out", str(out), "--max-new-tokens", "20"])
     data = json.loads(out.read_text(encoding="utf-8"))
-    assert [e["feature_id"] for e in data["examples"]] == [7, 13, 7]
+    assert [e["feature_id"] for e in data["examples"]] == [13, 13, 7, 7]
     assert not (tmp_path / "explore.json").exists()

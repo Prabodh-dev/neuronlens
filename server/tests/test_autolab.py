@@ -97,8 +97,10 @@ def test_ship_needs_2_of_3_prompts():
 def test_rule_constants():
     """The README and Anand's UI copy these; change them together."""
     assert (al.RISE_MIN, al.RATIO_MIN, al.SEED, al.CANDIDATES, al.MAX_DENSITY,
-            al.SHIP_MIN_PROMPTS) == (3.0, 2.0, 42, 5, 0.01, 2)
+            al.SHIP_MIN_PROMPTS, al.SEARCH_TOP_N, al.MIN_CANDIDATES, al.FILLER_SHARE) == \
+        (3.0, 2.0, 42, 5, 0.01, 2, 8, 3, 0.10)
     assert al.STRENGTHS == [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+    assert len(al.COMMON_WORDS) == 200 == len(set(al.COMMON_WORDS))
 
 
 def test_parse_goals():
@@ -134,18 +136,22 @@ def _sweep(fid, label, cells):
 
 # 3446 is not in the 512-feature sample DB: recorded answers must not need the DB
 GOAL = {"goal": "music", "prompt": PROMPT,
-        "search_request": {"query": "music", "top_n": 5, "max_density": 0.01},
-        "search": {"query": "music", "model_name": "gpt2", "simulated": False,
+        "search_request": {"query": " music", "top_n": 8, "max_density": 0.01},
+        "search": {"query": " music", "model_name": "gpt2", "simulated": False,
                    "tokens": [" music"],
                    "features": [{"feature_id": 3446, "label": "music", "max_activation": 9.1,
                                  "relative_to_max": 0.4, "tokens_active": 1, "peak_token": 0,
                                  "density": 0.001},
                                 {"feature_id": 13, "label": "upside", "max_activation": 2.0,
                                  "relative_to_max": 0.1, "tokens_active": 1, "peak_token": 0,
+                                 "density": 0.002},
+                                {"feature_id": 7, "label": "weather", "max_activation": 1.5,
+                                 "relative_to_max": 0.1, "tokens_active": 1, "peak_token": 0,
                                  "density": 0.002}]},
         "sweeps": [_sweep(3446, "music", [(0, False), (1.5, False), (12.44, False),
                                           (14, False), (15, True), (16, True), (17, True)]),
-                   _sweep(13, "upside", [(0, False)] * 7)]}
+                   _sweep(13, "upside", [(0, False)] * 7),
+                   _sweep(7, "weather", [(0, False)] * 7)]}
 
 
 @pytest.fixture
@@ -234,7 +240,7 @@ def test_chain_on_mock(recorded, monkeypatch):
     assert not res["failures"] and res["simulated"] is True
     marks = {r["feature_id"]: [c["verdict"] for c in r["cells"]] for r in res["rows"]}
     assert marks[3446] == [X, X, W, W, B, B, B]
-    assert marks[13] == [X] * 7                     # all no effect
+    assert marks[13] == marks[7] == [X] * 7         # all no effect
     rec = res["recommendation"]
     assert (rec["status"], rec["feature_id"], rec["strength"]) == (al.RECOMMENDED, 3446, 0.5)
 
@@ -279,7 +285,7 @@ def test_other_requests_get_stand_ins(recorded):
 
 def test_old_server_without_activations_is_a_failure(monkeypatch):
     sweep = {"results": [{"strength": 0.0, "degenerate": False, "reason": None}]}
-    search = {"simulated": False, "features": [{"feature_id": 1, "label": "x"}]}
+    search = {"simulated": False, "features": [{"feature_id": i, "label": "x"} for i in (1, 2, 3)]}
     monkeypatch.setattr(al, "call", lambda base, path, body=None, timeout=10:
                         (search if "search" in path else sweep, 0.01))
     res = al.run_chain("http://test", "music", PROMPT)
@@ -306,16 +312,16 @@ def test_record_writes_the_mock_format(recorded, monkeypatch, tmp_path):
     assert data["rule"]["rise_min"] == 3.0 and len(data["goals"]) == 1
     g = data["goals"][0]
     assert g["search_request"] == GOAL["search_request"]
-    assert [s["request"]["feature_id"] for s in g["sweeps"]] == [3446, 13]
+    assert [s["request"]["feature_id"] for s in g["sweeps"]] == [3446, 13, 7]
     assert mock.load_autolab_examples(out)[0]["goal"] == "music"
 
 
 # ---------- search experiments and --fillers ----------
 
-def test_search_request_ui_default_and_experiments():
-    assert al.search_request("music") == {"query": "music", "top_n": 5, "max_density": 0.01}
-    assert al.search_request("music", "relative", True) == {
-        "query": " music", "top_n": 5, "max_density": 0.01, "sort": "relative"}
+def test_search_request_leading_space_top_8():
+    assert al.search_request("music") == {"query": " music", "top_n": 8, "max_density": 0.01}
+    assert al.search_request(" court law ", "relative") == {
+        "query": " court law", "top_n": 8, "max_density": 0.01, "sort": "relative"}
 
 
 def test_fillers_on_the_recorded_run():
@@ -354,7 +360,125 @@ def test_search_only_runs_no_sweeps(recorded, monkeypatch, capsys):
 
 def test_experiment_options_cannot_record_or_replay(tmp_path):
     for argv in (["--goal", "x", "--record", str(tmp_path / "r.json"), "--sort", "relative"],
-                 ["--goal", "x", "--record", str(tmp_path / "r.json"), "--leading-space"],
                  ["--replay", str(mock.AUTOLAB_PATH), "--search-only"]):
         with pytest.raises(SystemExit):
             al.main(argv)
+
+
+# ---------- candidate selection: leading space, top 8, fillers dropped, first 5 ----------
+
+def _feats(*ids):
+    return [{"feature_id": i, "label": f"f{i}"} for i in ids]
+
+
+def test_select_drops_fillers_and_keeps_the_first_5_in_order():
+    kept, dropped = al.select_candidates(_feats(1, 1375, 2, 3, 5023, 4, 5, 6), {1375, 5023})
+    assert [f["feature_id"] for f in kept] == [1, 2, 3, 4, 5]
+    assert dropped == [1375, 5023]
+
+
+def test_select_without_a_filler_list_keeps_the_first_5():
+    kept, dropped = al.select_candidates(_feats(*range(8)), set())
+    assert [f["feature_id"] for f in kept] == [0, 1, 2, 3, 4] and dropped == []
+
+
+def _fake_server(features, sweeps):
+    """autolab_check.call answered from fixed search features; records every path."""
+    paths = []
+
+    def call(base, path, body=None, timeout=10):
+        paths.append(path)
+        if path.endswith("/features/search"):
+            return {"simulated": False, "tokens": [" x"], "features": features}, 0.01
+        return sweeps(body["feature_id"]), 0.01
+    return call, paths
+
+
+def _sweep_response(rises):
+    return {"results": [{"strength": s, "degenerate": False, "reason": None,
+                         "target_activation_baseline": 0.0, "target_activation_steered": r}
+                        for s, r in zip(al.STRENGTHS, rises)]}
+
+
+def test_fewer_than_3_left_is_no_good_match_and_runs_no_sweeps(monkeypatch):
+    call, paths = _fake_server(_feats(1375, 5023, 3356, 8559, 7, 9), lambda fid: None)
+    monkeypatch.setattr(al, "call", call)
+    res = al.run_chain("http://t", "music", PROMPT, filler_ids={1375, 5023, 3356, 8559})
+    assert res["recommendation"] == {"status": al.NO_MATCH}
+    assert res["dropped_fillers"] == [1375, 5023, 3356, 8559]
+    assert not any("sweep" in p for p in paths)
+    assert al.STATUS_TEXT[al.NO_MATCH].startswith("No good match")
+
+
+def test_chain_sweeps_only_the_kept_candidates(monkeypatch):
+    call, paths = _fake_server(_feats(1375, 1, 2, 5023, 3, 4, 5, 6),
+                               lambda fid: _sweep_response([0, 0, 4, 5, 0, 0, 0]))
+    monkeypatch.setattr(al, "call", call)
+    res = al.run_chain("http://t", "music", PROMPT, filler_ids={1375, 5023})
+    assert [r["feature_id"] for r in res["rows"]] == [1, 2, 3, 4, 5]
+    assert sum("sweep" in p for p in paths) == 5
+    assert (res["recommendation"]["status"], res["recommendation"]["feature_id"]) == \
+        (al.RECOMMENDED, 1)
+
+
+def test_replay_applies_the_same_selection():
+    """The old recording (no leading space, top 5) with #1375 and #5023 as fillers."""
+    _, results = al.replay(str(mock.AUTOLAB_PATH), {1375, 5023})
+    by = {(r["goal"], r["prompt"]): r for r in results}
+    court = by[("court law", "The man walked into the room and")]
+    assert court["dropped_fillers"] == [1375, 5023]
+    assert court["recommendation"]["feature_id"] == 8362
+    _, results = al.replay(str(mock.AUTOLAB_PATH), {9489, 2611, 1375})
+    court = {(r["goal"], r["prompt"]): r for r in results}[("court law",
+                                                            "The man walked into the room and")]
+    assert court["recommendation"] == {"status": al.NO_MATCH}          # only 2 left
+
+
+def test_mock_still_answers_the_new_chain(client, monkeypatch):
+    """The recording uses the old queries, so the new chain gets stand-ins until re-recorded."""
+    monkeypatch.setattr(al, "call", _via(client))
+    res = al.run_chain("http://t", "music", PROMPT, filler_ids={1375, 5023})
+    assert not res["failures"] and len(res["rows"]) == 5 and res["simulated"] is True
+
+
+# ---------- --find-fillers ----------
+
+def test_filler_list_cutoff_and_near_misses():
+    counts = {1375: 150, 5023: 120, 2347: 31, 9: 20, 8: 3, 7: 1}
+    above, below = al.filler_list(counts, {1375: "more"}, 200)
+    assert [f["feature_id"] for f in above] == [1375, 5023, 2347]   # more than 20 of 200
+    assert [f["feature_id"] for f in below] == [9, 8, 7]            # 20 is not more than 10%
+    assert above[0] == {"feature_id": 1375, "label": "more", "count": 150, "share": 0.75}
+
+
+def test_find_fillers_writes_the_list(client, monkeypatch, tmp_path):
+    """Every word returns #1375 and #5023; #2347 every 4th word; one word's own feature."""
+    seen = []
+
+    def call(base, path, body=None, timeout=10):
+        if path.endswith("/health"):
+            return {**client.get(path).json(), "mode": "real", "run_id": "gpt2-l8-k32"}, 0.01
+        seen.append(body)
+        i = len(seen)
+        ids = [1375, 5023] + ([2347] if i % 4 == 0 else []) + [10000 + i]
+        return {"features": _feats(*ids)}, 0.01
+    monkeypatch.setattr(al, "call", call)
+    out = tmp_path / "autolab_fillers.json"
+    assert al.main(["--find-fillers", str(out)]) == 0
+    assert len(seen) == 200 and all(b["query"].startswith(" ") and b["top_n"] == 8 for b in seen)
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert [f["feature_id"] for f in data["fillers"]] == [1375, 5023, 2347]
+    assert [f["count"] for f in data["fillers"]] == [200, 200, 50]
+    assert data["cutoff"] == {"share": 0.1, "more_than_words": 20.0} and data["words"] == 200
+    assert data["run_id"] == "gpt2-l8-k32" and len(data["date"]) == 10
+    assert al.load_fillers(out) == {1375, 5023, 2347}
+
+
+def test_find_fillers_refuses_a_mock_server(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(al, "call", _via(client))
+    with pytest.raises(SystemExit, match="real-mode"):
+        al.main(["--find-fillers", str(tmp_path / "f.json")])
+
+
+def test_missing_filler_list_drops_nothing(tmp_path):
+    assert al.load_fillers(tmp_path / "none.json") == set()

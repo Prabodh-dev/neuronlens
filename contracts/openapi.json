@@ -1,6 +1,120 @@
 {
   "components": {
     "schemas": {
+      "CofirePartner": {
+        "properties": {
+          "co_count": {
+            "description": "tokens in the sample on which both features were active",
+            "title": "Co Count",
+            "type": "integer"
+          },
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "in_dictionary": {
+            "description": "the partner exists in this server's database; the UI links a partner only when true",
+            "title": "In Dictionary",
+            "type": "boolean"
+          },
+          "jaccard": {
+            "description": "co_count / (count_a + count_b - co_count), 4 decimals",
+            "title": "Jaccard",
+            "type": "number"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "feature_id",
+          "label",
+          "co_count",
+          "jaccard",
+          "in_dictionary"
+        ],
+        "title": "CofirePartner",
+        "type": "object"
+      },
+      "CofireResponse": {
+        "description": "W4: the features that fired on the same tokens as this one in a token sample, best\n(highest Jaccard) first, up to 10. Shared tokens only; not a statement about meaning.",
+        "properties": {
+          "available": {
+            "description": "false when the co-fire file is missing, belongs to another run, or has no entry for this feature",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "min_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "a pair needs at least this many shared tokens",
+            "title": "Min Count"
+          },
+          "partners": {
+            "items": {
+              "$ref": "#/components/schemas/CofirePartner"
+            },
+            "title": "Partners",
+            "type": "array"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "tokens_scanned": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "sample size; null when not available",
+            "title": "Tokens Scanned"
+          }
+        },
+        "required": [
+          "feature_id",
+          "available",
+          "simulated",
+          "tokens_scanned",
+          "seed",
+          "min_count",
+          "partners"
+        ],
+        "title": "CofireResponse",
+        "type": "object"
+      },
       "CurvePoint": {
         "properties": {
           "dead_pct": {
@@ -616,6 +730,148 @@
           "new_tokens"
         ],
         "title": "PromptOnlyResponse",
+        "type": "object"
+      },
+      "ReportFeature": {
+        "properties": {
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "max_activation": {
+            "description": "highest activation on this sentence's tokens",
+            "title": "Max Activation",
+            "type": "number"
+          },
+          "peak_token": {
+            "description": "index (as in /inspect) of the token with the highest activation",
+            "title": "Peak Token",
+            "type": "integer"
+          },
+          "relative_to_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "max_activation / the feature's max_activation in the dictionary",
+            "title": "Relative To Max"
+          },
+          "tokens_active": {
+            "description": "tokens in the sentence where the feature was active",
+            "title": "Tokens Active",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feature_id",
+          "label",
+          "max_activation",
+          "relative_to_max",
+          "tokens_active",
+          "peak_token"
+        ],
+        "title": "ReportFeature",
+        "type": "object"
+      },
+      "ReportRequest": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "top_n": {
+            "default": 5,
+            "description": "features per sentence",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Top N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ReportRequest",
+        "type": "object"
+      },
+      "ReportResponse": {
+        "description": "X6: the features active in each sentence, ranked by max activation (token 0 skipped,\nas in /inspect). Shows which features were active, not what the sentence means.",
+        "properties": {
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSentence"
+            },
+            "title": "Sentences",
+            "type": "array"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "model_name",
+          "simulated",
+          "sentences"
+        ],
+        "title": "ReportResponse",
+        "type": "object"
+      },
+      "ReportSentence": {
+        "properties": {
+          "end_token": {
+            "description": "one past the last token index",
+            "title": "End Token",
+            "type": "integer"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/ReportFeature"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "start_token": {
+            "description": "first token index, as in /inspect",
+            "title": "Start Token",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "text",
+          "start_token",
+          "end_token",
+          "features"
+        ],
+        "title": "ReportSentence",
         "type": "object"
       },
       "Run": {
@@ -1335,6 +1591,145 @@
         "title": "SweepResult",
         "type": "object"
       },
+      "TextCompareFeature": {
+        "properties": {
+          "difference": {
+            "description": "max_activation_b - max_activation_a",
+            "title": "Difference",
+            "type": "number"
+          },
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "max_activation_a": {
+            "description": "0 when not active in text_a",
+            "title": "Max Activation A",
+            "type": "number"
+          },
+          "max_activation_b": {
+            "title": "Max Activation B",
+            "type": "number"
+          },
+          "relative_to_max_a": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative To Max A"
+          },
+          "relative_to_max_b": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative To Max B"
+          },
+          "tokens_active_a": {
+            "title": "Tokens Active A",
+            "type": "integer"
+          },
+          "tokens_active_b": {
+            "title": "Tokens Active B",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feature_id",
+          "label",
+          "max_activation_a",
+          "max_activation_b",
+          "difference",
+          "tokens_active_a",
+          "tokens_active_b",
+          "relative_to_max_a",
+          "relative_to_max_b"
+        ],
+        "title": "TextCompareFeature",
+        "type": "object"
+      },
+      "TextCompareRequest": {
+        "properties": {
+          "text_a": {
+            "title": "Text A",
+            "type": "string"
+          },
+          "text_b": {
+            "title": "Text B",
+            "type": "string"
+          },
+          "top_n": {
+            "default": 10,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Top N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text_a",
+          "text_b"
+        ],
+        "title": "TextCompareRequest",
+        "type": "object"
+      },
+      "TextCompareResponse": {
+        "description": "X7: features whose max activation differs most between two texts (|difference|).",
+        "properties": {
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/TextCompareFeature"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "tokens_a": {
+            "description": "number of tokens in text_a",
+            "title": "Tokens A",
+            "type": "integer"
+          },
+          "tokens_b": {
+            "title": "Tokens B",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model_name",
+          "simulated",
+          "tokens_a",
+          "tokens_b",
+          "features"
+        ],
+        "title": "TextCompareResponse",
+        "type": "object"
+      },
       "TokenFeature": {
         "properties": {
           "activation": {
@@ -1614,6 +2009,69 @@
         ]
       }
     },
+    "/api/v1/features/{feature_id}/cofire": {
+      "get": {
+        "description": "W4. Features that fired on the same tokens as this one in a token sample, with counts.\nIt shows shared tokens only, not shared meaning.",
+        "operationId": "cofire_api_v1_features__feature_id__cofire_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feature_id",
+            "required": true,
+            "schema": {
+              "title": "Feature Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CofireResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Cofire",
+        "tags": [
+          "features"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "health_api_v1_health_get",
@@ -1723,6 +2181,150 @@
         "summary": "Inspect",
         "tags": [
           "model"
+        ]
+      }
+    },
+    "/api/v1/inspect/compare": {
+      "post": {
+        "description": "X7. Features whose max activation differs most between two texts.",
+        "operationId": "compare_texts_api_v1_inspect_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextCompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextCompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Compare Texts",
+        "tags": [
+          "inspect analysis"
+        ]
+      }
+    },
+    "/api/v1/inspect/report": {
+      "post": {
+        "description": "X6. For each sentence, the features with the highest activation on its tokens.",
+        "operationId": "report_api_v1_inspect_report_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Report",
+        "tags": [
+          "inspect analysis"
         ]
       }
     },

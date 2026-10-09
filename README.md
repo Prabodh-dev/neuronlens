@@ -106,6 +106,6 @@ Flags: `--db` (default `../data/neuronlens.db`), `--rebuild-examples` (required 
 
 ## Disclosures
 
-**Prior work.** Before the event: the SAE training, evaluation, interpretation and steering code under `ml/`. Built during the event: the contracts, the API server, the web app, the real-mode runtime wiring, the example-token decoding fix and repair script, the evaluation and published-SAE comparison scripts, and the feature labelling. [Choose one and delete the other: The trained checkpoint and the real database were produced during the event. / The trained checkpoint existed before the event; the real database was built during it.] The git history only records when files were committed to this repository, so it cannot show what existed earlier.
+**Prior work.** No part of this project existed before the event. The SAE training, evaluation, interpretation and steering code, the contracts, the API server, the web app, the real-mode runtime, the evaluation and published-SAE comparison scripts, and the feature labelling were all built during the event. It builds on public tools and data: GPT-2 small, PyTorch, Hugging Face Transformers, FineWeb-Edu, and OpenAI's published GPT-2 SAE for the comparison.
 
-**AI assistance.** AI tools used: Claude (coding sessions and drafting text and documentation) and Gemini (automatic feature labelling). [Add any tool Anand or Mirdul used for the web app and server.] The team reviewed the results and ran the code and tests.
+**AI assistance.** AI tools used include Claude (coding sessions and drafting text and documentation) and Gemini (automatic feature labelling). The team reviewed the results and ran the code and tests.

@@ -3,6 +3,7 @@ import os
 import torch
 
 from .activations import Collector, load_model
+from .modelutil import DEFAULT_MODEL, backbone, get_block, model_name_from_ck
 from .interpret import load_sae
 from .steering import generate, generate_ids, make_hook, make_multi_hook
 from .steering_checks import Generation, MultiSteeringSpec
@@ -12,9 +13,9 @@ from .textdecode import token_pieces
 class Runtime:
     """Loads the frozen model and the trained SAE once; answers live requests."""
 
-    def __init__(self, model, tok, sae, ck, device):
+    def __init__(self, model, tok, sae, ck, device, model_name=None):
         self.model, self.tok, self.sae, self.device = model, tok, sae, device
-        self.model_name = "gpt2"
+        self.model_name = model_name or model_name_from_ck(ck)
         self.hook_layer = ck["layer"]
         self.d_model, self.d_sae, self.k = ck["d_model"], ck["d_sae"], ck["k"]
         self.mu = ck["mu"].to(device)
@@ -22,10 +23,14 @@ class Runtime:
         self.col = Collector(model, self.hook_layer)
 
     @classmethod
-    def load(cls, checkpoint_path, device="cuda"):
+    def load(cls, checkpoint_path, device="cuda", model_name=None):
+        """model_name: Hugging Face name; if not given, NEURONLENS_MODEL_NAME, then the name the
+        checkpoint was trained on (gpt2 for every existing checkpoint)."""
         sae, ck = load_sae(os.path.expanduser(checkpoint_path), device)
-        model, tok = load_model(device)
-        return cls(model, tok, sae, ck, device)
+        name = (model_name or os.environ.get("NEURONLENS_MODEL_NAME", "").strip()
+                or model_name_from_ck(ck))
+        model, tok = load_model(device, name)
+        return cls(model, tok, sae, ck, device, name)
 
     def count_tokens(self, text):
         return len(self.tok.encode(text))
@@ -33,7 +38,7 @@ class Runtime:
     def _token_acts(self, ids):
         """SAE activations (T, d_sae) for ids of shape (1, T): one forward pass, then the SAE.
         Shared by inspect() and feature_activations() so both read the same numbers."""
-        self.model.transformer(ids)
+        backbone(self.model)(ids)
         h = self.col.out[0].float()  # (T, d)
         acts, _ = self.sae.encode((h - self.mu) * self.scale)
         return acts
@@ -44,7 +49,7 @@ class Runtime:
         no steering hook attached (same path as inspect). Position 0 is reported as 0.0, as
         inspect() reports no features there. Token ids are used as they are: nothing is
         re-tokenised, so positions line up with the generated tokens."""
-        block = self.model.transformer.h[self.hook_layer]
+        block = get_block(self.model, self.hook_layer)
         extra = [h for h in getattr(block, "_forward_hooks", {}).values()
                  if getattr(h, "__self__", None) is not self.col]
         if extra:

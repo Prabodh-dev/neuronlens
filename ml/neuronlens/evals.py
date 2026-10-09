@@ -1,12 +1,14 @@
 import torch
 import torch.nn.functional as F
 
+from .modelutil import get_block
+
 
 @torch.no_grad()
 def evaluate(model, sae, seqs, layer, mu, scale, device="cuda", batch=4):
     """seqs: list of (1024,) token tensors. Returns metrics dict.
     Positions >= 1 are patched/scored (position 0 is the outlier we drop)."""
-    block = model.transformer.h[layer]
+    block = get_block(model, layer)
     d = sae.d_model
     st = {"sse": 0.0, "sxx": 0.0, "n": 0, "l0": 0.0,
           "sx": torch.zeros(d, device=device, dtype=torch.float64)}

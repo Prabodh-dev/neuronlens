@@ -510,10 +510,12 @@ def main(argv=None):
                    help="experiment: the search sort (the UI uses activation)")
     p.add_argument("--fillers-file", default=str(FILLERS_PATH),
                    help="the filler list dropped from the candidates (default "
-                        "demo/autolab_fillers.json)")
+                        "demo/autolab_fillers.json, the GPT-2 list; another model has its own, "
+                        "demo/autolab_fillers_<model>.json)")
     p.add_argument("--find-fillers", metavar="OUT",
                    help="real server only: search the 200 common words and write the filler "
-                        "list to OUT (normally demo/autolab_fillers.json)")
+                        "list to OUT (demo/autolab_fillers.json for GPT-2, "
+                        "demo/autolab_fillers_<model>.json for another model)")
     a = p.parse_args(argv)
     experiment = a.search_only or a.sort != "activation"
     if a.replay and experiment:

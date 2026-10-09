@@ -59,23 +59,21 @@ def main():
     p.add_argument("--batch", type=int, default=4)
     p.add_argument("--out-json", default=None)
     p.add_argument("--update-dead", action="store_true")
+    p.add_argument("--model", default=None,
+                   help="Hugging Face model name; default: the one the checkpoint was trained on")
     a = p.parse_args()
 
     import torch
     from neuronlens.activations import load_model, token_sequences
     from neuronlens.evals import evaluate
     from neuronlens.interpret import load_sae
+    from neuronlens.modelutil import model_name_from_ck
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ckpt, db = os.path.expanduser(a.ckpt), os.path.expanduser(a.db)
 
     sae, ck = load_sae(ckpt, device)
-    loaded = load_model(device)
-    if isinstance(loaded, tuple):
-        model, tok = loaded
-    else:
-        from transformers import AutoTokenizer
-        model, tok = loaded, AutoTokenizer.from_pretrained("gpt2")
+    model, tok = load_model(device, a.model or model_name_from_ck(ck))
 
     seqs = list(itertools.islice(token_sequences(tok, a.data_dir, seed=a.seed), a.n_seqs))
     print(f"evaluating on {len(seqs)} sequences (seed {a.seed})")

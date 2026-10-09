@@ -5,12 +5,14 @@ import random
 
 import pyarrow.parquet as pq
 import torch
-from transformers import GPT2LMHeadModel, GPT2TokenizerFast
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from .modelutil import DEFAULT_MODEL, backbone, d_model_of, get_block
 
 
-def load_model(device="cuda"):
-    tok = GPT2TokenizerFast.from_pretrained("gpt2")
-    model = GPT2LMHeadModel.from_pretrained("gpt2").half().to(device).eval()
+def load_model(device="cuda", name=DEFAULT_MODEL):
+    tok = AutoTokenizer.from_pretrained(name)
+    model = AutoModelForCausalLM.from_pretrained(name).half().to(device).eval()
     for p in model.parameters():
         p.requires_grad_(False)
     return model, tok
@@ -41,7 +43,7 @@ class Collector:
 
     def __init__(self, model, layer):
         self.out = None
-        model.transformer.h[layer].register_forward_hook(self._hook)
+        get_block(model, layer).register_forward_hook(self._hook)
 
     def _hook(self, module, inputs, output):
         h = output[0] if isinstance(output, tuple) else output
@@ -57,7 +59,7 @@ def raw_activations(model, seqs, layer, device="cuda", seq_batch=16):
         if len(batch) == seq_batch:
             ids = torch.stack(batch).to(device)
             batch = []
-            model.transformer(ids)
+            backbone(model)(ids)
             a = col.out[:, 1:, :]  # drop position 0 (outlier)
             yield a.reshape(-1, a.shape[-1]).cpu()
 
@@ -65,12 +67,12 @@ def raw_activations(model, seqs, layer, device="cuda", seq_batch=16):
 class ActivationStream:
     def __init__(self, layer=8, buffer_size=500_000, batch_size=4096,
                  data_dir="~/data/fineweb/sample/10BT",
-                 seed=42, device="cuda"):
+                 seed=42, device="cuda", model_name=DEFAULT_MODEL):
         self.device, self.batch_size = device, batch_size
-        self.model, self.tok = load_model(device)
+        self.model, self.tok = load_model(device, model_name)
         seqs = token_sequences(self.tok, data_dir, seed=seed)
         self.src = raw_activations(self.model, seqs, layer, device)
-        d = self.model.config.n_embd
+        d = d_model_of(self.model)
         self.buf = torch.empty(buffer_size, d, dtype=torch.float16)
         n = 0
         while n < buffer_size:

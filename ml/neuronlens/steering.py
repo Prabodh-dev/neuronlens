@@ -1,5 +1,7 @@
 import torch
 
+from .modelutil import get_block
+
 
 @torch.no_grad()
 def generate_ids(model, tok, prompt, max_new_tokens, seed, hook_fn=None,
@@ -8,7 +10,7 @@ def generate_ids(model, tok, prompt, max_new_tokens, seed, hook_fn=None,
     ids = tok(prompt, return_tensors="pt").input_ids.to(device)
     handle = None
     if hook_fn is not None:
-        handle = model.transformer.h[layer].register_forward_hook(hook_fn)
+        handle = get_block(model, layer).register_forward_hook(hook_fn)
     try:
         torch.manual_seed(seed)
         out = model.generate(

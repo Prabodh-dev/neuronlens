@@ -137,6 +137,20 @@ BATCH_SCHEMA = {
 
 # ---------- reading the DB ----------
 
+def system_prompt(con):
+    """SYSTEM with the model the database was built for. A GPT-2 small layer 8 database (or one
+    without the meta rows) gets SYSTEM exactly as written; any other model is named in it."""
+    try:
+        meta = dict(con.execute("SELECT key, value FROM meta WHERE key IN "
+                                "('model_name','hook_layer')").fetchall())
+    except sqlite3.Error:
+        return SYSTEM
+    name, layer = meta.get("model_name", "gpt2"), meta.get("hook_layer", "8")
+    if (name, str(layer)) == ("gpt2", "8"):
+        return SYSTEM
+    return SYSTEM.replace("GPT-2 small (layer 8)", f"{name} (layer {layer})", 1)
+
+
 def connect_ro(db_path):
     uri = "file:" + os.path.abspath(db_path).replace("\\", "/") + "?mode=ro"
     con = sqlite3.connect(uri, uri=True)
@@ -438,7 +452,8 @@ def propose(db_path, out_path, labellers, limit=None, ids=None, log=print, verbo
     if results and prev_model not in (None, model):
         raise SystemExit(f"{out_path} was made with {prev_model}, not {model}; use another --out")
     con = connect_ro(db_path)
-    system = SYSTEM if batch == 1 else SYSTEM + BATCH_RULES
+    system = system_prompt(con)
+    system = system if batch == 1 else system + BATCH_RULES
     todo = [f for f in candidate_ids(con, ids) if str(f) not in results]
     if limit is not None:
         todo = todo[:limit]
@@ -799,10 +814,10 @@ def main(argv=None):
                 first = cands[:max(1, a.batch)]
                 prompts = {f: build_prompt(feature_evidence(con, f)) for f in first}
                 if a.batch > 1:
-                    print(SYSTEM + BATCH_RULES)
+                    print(system_prompt(con) + BATCH_RULES)
                     print("\n---\n" + batch_prompt(prompts, first))
                 else:
-                    print(SYSTEM)
+                    print(system_prompt(con))
                     print("\n---\n" + prompts[first[0]])
             con.close()
             return 0

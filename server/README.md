@@ -10,6 +10,7 @@ Text limit: `/inspect` text and `/steer` prompt are capped at 256 tokens (`TEXT_
 
 Phase 4 steering checks (fields in `docs/phase4-ml-api.md`; the code is `ml/neuronlens/steering_checks.py`):
 
+- `POST /steer/check` (X1): baseline vs steered plus the target feature's activation on each finished text (re-encoded without steering) and a verdict: higher, lower or about the same. It says whether the feature fires on the result, not whether the output is better.
 - `POST /steer/compare` (X3): seed-matched baseline vs steered, compared token by token.
 - `POST /steer/sweep` (X2): amplify at several strengths (default 0 to 2, each at most 3), with a degeneration flag.
 - `POST /steer/prompt-only` (X4): the prompt alone, same seed, no steering.

@@ -7,9 +7,12 @@ Generation (used by /steer and the Phase 4 checks) returns the real outputs reco
 demo/phase4_examples.json when prompt, seed, max_new_tokens and the steering match one of
 them, still marked [simulated]; anything else gets a filler stand-in. Tokens here are a
 rough word split, not GPT-2 tokens, so counts and divergence indices differ from real mode.
+Feature activations (X1) follow the same rule: the recorded max and mean for a recorded
+text, a deterministic stand-in otherwise.
 """
 import contextlib
 import hashlib
+from collections import OrderedDict
 import json
 import random
 import re
@@ -38,7 +41,8 @@ def tokenize(text: str) -> list[str]:
 
 
 def load_examples(path=EXAMPLES_PATH) -> dict:
-    """{(prompt, seed, max_new_tokens): {"baseline": text, (feature, mode, strength): text}}"""
+    """{(prompt, seed, max_new_tokens): {"baseline": text, (feature, mode, strength): text,
+    ("acts", feature, "baseline" | (feature, mode, strength)): (max, mean)}}"""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -48,7 +52,13 @@ def load_examples(path=EXAMPLES_PATH) -> dict:
         key = (ex["prompt"], ex["seed"], ex["max_new_tokens"])
         entry = out.setdefault(key, {"baseline": ex["baseline"]})
         strength = float(ex["strength"]) if ex["mode"] == "amplify" else 0.0
-        entry[(ex["feature_id"], ex["mode"], strength)] = ex["steered"]
+        spec = (ex["feature_id"], ex["mode"], strength)
+        entry[spec] = ex["steered"]
+        if ex.get("target_activation_baseline") is not None:
+            entry[("acts", ex["feature_id"], "baseline")] = (
+                ex["target_activation_baseline"], ex["target_activation_baseline_mean"])
+            entry[("acts", ex["feature_id"], spec)] = (
+                ex["target_activation_steered"], ex["target_activation_steered_mean"])
         for r in (ex.get("sweep") or {}).get("results", []):
             entry.setdefault((ex["feature_id"], "amplify", float(r["strength"])), r["text"])
     return out
@@ -64,6 +74,7 @@ class MockRuntime:
             "ORDER BY feature_id")]
         self.d_sae = db.one("SELECT COUNT(*) AS n FROM features")["n"]
         self._examples = load_examples() if examples is None else examples
+        self._generated = OrderedDict()  # token ids -> how they were made, for X1 activations
 
     def count_tokens(self, text: str) -> int:
         return len(tokenize(text))
@@ -98,11 +109,47 @@ class MockRuntime:
         new_pieces = tokenize(self._continuation_text(prompt, max_new_tokens, seed, spec))
         pieces = prompt_pieces[:-1] + [prompt_pieces[-1] + SIMULATED_TAG] + new_pieces
         ids = [_seed("tok", p) % VOCAB for p in prompt_pieces + new_pieces]
+        self._remember(ids, (prompt, seed, max_new_tokens), spec,
+                       None if steering is None else steering.max_activation)
         return steering_checks().Generation("".join(pieces), ids, len(prompt_pieces), pieces)
+
+    def feature_activations(self, token_ids, feature_id):
+        """Per-position activation of one feature on a text this runtime generated: the
+        recorded max (and mean) for a recorded example, else a stand-in where amplify
+        raises the feature in proportion to strength. Position 0 and the prompt are 0.0."""
+        n = len(token_ids)
+        made = self._generated.get(tuple(token_ids))
+        if made is None or n == 0:
+            return [0.0] * n
+        key, spec, max_activation, prompt_len = made
+        recorded = self._examples.get(key, {})
+        stats = recorded.get(("acts", feature_id, "baseline" if spec is None else spec))
+        if stats is None:
+            stats = (0.0, 0.0)  # stand-in: the feature is quiet on unsteered filler
+            if spec is not None and spec[0] == feature_id and spec[1] == "amplify" and spec[2] > 0:
+                peak = round(0.2 * spec[2] * (max_activation or 0.0), 4)
+                stats = (peak, peak / 4)
+        peak, mean = stats
+        first = max(prompt_len, 1)
+        new = n - first
+        acts = [0.0] * n
+        if new <= 0 or peak <= 0:
+            return acts
+        rest = max(0.0, (mean * new - peak) / (new - 1)) if new > 1 else 0.0
+        for i in range(first, n):
+            acts[i] = min(rest, peak)
+        acts[first] = peak
+        return acts
 
     @staticmethod
     def exclusive():
         return contextlib.nullcontext()
+
+    def _remember(self, ids, key, spec, max_activation):
+        prompt_len = len(tokenize(key[0]) or [key[0]])
+        self._generated[tuple(ids)] = (key, spec, max_activation, prompt_len)
+        while len(self._generated) > 256:
+            self._generated.popitem(last=False)
 
     # ---- internals ----
 

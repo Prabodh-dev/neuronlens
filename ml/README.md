@@ -61,6 +61,10 @@ Exact inputs, outputs, error cases and example JSON are in `docs/phase4-ml-api.m
 
 The prompts in `scripts/phase4_demo.py` are starting points and have not been tried on the real model.
 
+To try other features without editing code, use explore mode. It runs each `--feature` on each `--prompt`, prints one line per strength (start of the text, the degenerate flag, the index where it differs from the baseline) and writes `demo/explore.json`, never `demo/phase4_examples.json`:
+
+    PYTHONPATH=. python scripts/phase4_demo.py --feature 7 --feature 13 --prompt "He turned the picture" --strengths 0,0.5,0.75,1,1.5,2 [--mode ablate] [--explore-out PATH]
+
 ## Layout
 
 - neuronlens/activations.py: model loading, activation hook and streaming buffer

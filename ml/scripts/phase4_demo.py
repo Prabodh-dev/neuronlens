@@ -28,6 +28,10 @@ strength with the start of the generated text, the degenerate flag and the index
 earliest token that differs from the baseline, followed by an activation line (the target
 feature's maximum activation on the baseline and on that text, read without steering). With --mode ablate the strengths do not apply:
 the feature is ablated once. Dead features are skipped with a message.
+
+--combine steers all the --feature ids together (2 or 3, amplify only): the same strength is
+applied to every feature, for each value in --strengths, and the output shows the text, the loop
+flag and one activation line per feature. It writes to --explore-out like the other explore runs.
 """
 import argparse
 import json
@@ -271,6 +275,57 @@ def explore(rt, con, features, prompts, strengths, mode="amplify", seed=SEED,
     return runs
 
 
+def explore_combined(rt, con, features, prompts, strengths, seed=SEED,
+                     max_new_tokens=MAX_NEW_TOKENS, log=print):
+    """--combine: steer all the usable features together (amplify only), at each strength in
+    `strengths` applied to every feature. Prints the text, the loop flag and one activation
+    line per feature for each strength, and returns the results. Dead or missing features are
+    skipped; 2 or 3 must remain."""
+    usable = []
+    for fid in dict.fromkeys(features):
+        row = feature_row(con, fid)
+        if row is None:
+            log(f"skip feature {fid}: not in the database")
+        elif row[3] or not row[2]:
+            log(f"skip feature {fid} ({row[0] or 'no label'}): "
+                f"{'dead feature' if row[3] else 'max_activation is 0'}")
+        else:
+            usable.append((fid, row[0], row[1], row[2]))
+    if not sc.MULTI_MIN_STEERS <= len(usable) <= sc.MULTI_MAX_STEERS:
+        raise sc.SteeringCheckError(
+            f"--combine needs {sc.MULTI_MIN_STEERS} to {sc.MULTI_MAX_STEERS} usable features, "
+            f"got {len(usable)}")
+    names = {fid: (label or "no label") for fid, label, _, _ in usable}
+    runs = []
+    for prompt in prompts:
+        log("combine " + " + ".join(f"{fid} ({names[fid]})" for fid, *_ in usable)
+            + f" | prompt: {prompt!r}")
+        results, baseline = [], None
+        for strength in strengths:
+            steers = [{"feature_id": fid, "strength": strength, "max_activation": mx}
+                      for fid, _, _, mx in usable]
+            r = sc.multi_steering_check(rt, prompt, steers, max_new_tokens, seed)
+            if baseline is None:
+                baseline = r["baseline_text"]
+                log(f"  baseline            {continuation_of(prompt, baseline)[:CONTINUATION_CHARS]!r}")
+            cont = continuation_of(prompt, r["steered_text"])
+            div = "-" if r["first_divergence_index"] is None else r["first_divergence_index"]
+            log(f"  x{strength:<6g} div={div!s:<4} {_flag(r['degenerate'], r['reason']):<38}"
+                f" {cont[:CONTINUATION_CHARS]!r}")
+            for a in r["activations"]:
+                log(f"    feature {a['feature_id']} ({names[a['feature_id']]}): {activation_line(a)}")
+            results.append({"strength": strength, "text": r["steered_text"], "continuation": cont,
+                            "differs": r["differs"], "first_divergence_index": r["first_divergence_index"],
+                            "degenerate": r["degenerate"], "reason": r["reason"],
+                            "activations": r["activations"]})
+        log("")
+        runs.append({"prompt": prompt, "seed": seed, "max_new_tokens": max_new_tokens,
+                     "features": [{"feature_id": fid, "label": label, "label_status": status,
+                                   "max_activation": mx} for fid, label, status, mx in usable],
+                     "baseline_text": baseline, "results": results})
+    return runs
+
+
 def load_runtime(ckpt_path):
     import torch
     from neuronlens.runtime import Runtime
@@ -292,6 +347,9 @@ def main(argv=None):
                         "(default 0,0.25,0.5,0.75,1,1.5,2)")
     p.add_argument("--mode", choices=sc.MODES, default=None,
                    help="explore mode: amplify (default) or ablate")
+    p.add_argument("--combine", action="store_true",
+                   help="explore mode: steer all --feature ids together (2 or 3, amplify only) "
+                        "at each of --strengths, applied to every feature")
     p.add_argument("--explore-out", default=str(REPO_ROOT / "demo" / "explore.json"),
                    help="explore mode: output file (default demo/explore.json)")
     a = p.parse_args(argv)
@@ -300,6 +358,12 @@ def main(argv=None):
         p.error("explore mode needs at least one --feature and at least one --prompt")
     if not exploring and (a.strengths is not None or a.mode is not None):
         p.error("--strengths and --mode belong to explore mode (--feature and --prompt)")
+    if a.combine and not exploring:
+        p.error("--combine belongs to explore mode (--feature and --prompt)")
+    if a.combine and a.mode == "ablate":
+        p.error("--combine is amplify only")
+    if a.combine and not sc.MULTI_MIN_STEERS <= len(set(a.feature)) <= sc.MULTI_MAX_STEERS:
+        p.error(f"--combine needs {sc.MULTI_MIN_STEERS} to {sc.MULTI_MAX_STEERS} different --feature ids")
     if exploring:
         try:
             strengths = parse_strengths(a.strengths) if a.strengths else list(sc.DEFAULT_SWEEP_STRENGTHS)
@@ -319,8 +383,12 @@ def main(argv=None):
     rt = load_runtime(resolve(ckpt))
     if exploring:
         try:
-            runs = explore(rt, con, a.feature, a.prompt, strengths, a.mode or "amplify",
-                           a.seed, a.max_new_tokens)
+            if a.combine:
+                runs = explore_combined(rt, con, a.feature, a.prompt, strengths, a.seed,
+                                        a.max_new_tokens)
+            else:
+                runs = explore(rt, con, a.feature, a.prompt, strengths, a.mode or "amplify",
+                               a.seed, a.max_new_tokens)
             run_id = con.execute("SELECT value FROM meta WHERE key='run_id'").fetchone()
         except sc.SteeringCheckError as e:
             sys.exit(f"error: {e}")
@@ -331,8 +399,9 @@ def main(argv=None):
         out.write_text(json.dumps({
             "note": "Steering is a test of what a feature does, not a fix. These outputs shift "
                     "the text; they are not an improvement. A result marked ok can still be poor.",
-            "run_id": run_id[0] if run_id else None, "mode": a.mode or "amplify",
-            "strengths": strengths if (a.mode or "amplify") == "amplify" else None,
+            "run_id": run_id[0] if run_id else None,
+            "mode": "combine" if a.combine else (a.mode or "amplify"),
+            "strengths": strengths if (a.combine or (a.mode or "amplify") == "amplify") else None,
             "seed": a.seed, "max_new_tokens": a.max_new_tokens, "runs": runs},
             indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"wrote {out}")

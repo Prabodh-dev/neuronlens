@@ -297,3 +297,85 @@ def test_main_explore_json_has_activation_fields(db, tmp_path, monkeypatch):
                "--explore-out", str(out)])
     r = json.loads(out.read_text(encoding="utf-8"))["runs"][0]["results"][0]
     assert all(k in r for k in demo.ACTIVATION_KEYS)
+
+
+# ------------------------------------------------------------------------- --combine
+
+def test_explore_combined_prints_text_flag_and_one_activation_line_per_feature(db):
+    lines = []
+    runs = demo.explore_combined(FakeRuntime(baseline_len=20, act_fn=_up(8.0, 1.0)), demo.open_readonly(db),
+                                 [7, 13, 7], ["Hi "], [0.0, 0.5, 1.0], max_new_tokens=20, log=lines.append)
+    assert len(runs) == 1 and [f["feature_id"] for f in runs[0]["features"]] == [7, 13]   # deduped, 2 features
+    assert [r["strength"] for r in runs[0]["results"]] == [0.0, 0.5, 1.0]
+    for r in runs[0]["results"]:
+        assert [a["feature_id"] for a in r["activations"]] == [7, 13]
+        assert all(set(a) == {"feature_id", "target_activation_baseline", "target_activation_steered",
+                              "activation_verdict"} for a in r["activations"])
+    assert runs[0]["results"][0]["differs"] is False and runs[0]["results"][1]["differs"] is True
+    assert runs[0]["results"][1]["first_divergence_index"] == 5
+    act = [l for l in lines if "activation: baseline" in l]
+    assert len(act) == 6 and all(l.startswith("    feature ") for l in act)       # 3 strengths x 2 features
+    assert any(l.startswith("    feature 13 (upside – upside down): activation: baseline") for l in act)
+    assert sum(l.startswith("  baseline") for l in lines) == 1                    # shown once per prompt
+    rows = [l for l in lines if l.startswith("  x")]
+    assert len(rows) == 3 and rows[0].count("ok") == 1 and "div=-" in rows[0] and "div=5" in rows[1]
+    assert lines[0].startswith("combine 7 (hon- – honing, honk) + 13 (upside – upside down) | prompt: 'Hi '")
+    json.dumps(runs)
+
+
+def test_explore_combined_marks_a_loop_and_skips_dead_features(db):
+    base = [ord(c) for c in "abcdefghij" * 3]
+    lines = []
+    runs = demo.explore_combined(FakeRuntime(base_ids=base, steered_ids=[ord("z")] * 30),
+                                 demo.open_readonly(db), [7, 13], ["Hi "], [2.0], max_new_tokens=60,
+                                 log=lines.append)
+    assert runs[0]["results"][0]["degenerate"] is True
+    assert any("DEGENERATE: mostly repeated tokens" in l for l in lines)
+    con = sqlite3.connect(db)
+    con.execute("UPDATE features SET is_dead=1 WHERE feature_id=13")
+    con.commit()
+    con.close()
+    msgs = []
+    with pytest.raises(demo.sc.SteeringCheckError, match="needs 2 to 3 usable features, got 1"):
+        demo.explore_combined(FakeRuntime(), demo.open_readonly(db), [7, 13], ["Hi "], [1.0], log=msgs.append)
+    assert any("skip feature 13" in m and "dead feature" in m for m in msgs)
+    with pytest.raises(demo.sc.SteeringCheckError):
+        demo.explore_combined(FakeRuntime(), demo.open_readonly(db), [7, 99], ["Hi "], [1.0], log=lambda *_: None)
+
+
+def test_main_combine_writes_the_explore_file_only(db, tmp_path, monkeypatch, capsys):
+    _env(monkeypatch, db, tmp_path)
+    out = tmp_path / "explore.json"
+    examples = tmp_path / "phase4_examples.json"
+    examples.write_text('{"keep": true}')
+    before = open(db, "rb").read()
+    demo.main(["--combine", "--feature", "7", "--feature", "13", "--prompt", "A ", "--strengths", "0,0.5",
+               "--max-new-tokens", "20", "--out", str(examples), "--explore-out", str(out)])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["mode"] == "combine" and data["strengths"] == [0, 0.5] and data["run_id"] == "test-run"
+    assert [f["feature_id"] for f in data["runs"][0]["features"]] == [7, 13]
+    assert all(len(r["activations"]) == 2 for r in data["runs"][0]["results"])
+    assert examples.read_text() == '{"keep": true}' and open(db, "rb").read() == before
+    assert capsys.readouterr().out.count("activation: baseline") == 4            # 2 strengths x 2 features
+
+
+@pytest.mark.parametrize("argv", [
+    ["--combine", "--feature", "7", "--prompt", "x"],                            # one feature
+    ["--combine", "--feature", "7", "--feature", "7", "--prompt", "x"],          # the same feature twice
+    ["--combine", "--feature", "1", "--feature", "2", "--feature", "3", "--feature", "4", "--prompt", "x"],
+    ["--combine", "--mode", "ablate", "--feature", "7", "--feature", "13", "--prompt", "x"],
+    ["--combine"],                                                               # no explore arguments
+])
+def test_main_combine_argument_errors(db, tmp_path, monkeypatch, argv):
+    _env(monkeypatch, db, tmp_path)
+    with pytest.raises(SystemExit) as e:
+        demo.main(argv)
+    assert e.value.code == 2
+
+
+def test_combine_does_not_change_the_default_examples(db, tmp_path, monkeypatch):
+    _env(monkeypatch, db, tmp_path)
+    out = tmp_path / "phase4_examples.json"
+    demo.main(["--out", str(out), "--max-new-tokens", "20"])
+    ids = [e["feature_id"] for e in json.loads(out.read_text(encoding="utf-8"))["examples"]]
+    assert ids == [3446, 3446, 1863, 13, 1863, 3587, 7]

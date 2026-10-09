@@ -11,7 +11,9 @@ class RealRuntime:
 
     def __init__(self, runtime):
         self._rt = runtime
-        self._lock = threading.Lock()  # the model and its hooks are shared state
+        # the model and its hooks are shared state. Reentrant, so a Phase 4 check can hold
+        # it across all of its generations (exclusive) while each generate() also takes it.
+        self._lock = threading.RLock()
 
     @classmethod
     def load(cls, ckpt: str) -> "RealRuntime":
@@ -40,3 +42,17 @@ class RealRuntime:
         with self._lock:
             return self._rt.steer(prompt, feature_id, mode, strength, max_activation,
                                   max_new_tokens, seed)
+
+    # ---- used by the Phase 4 checks (ml/neuronlens/steering_checks.py) ----
+
+    @property
+    def d_sae(self) -> int:
+        return self._rt.d_sae
+
+    def generate(self, prompt, max_new_tokens, seed, steering=None):
+        with self._lock:
+            return self._rt.generate(prompt, max_new_tokens, seed, steering)
+
+    def exclusive(self):
+        """Hold the model for a whole check (several generations), like one /steer call."""
+        return self._lock

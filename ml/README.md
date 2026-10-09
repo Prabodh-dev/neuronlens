@@ -68,8 +68,8 @@ To try other features without editing code, use explore mode. It runs each `--fe
 ## Phase 4 data files
 Two scripts build data files for the app (they run on the GPU machine, write to the git-ignored `data/` folder, and do not touch the database). Details, fields and limits are in `docs/phase4-data-files.md`.
 
-- `scripts/build_cofire.py`: how often two features fire on the same tokens in a sample (default 500,000 tokens); top 10 partners per feature by Jaccard.
-- `scripts/build_map.py`: a 2D map of the decoder directions (PCA, then UMAP if umap-learn is installed).
+- `scripts/build_cofire.py`: how often two features fired on the same tokens in a sample (default 500,000 tokens); top 10 partners per feature by Jaccard. A run with `--tokens 3000000 --seed 999` (unseen text) took about 5.6 minutes and gave a 6.5 MB file; 12,250 of 12,288 features have partners. Small samples are weak: 500,000 tokens gave counts of only 5 to 20 for the features checked.
+- `scripts/build_map.py`: a 2D map of the decoder directions (PCA, then UMAP if umap-learn is installed). Checked, not for display: on three features the nearest points in the map did not match the feature, so distance in it should not be shown to users as meaning (details in `docs/phase4-data-files.md`). The script and its tests stay.
 
 ## Layout
 

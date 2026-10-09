@@ -39,8 +39,8 @@ const VIEWS: { v: View; label: string; run: string }[] = [
 ];
 // a pair for the Two texts view
 const PAIR = { a: "The band walked on stage and played a new song.", b: "The judge walked into court and read the new ruling." };
-// "Hide very common features": max_density for X6 and X7. 549 of the 12,288 features fire on more than 1% of
-// tokens; every named feature fires on far fewer.
+// "Hide very common features": max_density for X6 and X7. It hides the features that fire on more than 1% of
+// tokens, some named ones too (e.g. "the – noun phrase start").
 const COMMON = 0.01;
 // "Rank by" for X6 and X7: raw activation (the server's default) or closest to its own peak (relative_to_max)
 type Rank = "activation" | "relative";

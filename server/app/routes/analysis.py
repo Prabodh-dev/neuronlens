@@ -2,7 +2,9 @@
 
 inspect is called with the SAE's k (every active feature on every token), then ranked and
 trimmed to the requested top_n, so tokens_active and the ranking are not undercounted.
-Token 0 has no features (an outlier position, as in /inspect).
+Token 0 has no features (an outlier position, as in /inspect). Optional max_density hides
+features that fire on more than that share of tokens (features.density) before ranking, so
+very common features do not crowd out specific ones; it is off by default.
 
 Sentence split (X6): a sentence ends after a token ending in . ! or ? when the next token
 starts with whitespace or the text ends, and after any token containing a newline. Known
@@ -65,6 +67,18 @@ def dictionary(db: Database, ids) -> dict[int, tuple]:
         tuple(ids))}
 
 
+def drop_dense(db: Database, agg: dict, max_density: float | None) -> dict:
+    """agg without features whose density is above max_density (None: unchanged)."""
+    if max_density is None or not agg:
+        return agg
+    ids = sorted(agg)
+    marks = ",".join("?" * len(ids))
+    dense = {r["feature_id"] for r in db.query(
+        f"SELECT feature_id FROM features WHERE feature_id IN ({marks}) AND density > ?",
+        (*ids, max_density))}
+    return {fid: v for fid, v in agg.items() if fid not in dense}
+
+
 def relative(value: float, fid: int, info: dict) -> float | None:
     feature_max = info.get(fid, (None, None))[1]
     return round(value / feature_max, 4) if feature_max else None
@@ -78,7 +92,7 @@ def report(req: ReportRequest, db: Database = Depends(get_db), meta: dict = Depe
     tokens = all_active(runtime, meta, req.text)
     per_sentence = []
     for a, b in split_sentences(tokens):
-        agg = aggregate(tokens[a:b])
+        agg = drop_dense(db, aggregate(tokens[a:b]), req.max_density)
         top = sorted(agg.items(), key=lambda kv: (-kv[1]["max"], kv[0]))[:req.top_n]
         per_sentence.append((a, b, top))
     info = dictionary(db, (fid for _, _, top in per_sentence for fid, _ in top))
@@ -104,7 +118,8 @@ def compare_texts(req: TextCompareRequest, db: Database = Depends(get_db),
     check_length(runtime, req.text_b, "text_b")
     tok_a = all_active(runtime, meta, req.text_a)
     tok_b = all_active(runtime, meta, req.text_b)
-    agg_a, agg_b = aggregate(tok_a), aggregate(tok_b)
+    agg_a = drop_dense(db, aggregate(tok_a), req.max_density)
+    agg_b = drop_dense(db, aggregate(tok_b), req.max_density)
     empty = {"max": 0.0, "count": 0}
     rows = []
     for fid in set(agg_a) | set(agg_b):

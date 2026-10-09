@@ -4,10 +4,11 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, Query
 
 from ..db import Database
-from ..deps import get_db
+from ..deps import get_cofire, get_db
 from ..errors import ApiError
-from ..models import (Example, error_responses, FeatureDetail, FeatureList, FeatureListItem,
-                      LabelStatus, LogitEntry, Logits)
+from ..models import (CofirePartner, CofireResponse, Example, error_responses,
+                      FeatureDetail, FeatureList, FeatureListItem, LabelStatus, LogitEntry,
+                      Logits)
 
 router = APIRouter(tags=["features"], responses=error_responses(422, 500))
 
@@ -88,3 +89,30 @@ def get_feature(feature_id: int, db: Database = Depends(get_db)):
     if row is None:
         raise ApiError("FEATURE_NOT_FOUND", f"feature {feature_id} not found")
     return feature_detail(db, row)
+
+
+@router.get("/features/{feature_id}/cofire", response_model=CofireResponse,
+            responses=error_responses(404))
+def cofire(feature_id: int, db: Database = Depends(get_db), cf=Depends(get_cofire)):
+    """W4. Features that fired on the same tokens as this one in a token sample, with counts.
+    It shows shared tokens only, not shared meaning."""
+    if db.one("SELECT feature_id FROM features WHERE feature_id = ?", (feature_id,)) is None:
+        raise ApiError("FEATURE_NOT_FOUND", f"feature {feature_id} not found")
+    stored = cf.partners(feature_id)
+    meta = cf.data or {}
+    out = {"feature_id": feature_id, "available": stored is not None, "simulated": cf.simulated,
+           "tokens_scanned": meta.get("tokens_scanned"), "seed": meta.get("seed"),
+           "min_count": meta.get("min_count"), "partners": []}
+    if not stored:
+        return CofireResponse(**out)
+    ids = [p["feature_id"] for p in stored]
+    marks = ",".join("?" * len(ids))
+    in_db = {r["feature_id"]: r["label"] for r in db.query(
+        f"SELECT feature_id, label FROM features WHERE feature_id IN ({marks})", tuple(ids))}
+    for p in stored:
+        has_label, label = cf.label(p["feature_id"])  # mock fixture stores the real labels
+        out["partners"].append(CofirePartner(
+            feature_id=p["feature_id"], label=label if has_label else in_db.get(p["feature_id"]),
+            co_count=p["co_count"], jaccard=p["jaccard"],
+            in_dictionary=p["feature_id"] in in_db))
+    return CofireResponse(**out)

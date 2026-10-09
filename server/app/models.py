@@ -130,6 +130,82 @@ class SteerResponse(BaseModel):
     steered_text: str
 
 
+# ---- X6 sentence report and X7 text compare (aggregate /inspect) ----
+
+class _AnalysisFeature(BaseModel):
+    feature_id: int
+    label: Optional[str]
+
+
+class ReportRequest(BaseModel):
+    text: str
+    top_n: int = Field(default=5, ge=1, le=20, description="features per sentence")
+
+    @field_validator("text")
+    @classmethod
+    def _text_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("text must not be empty")
+        return v
+
+
+class ReportFeature(_AnalysisFeature):
+    max_activation: float = Field(description="highest activation on this sentence's tokens")
+    relative_to_max: Optional[float] = Field(
+        description="max_activation / the feature's max_activation in the dictionary")
+    tokens_active: int = Field(description="tokens in the sentence where the feature was active")
+    peak_token: int = Field(description="index (as in /inspect) of the token with the highest "
+                                        "activation")
+
+
+class ReportSentence(BaseModel):
+    index: int
+    text: str
+    start_token: int = Field(description="first token index, as in /inspect")
+    end_token: int = Field(description="one past the last token index")
+    features: list[ReportFeature]
+
+
+class ReportResponse(BaseModel):
+    """X6: the features active in each sentence, ranked by max activation (token 0 skipped,
+    as in /inspect). Shows which features were active, not what the sentence means."""
+    model_name: str
+    simulated: bool
+    sentences: list[ReportSentence]
+
+
+class TextCompareRequest(BaseModel):
+    text_a: str
+    text_b: str
+    top_n: int = Field(default=10, ge=1, le=50)
+
+    @field_validator("text_a", "text_b")
+    @classmethod
+    def _text_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("text must not be empty")
+        return v
+
+
+class TextCompareFeature(_AnalysisFeature):
+    max_activation_a: float = Field(description="0 when not active in text_a")
+    max_activation_b: float
+    difference: float = Field(description="max_activation_b - max_activation_a")
+    tokens_active_a: int
+    tokens_active_b: int
+    relative_to_max_a: Optional[float]
+    relative_to_max_b: Optional[float]
+
+
+class TextCompareResponse(BaseModel):
+    """X7: features whose max activation differs most between two texts (|difference|)."""
+    model_name: str
+    simulated: bool
+    tokens_a: int = Field(description="number of tokens in text_a")
+    tokens_b: int
+    features: list[TextCompareFeature]
+
+
 # ---- W4 co-fire counts (fields in docs/phase4-data-files.md) ----
 
 class CofirePartner(BaseModel):

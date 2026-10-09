@@ -109,3 +109,68 @@ def steering_check(rt, prompt, feature_id, mode, strength, max_activation,
     return {"feature_id": feature_id, "mode": mode, "strength": spec.strength, "seed": seed,
             "max_new_tokens": max_new_tokens, "baseline_text": base.text,
             "steered_text": steered.text, "differs": base.text != steered.text}
+
+
+# ------------------------------------------------------- X3: seed-matched compare
+
+RAW_PERCENT_NOTE = (
+    "percent_changed_raw counts every differing token against all generated tokens. It "
+    "overstates the direct effect of the intervention: after the first divergence the two "
+    "runs continue from different text, so later tokens drift even where the intervention "
+    "no longer acts. Use first_divergence_index and tokens_changed instead.")
+
+
+def compare_generations(baseline, steered):
+    """Token-by-token comparison of two generations from the same prompt.
+
+    Only newly generated tokens are compared (the prompt is identical). Indices are
+    0-based within the new tokens. A position past the end of the shorter output counts as
+    different. See RAW_PERCENT_NOTE for why the raw percent is not the effect size.
+    """
+    if baseline.token_ids[:baseline.prompt_len] != steered.token_ids[:steered.prompt_len]:
+        raise ValueError("the two generations do not share the same prompt")
+    b_ids, s_ids = baseline.new_ids, steered.new_ids
+    n = max(len(b_ids), len(s_ids))
+    div = next((i for i in range(n) if i >= len(b_ids) or i >= len(s_ids) or b_ids[i] != s_ids[i]),
+               None)
+    b_pieces, s_pieces = baseline.new_pieces, steered.new_pieces
+    out = {"prompt_tokens": baseline.prompt_len, "baseline_new_tokens": len(b_ids),
+           "steered_new_tokens": len(s_ids), "diverges": div is not None,
+           "first_divergence_index": div,
+           "percent_changed_raw_note": RAW_PERCENT_NOTE}
+    if div is None:
+        out.update(identical_prefix_tokens=list(b_pieces), identical_prefix_text="".join(b_pieces),
+                   baseline_from_divergence=[], baseline_from_divergence_text="",
+                   steered_from_divergence=[], steered_from_divergence_text="",
+                   tokens_changed=0, tokens_compared_from_divergence=0,
+                   percent_changed_from_divergence=None, percent_changed_raw=0.0)
+        return out
+    changed = sum(1 for i in range(div, n)
+                  if i >= len(b_ids) or i >= len(s_ids) or b_ids[i] != s_ids[i])
+    compared = n - div
+    out.update(identical_prefix_tokens=list(b_pieces[:div]),
+               identical_prefix_text="".join(b_pieces[:div]),
+               baseline_from_divergence=list(b_pieces[div:]),
+               baseline_from_divergence_text="".join(b_pieces[div:]),
+               steered_from_divergence=list(s_pieces[div:]),
+               steered_from_divergence_text="".join(s_pieces[div:]),
+               tokens_changed=changed, tokens_compared_from_divergence=compared,
+               percent_changed_from_divergence=round(100.0 * changed / compared, 1),
+               percent_changed_raw=round(100.0 * changed / n, 1))
+    return out
+
+
+def seed_matched_compare(rt, prompt, feature_id, mode, strength, max_activation,
+                         max_new_tokens=60, seed=42):
+    """X3. Run baseline and steered with the same seed and compare them token by token.
+
+    Returns {feature_id, mode, strength, seed, max_new_tokens, baseline_text, steered_text}
+    plus every field of compare_generations.
+    """
+    base, steered, spec = _run_pair(rt, prompt, feature_id, mode, strength, max_activation,
+                                    max_new_tokens, seed)
+    out = {"feature_id": feature_id, "mode": mode, "strength": spec.strength, "seed": seed,
+           "max_new_tokens": max_new_tokens, "baseline_text": base.text,
+           "steered_text": steered.text}
+    out.update(compare_generations(base, steered))
+    return out

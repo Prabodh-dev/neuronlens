@@ -116,3 +116,71 @@ def test_runtime_generate_uses_same_hook_and_seed(monkeypatch):
     assert g.prompt_len == 2 and len(g.pieces) == 5 and g.continuation == "’"
     base = rt.generate("Hi", 5, 3, None)
     assert seen["gen"][3] is None and base.token_ids == g.token_ids
+
+
+# ----------------------------------------------------------------------------- X3
+
+def gen(prompt, new):
+    ids = [ord(c) for c in prompt] + [ord(c) for c in new]
+    pieces = [chr(i) for i in ids]
+    return Generation("".join(pieces), ids, len(prompt), pieces)
+
+
+def test_x3_first_divergence_and_split():
+    r = sc.compare_generations(gen("P:", "abcdefgh"), gen("P:", "abcXYZgh"))
+    assert r["diverges"] is True and r["first_divergence_index"] == 3
+    assert r["identical_prefix_tokens"] == ["a", "b", "c"] and r["identical_prefix_text"] == "abc"
+    assert r["baseline_from_divergence"] == list("defgh")
+    assert r["steered_from_divergence"] == list("XYZgh")
+    # positions 3,4,5 differ, 6,7 are equal again: counted from the divergence, 5 compared
+    assert r["tokens_changed"] == 3 and r["tokens_compared_from_divergence"] == 5
+    assert r["percent_changed_from_divergence"] == 60.0
+    assert r["percent_changed_raw"] == 37.5  # 3 of 8 generated tokens
+    assert "overstates" in r["percent_changed_raw_note"]
+    assert r["prompt_tokens"] == 2
+
+
+def test_x3_no_divergence():
+    r = sc.compare_generations(gen("P:", "abcd"), gen("P:", "abcd"))
+    assert r["diverges"] is False and r["first_divergence_index"] is None
+    assert r["tokens_changed"] == 0 and r["percent_changed_raw"] == 0.0
+    assert r["percent_changed_from_divergence"] is None
+    assert r["identical_prefix_text"] == "abcd" and r["steered_from_divergence"] == []
+
+
+def test_x3_length_difference_counts_as_divergence():
+    r = sc.compare_generations(gen("P:", "abcd"), gen("P:", "ab"))
+    assert r["first_divergence_index"] == 2 and r["tokens_changed"] == 2
+    assert r["steered_from_divergence"] == [] and r["baseline_from_divergence"] == ["c", "d"]
+    assert r["baseline_new_tokens"] == 4 and r["steered_new_tokens"] == 2
+
+
+def test_x3_first_token_differs_and_empty_outputs():
+    r = sc.compare_generations(gen("P:", "abc"), gen("P:", "xbc"))
+    assert r["first_divergence_index"] == 0 and r["identical_prefix_tokens"] == []
+    assert r["tokens_changed"] == 1 and r["percent_changed_raw"] == 33.3
+    e = sc.compare_generations(gen("P:", ""), gen("P:", ""))
+    assert e["diverges"] is False and e["percent_changed_raw"] == 0.0
+
+
+def test_x3_prompt_mismatch_is_an_error():
+    with pytest.raises(ValueError):
+        sc.compare_generations(gen("P:", "ab"), gen("Q:", "ab"))
+
+
+def test_x3_pieces_keep_split_characters_whole():
+    # the apostrophe's bytes are two tokens; the leading piece is an empty string
+    b = Generation("x", [1, 2, 3, 4], 1, ["a", "", "’", "z"])
+    s = Generation("x", [1, 2, 3, 9], 1, ["a", "", "’", "q"])
+    r = sc.compare_generations(b, s)
+    assert r["identical_prefix_tokens"] == ["", "’"] and r["first_divergence_index"] == 2
+
+
+def test_x3_seed_matched_compare_end_to_end():
+    rt = FakeRuntime(baseline_len=20, diverge_at=5)
+    r = sc.seed_matched_compare(rt, "Hello ", 7, "amplify", 3.0, 10.0, max_new_tokens=20, seed=1)
+    assert r["first_divergence_index"] == 5 and r["tokens_changed"] > 0
+    assert rt.calls[0][2] == rt.calls[1][2] == 1
+    assert r["baseline_text"].startswith("Hello ") and r["strength"] == 3.0
+    same = sc.seed_matched_compare(rt, "Hello ", 7, "amplify", 0, 10.0, max_new_tokens=20, seed=1)
+    assert same["diverges"] is False

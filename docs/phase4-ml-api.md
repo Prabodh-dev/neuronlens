@@ -13,7 +13,7 @@ The example JSON below is real model output from one GPU run on GPT-2 small: fea
 - **Where `max_activation` comes from.** The server passes it, read from `features.max_activation` for the feature, exactly as `/steer` does today.
 - **Text fields.** `baseline_text`, `steered_text`, `text` hold the full decoded text, prompt included (same format as `/steer`). Token lists hold one display string per token from `textdecode.token_pieces`: a character split across tokens appears whole on its last token and as `""` on the earlier ones, so no list contains U+FFFD for valid UTF-8.
 - **Ablate.** `strength` is ignored for ablate and is reported as `0.0`.
-- **Time.** Each generation is a full model run. X1 and X3 run two, X2 runs one plus one per strength, X4 runs one. The functions hold the model for that whole time, so the server should call them under the same lock as `/steer`. No timing has been measured on the GPU.
+- **Time.** Each generation is a full model run. X1 and X3 run two, X2 runs one plus one per strength, X4 runs one. The functions hold the model for that whole time, so the server should call them under the same lock as `/steer`. For rough times see Timing.
 
 ### Errors (all functions)
 
@@ -256,9 +256,17 @@ Left out because it was not recorded in the run: `new_tokens`.
 
 ---
 
-## Not yet measured
+## Timing
 
-Generation time on the GPU has not been measured. X1 and X3 run two generations, X4 runs one, and X2 runs one baseline plus one generation per strength. Mirdul should set the server timeouts after the numbers are added to this file.
+One measurement on the GPU laptop, a single run: 8 generations of 60 new tokens (one baseline plus 7 strengths) took 15.1 seconds of wall time, including model load. This is one run and the model-load share was not separated, so the figures below are estimates, not benchmarks:
+
+| Call | Generations | Estimate |
+| --- | --- | --- |
+| one generation (X4) | 1 | roughly 1.5 to 2 seconds |
+| X1 or X3 check | 2 | about 3 to 4 seconds |
+| X2 sweep with 7 strengths | 8 (baseline plus 7) | about 12 to 15 seconds |
+
+The server should use generous timeouts, and the UI should show a progress state for a sweep. The numbers will change on other hardware, and they were measured at 60 new tokens only.
 
 ## Open items for the server and contract owners
 

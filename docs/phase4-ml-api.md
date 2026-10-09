@@ -230,7 +230,7 @@ One real run of a sweep: feature 13 (label "upside – upside down"), prompt `Th
 
 | Strength | Compared with the baseline | Degenerate flag |
 | --- | --- | --- |
-| 0.25 | identical for the first 25 new tokens, then drifts slightly | not recorded |
+| 0.25 | identical for 25 new tokens (positions 0 to 24), then drifts slightly | not recorded |
 | 0.5 | diverges at new token 4 | not recorded |
 | 0.75 | diverges at new token 4 | not recorded |
 | 1.0 | diverges at new token 2 | flagged as a repeating loop |

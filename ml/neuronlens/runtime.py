@@ -30,12 +30,36 @@ class Runtime:
     def count_tokens(self, text):
         return len(self.tok.encode(text))
 
-    @torch.no_grad()
-    def inspect(self, text, top_n):
-        ids = self.tok(text, return_tensors="pt").input_ids[:, :1024].to(self.device)
+    def _token_acts(self, ids):
+        """SAE activations (T, d_sae) for ids of shape (1, T): one forward pass, then the SAE.
+        Shared by inspect() and feature_activations() so both read the same numbers."""
         self.model.transformer(ids)
         h = self.col.out[0].float()  # (T, d)
         acts, _ = self.sae.encode((h - self.mu) * self.scale)
+        return acts
+
+    @torch.no_grad()
+    def feature_activations(self, token_ids, feature_id):
+        """One feature's activation at every position of a finished token sequence, read with
+        no steering hook attached (same path as inspect). Position 0 is reported as 0.0, as
+        inspect() reports no features there. Token ids are used as they are: nothing is
+        re-tokenised, so positions line up with the generated tokens."""
+        block = self.model.transformer.h[self.hook_layer]
+        extra = [h for h in getattr(block, "_forward_hooks", {}).values()
+                 if getattr(h, "__self__", None) is not self.col]
+        if extra:
+            raise RuntimeError("a forward hook other than the activation collector is attached "
+                               "to the hooked block; refusing to read activations")
+        ids = torch.tensor([list(token_ids)[:1024]], device=self.device)
+        acts = self._token_acts(ids)[:, feature_id].cpu().tolist()
+        if acts:
+            acts[0] = 0.0
+        return acts
+
+    @torch.no_grad()
+    def inspect(self, text, top_n):
+        ids = self.tok(text, return_tensors="pt").input_ids[:, :1024].to(self.device)
+        acts = self._token_acts(ids)
         vals, idx = acts.topk(min(top_n, self.d_sae), dim=-1)
         vals, idx = vals.cpu().tolist(), idx.cpu().tolist()
         # decode the whole text as one byte stream: tokens can split a character (e.g. a

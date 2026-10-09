@@ -820,5 +820,89 @@
       },
       "note": "Kept as an example of a limit. In real runs this feature, amplified, shifted the text toward word fragments (for example \"ing\", \"ours\") rather than toward honking, the concept in its label, and produced repetition loops from strength 3. One feature, one prompt, one seed."
     }
+  ],
+  "multi": [
+    {
+      "prompt": "The man walked into the room and",
+      "seed": 42,
+      "mode": "amplify",
+      "strength": 0.5,
+      "max_new_tokens": 60,
+      "features": [
+        {
+          "feature_id": 4280,
+          "label": "that – support that claim",
+          "label_status": "named",
+          "label_matches_expected": true,
+          "max_activation": 12.620612144470215
+        },
+        {
+          "feature_id": 9530,
+          "label": "sin – moral wrongdoing",
+          "label_status": "named",
+          "label_matches_expected": true,
+          "max_activation": 7.835038185119629
+        }
+      ],
+      "steers": [
+        {
+          "feature_id": 4280,
+          "strength": 0.5,
+          "max_activation": 12.620612144470215
+        },
+        {
+          "feature_id": 9530,
+          "strength": 0.5,
+          "max_activation": 7.835038185119629
+        }
+      ],
+      "baseline": "The man walked into the room and saw the two girls who had just begun their lessons and the two kids who had been sitting at the back of the room. A man looked at them and said, \"This is a group of children. I have a question. What do you think is going to happen?\"\n\nThe man looked",
+      "steered": "The man walked into the room and saw the man that had been talking, and had accused the man of making a false statement, claiming he was a Christian. A Christian, the man said, could not believe in Christ and had committed a sin. The man was then taken to the custody of the Church of Jesus Christ of Latter-",
+      "differs": true,
+      "first_divergence_index": 2,
+      "degenerate": false,
+      "reason": null,
+      "activations": [
+        {
+          "feature_id": 4280,
+          "target_activation_baseline": 0.0,
+          "target_activation_steered": 4.195141792297363,
+          "activation_verdict": "higher"
+        },
+        {
+          "feature_id": 9530,
+          "target_activation_baseline": 0.0,
+          "target_activation_steered": 5.892648696899414,
+          "activation_verdict": "higher"
+        }
+      ],
+      "single_feature_runs": [
+        {
+          "feature_id": 4280,
+          "strength": 0.5,
+          "steered_text": "The man walked into the room and saw the man walking in the other direction.\n\n\"No, it wasn't that,\" he said. \"We all knew it was the same guy. He'd said he'd seen the same guy.\"\n\nA doctor told him it was just a theory, but he thought the theory was",
+          "differs": true,
+          "first_divergence_index": 2,
+          "degenerate": false,
+          "reason": null,
+          "target_activation_baseline": 0.0,
+          "target_activation_steered": 2.2926807403564453,
+          "activation_verdict": "higher"
+        },
+        {
+          "feature_id": 9530,
+          "strength": 0.5,
+          "steered_text": "The man walked into the room and saw the others being tortured as they were being questioned. He began to speak to them about his involvement with the church and the alleged crimes, but this was not what he was about to talk about.\n\nThe man called his father to confess to killing and rape his son. He had no idea",
+          "differs": true,
+          "first_divergence_index": 2,
+          "degenerate": false,
+          "reason": null,
+          "target_activation_baseline": 0.0,
+          "target_activation_steered": 4.453449726104736,
+          "activation_verdict": "higher"
+        }
+      ],
+      "note": "Found by an automated search over many candidates and pairs, so this example is selected: on \"The woman looked at him and\" only one of the two features moved, and two other searched pairs did not hold on held-out prompts. The result depends on the prompt and sits in a narrow strength window. The activation readings are taken on the finished text and show which concepts were active; steering is a test, not a fix."
+    }
   ]
 }

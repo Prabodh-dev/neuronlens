@@ -178,3 +178,48 @@ def test_max_density_off_by_default_and_validated(client):
                           ("inspect/compare", {"text_a": "a", "text_b": "b", "max_density": bad})):
             r = client.post(f"{API}/{path}", json=req)
             assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_INPUT"
+
+
+# ---------- sort=relative ----------
+
+def test_report_sort_relative(client):
+    body = {"text": "The court ruled. The cat sat on the mat!", "top_n": 8}
+    by_act = client.post(f"{API}/inspect/report", json=body).json()
+    by_rel = client.post(f"{API}/inspect/report", json={**body, "sort": "relative"}).json()
+    assert by_act == client.post(f"{API}/inspect/report",
+                                 json={**body, "sort": "activation"}).json()  # the default
+    for s in by_rel["sentences"]:
+        rels = [f["relative_to_max"] for f in s["features"]]
+        assert rels == sorted(rels, reverse=True)
+    orders = [[f["feature_id"] for f in s["features"]] for r in (by_act, by_rel)
+              for s in r["sentences"]]
+    assert orders[:2] != orders[2:]  # the two sorts give different rankings here
+
+
+def test_compare_sort_relative(client):
+    body = {"text_a": "The cat sat", "text_b": "The court ruled", "top_n": 10,
+            "sort": "relative"}
+    b = client.post(f"{API}/inspect/compare", json=body).json()
+    changes = [abs(f["relative_to_max_b"] - f["relative_to_max_a"]) for f in b["features"]]
+    assert changes == sorted(changes, reverse=True)
+    both = client.post(f"{API}/inspect/compare",
+                       json={**body, "max_density": 0.5}).json()  # combines with max_density
+    assert both["features"]
+
+
+def test_sort_keys_put_missing_relative_last():
+    from app.routes.analysis import compare_key, report_key
+    info = {1: ("a", 10.0), 2: ("b", 0.0), 3: ("c", 2.0)}  # feature 2 has no dictionary max
+    agg = [(1, {"max": 5.0}), (2, {"max": 9.0}), (3, {"max": 1.5})]
+    assert [f for f, _ in sorted(agg, key=report_key("relative", info))] == [3, 1, 2]
+    assert [f for f, _ in sorted(agg, key=report_key("activation", info))] == [2, 1, 3]
+    rows = [(1, {"max": 1.0}, {"max": 9.0}, 8.0), (2, {"max": 0.0}, {"max": 9.0}, 9.0),
+            (3, {"max": 0.0}, {"max": 1.0}, 1.0)]
+    assert [r[0] for r in sorted(rows, key=compare_key("relative", info))] == [1, 3, 2]
+
+
+def test_sort_validated(client):
+    for path, req in (("inspect/report", {"text": "hi", "sort": "density"}),
+                      ("inspect/compare", {"text_a": "a", "text_b": "b", "sort": "x"})):
+        r = client.post(f"{API}/{path}", json=req)
+        assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_INPUT"

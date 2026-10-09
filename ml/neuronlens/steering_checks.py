@@ -96,19 +96,72 @@ def _run_pair(rt, prompt, feature_id, mode, strength, max_activation, max_new_to
 
 # ---------------------------------------------------------------- X1: steering check
 
+# Activation check: how strongly the target feature is active on the finished texts.
+# The texts are fed back through the model WITHOUT any steering hook (rt.feature_activations,
+# the same SAE path as Inspect), so this is not measured inside the steered run. It reads the
+# feature on the finished text; it does not say whether the output is better.
+ACTIVATION_SAME_FRACTION = 0.05   # |activation_change| below this reads as "about the same"
+# Uncalibrated: chosen as a round starting value, not tuned on real outputs.
+VERDICT_HIGHER, VERDICT_LOWER, VERDICT_SAME = "higher", "lower", "about the same"
+
+
+def activation_verdict(change):
+    """'higher' / 'lower' / 'about the same' from activation_change. Exactly
+    +/- ACTIVATION_SAME_FRACTION counts as higher / lower."""
+    if abs(change) < ACTIVATION_SAME_FRACTION:
+        return VERDICT_SAME
+    return VERDICT_HIGHER if change > 0 else VERDICT_LOWER
+
+
+def _activation_stats(rt, gen, feature_id):
+    """(max, mean) of the feature's activation over the new tokens of one generation.
+    Position 0 and the prompt tokens are left out. An empty continuation gives (0.0, 0.0)."""
+    acts = rt.feature_activations(gen.token_ids, feature_id)
+    new = [float(a) for a in acts[max(gen.prompt_len, 1):len(gen.token_ids)]]
+    if not new:
+        return 0.0, 0.0
+    return max(new), sum(new) / len(new)
+
+
+def _activation_fields(base_stats, steered_stats, max_activation):
+    change = ((steered_stats[0] - base_stats[0]) / max_activation) if max_activation > 0 else 0.0
+    return {"target_activation_baseline": base_stats[0], "target_activation_steered": steered_stats[0],
+            "target_activation_baseline_mean": base_stats[1],
+            "target_activation_steered_mean": steered_stats[1],
+            "activation_change": change, "activation_verdict": activation_verdict(change)}
+
+
+def activation_report(rt, base, steered, feature_id, max_activation):
+    """The six activation fields for a baseline / steered pair of Generations. When the two
+    texts are identical the baseline numbers are reused, so the change is exactly 0.0."""
+    b = _activation_stats(rt, base, feature_id)
+    s = b if base.text == steered.text else _activation_stats(rt, steered, feature_id)
+    return _activation_fields(b, s, max_activation)
+
+
 def steering_check(rt, prompt, feature_id, mode, strength, max_activation,
                    max_new_tokens=60, seed=42):
-    """X1. Baseline and steered text for one feature, same seed, and whether they differ.
+    """X1. Baseline and steered text for one feature, same seed, whether they differ, and
+    the target feature's activation on each text.
 
     Returns {feature_id, mode, strength, seed, max_new_tokens, baseline_text, steered_text,
-    differs}. `differs` is True when the two full texts are not identical. For ablate,
-    `strength` is reported as 0.0 because it is ignored.
+    differs, target_activation_baseline, target_activation_steered,
+    target_activation_baseline_mean, target_activation_steered_mean, activation_change,
+    activation_verdict}. `differs` is True when the two full texts are not identical. For
+    ablate, `strength` is reported as 0.0 because it is ignored.
+
+    Activation fields: both texts are generated first, then re-encoded without any steering
+    hook; the feature's activation is read over the new tokens only. activation_change =
+    (steered max - baseline max) / max_activation (0.0 when max_activation is 0), and
+    activation_verdict compares it with ACTIVATION_SAME_FRACTION.
     """
     base, steered, spec = _run_pair(rt, prompt, feature_id, mode, strength, max_activation,
                                     max_new_tokens, seed)
-    return {"feature_id": feature_id, "mode": mode, "strength": spec.strength, "seed": seed,
-            "max_new_tokens": max_new_tokens, "baseline_text": base.text,
-            "steered_text": steered.text, "differs": base.text != steered.text}
+    out = {"feature_id": feature_id, "mode": mode, "strength": spec.strength, "seed": seed,
+           "max_new_tokens": max_new_tokens, "baseline_text": base.text,
+           "steered_text": steered.text, "differs": base.text != steered.text}
+    out.update(activation_report(rt, base, steered, feature_id, max_activation))
+    return out
 
 
 # ------------------------------------------------------- X3: seed-matched compare
@@ -161,11 +214,12 @@ def compare_generations(baseline, steered):
 
 
 def seed_matched_compare(rt, prompt, feature_id, mode, strength, max_activation,
-                         max_new_tokens=60, seed=42):
+                         max_new_tokens=60, seed=42, with_activations=False):
     """X3. Run baseline and steered with the same seed and compare them token by token.
 
     Returns {feature_id, mode, strength, seed, max_new_tokens, baseline_text, steered_text}
-    plus every field of compare_generations.
+    plus every field of compare_generations. With with_activations=True the six X1 activation
+    fields are added from the same pair of runs (used by the demo script; off by default).
     """
     base, steered, spec = _run_pair(rt, prompt, feature_id, mode, strength, max_activation,
                                     max_new_tokens, seed)
@@ -173,6 +227,8 @@ def seed_matched_compare(rt, prompt, feature_id, mode, strength, max_activation,
            "max_new_tokens": max_new_tokens, "baseline_text": base.text,
            "steered_text": steered.text}
     out.update(compare_generations(base, steered))
+    if with_activations:
+        out.update(activation_report(rt, base, steered, feature_id, max_activation))
     return out
 
 
@@ -255,7 +311,7 @@ def _assess(gen):
 
 
 def strength_sweep(rt, prompt, feature_id, max_activation, strengths=DEFAULT_SWEEP_STRENGTHS,
-                   max_new_tokens=60, seed=42):
+                   max_new_tokens=60, seed=42, with_activations=False):
     """X2. Amplify one feature at several strengths with the same seed.
 
     The baseline is generated once. Returns {feature_id, mode: "amplify", seed,
@@ -263,6 +319,10 @@ def strength_sweep(rt, prompt, feature_id, max_activation, strengths=DEFAULT_SWE
     with one result per strength, in the order given:
     {strength, text, differs_from_baseline, first_divergence_index, degenerate, reason, metrics}.
     Strength 0 adds nothing, so it should match the baseline (a control).
+
+    The documented X2 output has no activations. with_activations=True (off by default, used
+    by the demo script) adds the X1 activation fields to every result and the baseline's
+    max and mean at the top level (target_activation_baseline, ..._mean).
     """
     strengths = [float(s) for s in strengths]
     if not strengths or len(strengths) > MAX_SWEEP_POINTS:
@@ -271,18 +331,27 @@ def strength_sweep(rt, prompt, feature_id, max_activation, strengths=DEFAULT_SWE
         validate(rt, prompt, max_new_tokens, seed, feature_id, "amplify", s, max_activation)
     base = rt.generate(prompt, max_new_tokens, seed, None)
     base_assess = _assess(base)
+    gens = [(s, rt.generate(prompt, max_new_tokens, seed, _spec(feature_id, "amplify", s, max_activation)))
+            for s in strengths]   # all generations first; activations are read afterwards
+    base_stats = _activation_stats(rt, base, feature_id) if with_activations else None
     results = []
-    for s in strengths:
-        g = rt.generate(prompt, max_new_tokens, seed, _spec(feature_id, "amplify", s, max_activation))
+    for s, g in gens:
         cmp = compare_generations(base, g)
         a = _assess(g)
-        results.append({"strength": s, "text": g.text, "differs_from_baseline": g.text != base.text,
-                        "first_divergence_index": cmp["first_divergence_index"],
-                        "degenerate": a["degenerate"], "reason": a["reason"], "metrics": a["metrics"]})
-    return {"feature_id": feature_id, "mode": "amplify", "seed": seed,
-            "max_new_tokens": max_new_tokens, "baseline_text": base.text,
-            "baseline_degenerate": base_assess["degenerate"], "baseline_reason": base_assess["reason"],
-            "results": results}
+        r = {"strength": s, "text": g.text, "differs_from_baseline": g.text != base.text,
+             "first_divergence_index": cmp["first_divergence_index"],
+             "degenerate": a["degenerate"], "reason": a["reason"], "metrics": a["metrics"]}
+        if with_activations:
+            st = base_stats if g.text == base.text else _activation_stats(rt, g, feature_id)
+            r.update(_activation_fields(base_stats, st, max_activation))
+        results.append(r)
+    out = {"feature_id": feature_id, "mode": "amplify", "seed": seed,
+           "max_new_tokens": max_new_tokens, "baseline_text": base.text,
+           "baseline_degenerate": base_assess["degenerate"], "baseline_reason": base_assess["reason"],
+           "results": results}
+    if with_activations:
+        out["target_activation_baseline"], out["target_activation_baseline_mean"] = base_stats
+    return out
 
 
 # ---------------------------------------------------- X4: prompt-only baseline

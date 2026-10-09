@@ -273,3 +273,24 @@ def test_x2_sweep_marks_degenerate_strengths():
 def test_x2_sweep_errors(strengths):
     with pytest.raises(SteeringCheckError):
         sc.strength_sweep(FakeRuntime(), "Hi", 7, 10.0, strengths=strengths)
+
+
+# ----------------------------------------------------------------------------- X4
+
+def test_x4_prompt_only_baseline_matches_the_steering_baseline():
+    rt = FakeRuntime(baseline_len=12)
+    r = sc.prompt_only_baseline(rt, "Once upon ", max_new_tokens=12, seed=9)
+    assert set(r) == {"prompt", "seed", "max_new_tokens", "text", "continuation", "new_tokens"}
+    assert r["text"] == "Once upon " + r["continuation"] and r["new_tokens"] == 12
+    assert rt.calls[-1][3] is None  # no steering
+    x1 = sc.steering_check(rt, "Once upon ", 7, "amplify", 2.0, 5.0, max_new_tokens=12, seed=9)
+    assert x1["baseline_text"] == r["text"]
+    assert sc.prompt_only_baseline(rt, "Once upon ", 12, 9) == r  # deterministic
+
+
+@pytest.mark.parametrize("kwargs", [dict(prompt=""), dict(max_new_tokens=0), dict(seed=-5)])
+def test_x4_errors(kwargs):
+    args = dict(prompt="Hi", max_new_tokens=10, seed=1)
+    args.update(kwargs)
+    with pytest.raises(SteeringCheckError):
+        sc.prompt_only_baseline(FakeRuntime(), **args)

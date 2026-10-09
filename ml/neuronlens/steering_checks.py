@@ -281,3 +281,19 @@ def strength_sweep(rt, prompt, feature_id, max_activation, strengths=DEFAULT_SWE
             "max_new_tokens": max_new_tokens, "baseline_text": base.text,
             "baseline_degenerate": base_assess["degenerate"], "baseline_reason": base_assess["reason"],
             "results": results}
+
+
+# ---------------------------------------------------- X4: prompt-only baseline
+
+def prompt_only_baseline(rt, prompt, max_new_tokens=60, seed=42):
+    """X4. What the model writes from the prompt by itself: no steering, same seed.
+
+    Shown separately from the steered runs. Returns {prompt, seed, max_new_tokens, text,
+    continuation, new_tokens}; `text` is the prompt plus the new text, `continuation` is
+    the new text only. With the same prompt, seed and max_new_tokens it equals the
+    baseline_text of the steering functions.
+    """
+    validate(rt, prompt, max_new_tokens, seed)
+    g = rt.generate(prompt, max_new_tokens, seed, None)
+    return {"prompt": prompt, "seed": seed, "max_new_tokens": max_new_tokens,
+            "text": g.text, "continuation": g.continuation, "new_tokens": len(g.new_ids)}

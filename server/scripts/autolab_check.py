@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""Auto-Lab check: runs the same chain as the Auto-Lab UI against a running server and prints
+which features x strengths worked, so we can decide which goal buttons ship.
+
+    python server/scripts/autolab_check.py --prompt "The band walked on stage and" --goal "music"
+    python server/scripts/autolab_check.py --goals-file goals.txt --repeat 5 --url http://127.0.0.1:8000
+
+Chain (seed 42): POST /features/search with the goal words (top 5, max_density 0.01), then
+POST /steer/sweep with with_activations for each of the 5 candidates. Each cell is scored
+with the rule below. A goal where nothing worked gets no button.
+
+Steering is a test, not a fix: a cell that "worked" means the feature fired more on the
+finished text at that strength without the text looping. It does not mean the text is
+better. The thresholds are tuned on a few prompts and are provisional until the laptop test.
+
+--goals-file: one goal per line, "goal words" or "goal words | prompt" (the prompt defaults
+to --prompt). Blank lines and lines starting with # are skipped.
+Only the standard library is used, so it runs anywhere Python 3.9+ does.
+"""
+import argparse
+import json
+import sys
+import time
+import urllib.error
+import urllib.request
+
+# ---------- Auto-Lab rule (the UI uses the same constants) ----------
+SEED = 42
+MAX_NEW_TOKENS = 60
+CANDIDATES = 5                       # features taken from search
+MAX_DENSITY = 0.01                   # search hides features firing on more than 1% of tokens
+STRENGTHS = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]   # the /steer/sweep default; 0 is the control
+RISE_MIN = 3.0                       # worked: steered - unsteered >= 3.0 ...
+RATIO_MIN = 2.0                      # ... and steered >= 2x unsteered, and the text does not loop
+WORKED, NO_EFFECT, BREAKS = "worked", "no effect", "breaks down"
+MARK = {WORKED: "✓", NO_EFFECT: "✗", BREAKS: "⚠️"}
+# --------------------------------------------------------------------
+
+SEARCH_TIMEOUT = 30                  # the UI's limits (web/src/lib/api/client.ts)
+SWEEP_TIMEOUT = 120
+TARGET_S, WARN_S = 35.0, 40.0        # one chain: target, and "tell us right away"
+
+
+def score_cell(unsteered, steered, degenerate):
+    """worked / no effect / breaks down for one feature at one strength."""
+    if degenerate:
+        return BREAKS
+    rise = steered - unsteered
+    if rise >= RISE_MIN and steered >= RATIO_MIN * unsteered:
+        return WORKED
+    return NO_EFFECT
+
+
+def recommend(rows):
+    """The feature and strength to suggest, or None. Prefers the lowest strength that worked,
+    then the larger rise. rows: [{feature_id, label, cells: [{strength, verdict, rise}]}]."""
+    best = None
+    for r in rows:
+        for c in r["cells"]:
+            if c["verdict"] != WORKED:
+                continue
+            key = (c["strength"], -c["rise"])
+            if best is None or key < best[0]:
+                best = (key, {"feature_id": r["feature_id"], "label": r["label"],
+                              "strength": c["strength"], "rise": c["rise"]})
+    return best[1] if best else None
+
+
+def parse_goals(text, default_prompt):
+    goals = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        goal, sep, prompt = (p.strip() for p in line.partition("|"))
+        prompt = prompt if sep else default_prompt
+        if not goal or not prompt:
+            raise SystemExit(f"bad goals line (need goal words and a prompt): {line!r}")
+        goals.append((goal, prompt))
+    return goals
+
+
+# ---------- HTTP ----------
+
+class CallFailed(Exception):
+    pass
+
+
+def call(base, path, body=None, timeout=10):
+    """(json, seconds). Raises CallFailed with the status and the server's error code."""
+    data = None if body is None else json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(base.rstrip("/") + path, data=data,
+                                 headers={"Content-Type": "application/json"},
+                                 method="GET" if body is None else "POST")
+    t = time.perf_counter()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8")), time.perf_counter() - t
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read().decode("utf-8")).get("error", {})
+        except ValueError:
+            err = {}
+        raise CallFailed(f"{path}: HTTP {e.code} {err.get('code', '')} {err.get('message', '')}"
+                         .strip()) from e
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        kind = "timed out" if "timed out" in str(e) else str(e)
+        raise CallFailed(f"{path}: {kind} after {time.perf_counter() - t:.1f}s") from e
+
+
+# ---------- the chain ----------
+
+def run_chain(base, goal, prompt):
+    """One Auto-Lab chain. Returns a dict with rows, recommendation, timings and failures."""
+    t0 = time.perf_counter()
+    out = {"goal": goal, "prompt": prompt, "rows": [], "failures": [], "calls": []}
+    try:
+        search, s = call(base, "/api/v1/features/search",
+                         {"query": goal, "top_n": CANDIDATES, "max_density": MAX_DENSITY},
+                         SEARCH_TIMEOUT)
+        out["calls"].append(("search", s))
+    except CallFailed as e:
+        out["failures"].append(str(e))
+        out["total_s"] = time.perf_counter() - t0
+        out["recommendation"] = None
+        return out
+    out["simulated"] = search.get("simulated")
+    for f in search["features"][:CANDIDATES]:
+        body = {"prompt": prompt, "feature_id": f["feature_id"], "strengths": STRENGTHS,
+                "seed": SEED, "max_new_tokens": MAX_NEW_TOKENS, "with_activations": True}
+        try:
+            sweep, s = call(base, "/api/v1/steer/sweep", body, SWEEP_TIMEOUT)
+            out["calls"].append((f"sweep #{f['feature_id']}", s))
+        except CallFailed as e:
+            out["failures"].append(str(e))
+            continue
+        cells = []
+        for r in sweep["results"]:
+            if r.get("target_activation_steered") is None:
+                out["failures"].append("/steer/sweep returned no activations: the server is "
+                                       "older than with_activations")
+                break
+            u, st = r["target_activation_baseline"], r["target_activation_steered"]
+            cells.append({"strength": r["strength"], "unsteered": u, "steered": st,
+                          "rise": st - u, "degenerate": r["degenerate"], "reason": r["reason"],
+                          "verdict": score_cell(u, st, r["degenerate"])})
+        out["rows"].append({"feature_id": f["feature_id"], "label": f.get("label"),
+                            "search_activation": f.get("max_activation"), "cells": cells})
+    out["recommendation"] = recommend(out["rows"])
+    out["total_s"] = time.perf_counter() - t0
+    return out
+
+
+def show(res, verbose=False):
+    print(f"\nGoal: {res['goal']!r}   Prompt: {res['prompt']!r}   seed {SEED}"
+          + ("   [mock: simulated data]" if res.get("simulated") else ""))
+    if res["rows"]:
+        head = f"  {'feature':<36}" + "".join(f"{s:>7g}" for s in STRENGTHS)
+        print(head)
+        for r in res["rows"]:
+            name = f"#{r['feature_id']} {r['label'] or 'unlabelled'}"[:35]
+            marks = {c["strength"]: MARK[c["verdict"]] for c in r["cells"]}
+            # ⚠️ is two code points wide in most terminals; pad so the columns line up
+            print(f"  {name:<36}" + "".join(
+                f"{marks.get(s, '-'):>{6 if marks.get(s) == MARK[BREAKS] else 7}}"
+                for s in STRENGTHS))
+            if verbose:
+                for c in r["cells"]:
+                    print(f"      {c['strength']:>4g}: unsteered {c['unsteered']:.2f}  steered "
+                          f"{c['steered']:.2f}  rise {c['rise']:+.2f}  {c['verdict']}"
+                          + (f" ({c['reason']})" if c["reason"] else ""))
+        print(f"  ✓ worked (rise ≥ {RISE_MIN:g} and ≥ {RATIO_MIN:g}× unsteered, no loop)   "
+              f"✗ no effect   ⚠️ breaks down (loop)   strength 0 is the unsteered control")
+    rec = res["recommendation"]
+    if rec:
+        print(f"  Recommendation: #{rec['feature_id']} {rec['label']} at {rec['strength']:g} "
+              f"(rise {rec['rise']:+.2f}). Tuned on this prompt and seed; a test, not a fix.")
+    else:
+        print("  Recommendation: none. Nothing worked, so this goal gets no button.")
+    for f in res["failures"]:
+        print(f"  FAILED: {f}")
+    calls = ", ".join(f"{n} {s:.1f}s" for n, s in res["calls"])
+    print(f"  Total {res['total_s']:.1f}s" + (f"  ({calls})" if verbose and calls else ""))
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    # 127.0.0.1, not localhost: on Windows, Python's "localhost" tries IPv6 first and adds
+    # about 2 s to every call, which would swamp the timing this script measures
+    p.add_argument("--url", default="http://127.0.0.1:8000", help="server base URL")
+    p.add_argument("--prompt", default="The band walked on stage and")
+    p.add_argument("--goal", help="goal words, e.g. 'music'")
+    p.add_argument("--goals-file", help="one goal per line: 'goal words' or 'goal words | prompt'")
+    p.add_argument("--repeat", type=int, default=1, help="run every chain N times back to back")
+    p.add_argument("--json", help="also write all results to this file")
+    p.add_argument("-v", "--verbose", action="store_true", help="numbers per cell and per call")
+    a = p.parse_args(argv)
+    if bool(a.goal) == bool(a.goals_file):
+        p.error("give --goal or --goals-file")
+    goals = ([(a.goal, a.prompt)] if a.goal else
+             parse_goals(open(a.goals_file, encoding="utf-8").read(), a.prompt))
+    try:
+        health, _ = call(a.url, "/api/v1/health")
+    except CallFailed as e:
+        raise SystemExit(f"cannot reach the server at {a.url}: {e}")
+    print(f"Server {a.url}: {health['mode']} mode, run {health['run_id']}, "
+          f"{health['model_name']} layer {health['hook_layer']}")
+
+    results, t_all = [], time.perf_counter()
+    for i in range(a.repeat):
+        for goal, prompt in goals:
+            res = run_chain(a.url, goal, prompt)
+            res["repeat"] = i + 1
+            results.append(res)
+            if i == 0 or res["failures"] or a.verbose:
+                show(res, a.verbose)
+            else:
+                print(f"  repeat {i + 1}: {goal!r} {res['total_s']:.1f}s")
+            if res["total_s"] > WARN_S:
+                print(f"  WARNING: this chain took {res['total_s']:.1f}s, over {WARN_S:g}s. "
+                      "Tell Prabodh right away.")
+    total = time.perf_counter() - t_all
+
+    times = [r["total_s"] for r in results]
+    failed = [f for r in results for f in r["failures"]]
+    print(f"\n{len(results)} chain(s) in {total:.1f}s. Per chain: max {max(times):.1f}s, "
+          f"mean {sum(times) / len(times):.1f}s (target under {TARGET_S:g}s). "
+          f"{len(failed)} failed or timed-out call(s).")
+    if len(goals) > 1 or a.repeat > 1:
+        print("\nButtons (first run of each goal):")
+        for r in results[:len(goals)]:
+            rec = r["recommendation"]
+            print(f"  {'SHIP   ' if rec else 'NO BUTTON'}  {r['goal']!r} on {r['prompt']!r}"
+                  + (f" -> #{rec['feature_id']} at {rec['strength']:g}" if rec else ""))
+    if a.json:
+        with open(a.json, "w", encoding="utf-8") as fh:
+            json.dump({"url": a.url, "health": health, "rule": {
+                "seed": SEED, "candidates": CANDIDATES, "max_density": MAX_DENSITY,
+                "strengths": STRENGTHS, "rise_min": RISE_MIN, "ratio_min": RATIO_MIN},
+                "total_s": total, "results": results}, fh, indent=1, ensure_ascii=False)
+        print(f"wrote {a.json}")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.exit(main())

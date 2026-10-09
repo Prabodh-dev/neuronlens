@@ -40,7 +40,9 @@ Phase Goal Main people Exit gate
 4. Standout
    and Wow
    X1 to X7, then W4, W5,
-   W7, W8
+   W8 (W7 dropped: the nearest points
+   to #13, #7 and #1863 did not match
+   those features)
    Mirdul, Anand;
    Prabodh for data
    each feature has a real
@@ -101,12 +103,12 @@ Phase Goal Main people Exit gate
    Phase 4: Standout and Wow
    Order: X1 steering check, X3 seed-matched compare, X2 strength sweep with
    degeneration warning, X4 prompt-only baseline, X5 Limits box, then X6 sentence report
-   and X7 compare, then W4, W5, W7, W8.
+   and X7 compare, then W4, W5, W8. W7 is dropped: the nearest points to #13, #7 and #1863 in the 2D map did not match those features.
    Mirdul: the endpoints from Handbook section 5.4, with tests and a documented
    degeneration rule.
    Anand: UI for each feature as soon as its endpoint exists; Limits box shows the honest
    limits from Handbook section 8.
-   Prabodh: co-fire counts (W4) and 2D projection (W7) as data files; stretch training (S4,
+   Prabodh: co-fire counts (W4) as a data file; stretch training (S4,
    S2) if the GPU is free.
    Exit gate: each shipped feature has a real demo example in the DB or in
    demo/ , and an

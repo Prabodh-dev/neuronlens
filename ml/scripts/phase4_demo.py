@@ -5,9 +5,10 @@
     export NEURONLENS_CKPT=../data/gpt2-l8-k32.pt
     PYTHONPATH=. python scripts/phase4_demo.py [--out ../demo/phase4_examples.json]
 
-Runs the X1 to X4 functions (neuronlens.steering_checks) for three examples: feature 7
-(label "upside") amplified at 0.5 on two prompts, feature 7 (label "hon") amplified at 1.0 as
-a limit example, and one ablate example on feature 7.
+Runs the X1 to X4 functions (neuronlens.steering_checks) for seven examples: feature 3446
+("music") twice, feature 1863 ("supreme") amplified and ablated,
+feature 13 ("upside"), feature 3587 ("alzheimer") and feature 7 ("hon"). Four of them carry a note
+that says what limit they show.
 Each amplify example also gets a strength sweep with the degeneration flags. The database is
 opened read-only; the only file written is the JSON output. Steering is a test of what a
 feature does, not a fix: the outputs shift the text and are not an improvement.
@@ -40,21 +41,38 @@ from neuronlens import steering_checks as sc
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Strengths follow what real runs showed: amplify at 3x produced repetition loops for these
-# features, so the amplify examples use 0.5 to 1.0 (the API cap on strength is 3).
+# features, so the amplify examples use 0.5 to 1.0 (the API cap on strength is 3). The notes mark
+# the examples that show a limit of the method.
+NOTE_1863_LETTER = (
+    "Results depend on the prompt and the strength. At 1.0 on the same prompt, and on a second "
+    "neutral prompt (\"The man walked into the room and\"), the feature did not appear in the text.")
+NOTE_1863_ABLATE = (
+    "Limit example. The activation read \"about the same\" (18.57 to 18.57) because the check "
+    "re-encodes the finished text and the feature fires on the word \"Supreme\", which is still "
+    "there. One feature rarely carries a whole concept.")
+NOTE_3587 = (
+    "Limit example. At higher strengths the text loops and breaks into repeated \"'s\"; at 0.5 "
+    "there was little effect.")
 LIMIT_NOTE_7 = (
     "Kept as an example of a limit. In real runs this feature, amplified, shifted the text toward "
     "word fragments (for example \"ing\", \"ours\") rather than toward honking, the concept in "
     "its label, and produced repetition loops from strength 3. One feature, one prompt, one seed.")
 
 EXAMPLES = [
+    {"feature_id": 3446, "expect_label": "music", "mode": "amplify", "strength": 0.5,
+     "prompt": "The band walked on stage and"},
+    {"feature_id": 3446, "expect_label": "music", "mode": "amplify", "strength": 0.5,
+     "prompt": "She sat down at the piano and"},
+    {"feature_id": 1863, "expect_label": "supreme", "mode": "amplify", "strength": 0.5,
+     "prompt": "She opened the letter and read", "note": NOTE_1863_LETTER},
     {"feature_id": 13, "expect_label": "upside", "mode": "amplify", "strength": 0.5,
      "prompt": "The acrobat hung"},
-    {"feature_id": 13, "expect_label": "upside", "mode": "amplify", "strength": 0.5,
-     "prompt": "He turned the picture"},
+    {"feature_id": 1863, "expect_label": "supreme", "mode": "ablate", "strength": 1.0,
+     "prompt": "The lawyers argued before the", "note": NOTE_1863_ABLATE},
+    {"feature_id": 3587, "expect_label": "alzheimer", "mode": "amplify", "strength": 1.0,
+     "prompt": "My grandmother was diagnosed with", "note": NOTE_3587},
     {"feature_id": 7, "expect_label": "hon", "mode": "amplify", "strength": 1.0,
      "prompt": "She looked out of the window and saw", "note": LIMIT_NOTE_7},
-    {"feature_id": 7, "expect_label": "hon", "mode": "ablate", "strength": 1.0,
-     "prompt": "Drivers began to honk their horns while the traffic"},
 ]
 SEED = 42
 MAX_NEW_TOKENS = 60

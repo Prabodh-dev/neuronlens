@@ -141,12 +141,23 @@ def _untag(text):
 
 def assert_mock_replays(client, goals):
     """Every recorded search and sweep comes back from the mock exactly, except that it is
-    marked simulated and its texts carry the [simulated] tag."""
+    marked simulated and its texts carry the [simulated] tag. A request recorded more than
+    once (the same goal words on several prompts, the same feature for two goals) is served
+    from its first recording, so later copies are compared with that one."""
+    seen = set()
     for g in goals:
+        key = json.dumps(g["search_request"], sort_keys=True)
         got = client.post(f"{API}/features/search", json=g["search_request"]).json()
         assert got["simulated"] is True
-        assert {**got, "simulated": g["search"]["simulated"]} == g["search"], g["goal"]
+        if key not in seen:
+            seen.add(key)
+            assert {**got, "simulated": g["search"]["simulated"]} == g["search"], g["goal"]
         for sw in g["sweeps"]:
+            key = json.dumps({k: sw["request"][k] for k in sw["request"]
+                              if k != "with_activations"}, sort_keys=True)
+            if key in seen:
+                continue
+            seen.add(key)
             got = client.post(f"{API}/steer/sweep", json=sw["request"]).json()
             assert got["baseline_text"].startswith(sw["request"]["prompt"] + "[simulated]")
             got["baseline_text"] = _untag(got["baseline_text"])
@@ -158,6 +169,22 @@ def assert_mock_replays(client, goals):
 
 def test_mock_replays_recorded_file(recorded):
     assert_mock_replays(recorded, [GOAL])
+
+
+def test_repeated_requests_use_the_first_recording(tmp_path, monkeypatch):
+    """18 lines = 6 goals x 3 prompts: the same search is recorded 3 times. A later copy
+    that differs in the last digits must not break the replay or the drift test."""
+    copy = json.loads(json.dumps(GOAL))
+    copy["prompt"] = "She opened the door and"
+    copy["search"]["features"][0]["max_activation"] += 1e-6
+    copy["sweeps"] = []
+    path = tmp_path / "autolab_examples.json"
+    path.write_text(json.dumps({"goals": [GOAL, copy]}), encoding="utf-8")
+    monkeypatch.setattr(mock, "AUTOLAB_PATH", path)
+    with TestClient(create_app(Settings())) as c:
+        assert_mock_replays(c, [GOAL, copy])
+        got = c.post(f"{API}/features/search", json=GOAL["search_request"]).json()
+        assert got["features"][0]["max_activation"] == 9.1
 
 
 def test_demo_file_matches_mock(client):

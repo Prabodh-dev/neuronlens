@@ -162,12 +162,23 @@ def call(base, path, body=None, timeout=10):
 
 # ---------- the chain ----------
 
-def run_chain(base, goal, prompt):
+def search_request(goal, sort="activation", leading_space=False):
+    """The UI's search request; sort and leading_space are experiments (--sort relative,
+    --leading-space) and are only sent when they differ from the UI."""
+    req = {"query": (" " + goal.lstrip()) if leading_space else goal, "top_n": CANDIDATES,
+           "max_density": MAX_DENSITY}
+    if sort != "activation":
+        req["sort"] = sort
+    return req
+
+
+def run_chain(base, goal, prompt, sort="activation", leading_space=False, search_only=False):
     """One Auto-Lab chain. Returns a dict with rows, recommendation, timings and failures,
-    and under "raw" every request and response (what --record saves)."""
+    and under "raw" every request and response (what --record saves). The defaults are the
+    UI chain; sort, leading_space and search_only are for experiments."""
     t0 = time.perf_counter()
     out = {"goal": goal, "prompt": prompt, "rows": [], "failures": [], "calls": []}
-    search_req = {"query": goal, "top_n": CANDIDATES, "max_density": MAX_DENSITY}
+    search_req = search_request(goal, sort, leading_space)
     try:
         search, s = call(base, "/api/v1/features/search", search_req, SEARCH_TIMEOUT)
         out["calls"].append(("search", s))
@@ -179,6 +190,11 @@ def run_chain(base, goal, prompt):
         out["recommendation"] = None
         return out
     out["simulated"] = search.get("simulated")
+    out["search"] = search
+    if search_only:
+        out["recommendation"] = None
+        out["total_s"] = time.perf_counter() - t0
+        return out
     for f in search["features"][:CANDIDATES]:
         body = {"prompt": prompt, "feature_id": f["feature_id"], "strengths": STRENGTHS,
                 "seed": SEED, "max_new_tokens": MAX_NEW_TOKENS, "with_activations": True}
@@ -220,7 +236,8 @@ def replay(path):
     results = []
     for g in data["goals"]:
         out = {"goal": g["goal"], "prompt": g["prompt"], "rows": [], "failures": [],
-               "calls": [], "total_s": 0.0, "simulated": g["search"].get("simulated")}
+               "calls": [], "total_s": 0.0, "simulated": g["search"].get("simulated"),
+               "search": g["search"]}
         sweeps = {sw["request"]["feature_id"]: sw["response"] for sw in g["sweeps"]}
         for f in g["search"]["features"][:CANDIDATES]:
             if f["feature_id"] in sweeps:
@@ -230,6 +247,23 @@ def replay(path):
         out["recommendation"] = recommend(out["rows"])
         results.append(out)
     return data, results
+
+
+def fillers(results, min_goals=2):
+    """{feature_id: info} for features in the top CANDIDATES of the search for at least
+    min_goals different goal words, with the query token each hit peaked on (token 0 is
+    the first query word, right after the newline prefix) and its relative_to_max."""
+    seen = {}
+    for r in results:
+        s = r.get("search") or {}
+        toks = s.get("tokens", [])
+        for f in s.get("features", [])[:CANDIDATES]:
+            e = seen.setdefault(f["feature_id"], {"label": f.get("label"), "goals": {},
+                                                  "density": f.get("density")})
+            pk = f.get("peak_token")
+            e["goals"].setdefault(r["goal"], (pk, toks[pk] if pk is not None and pk < len(toks)
+                                              else None, f.get("relative_to_max")))
+    return {fid: e for fid, e in seen.items() if len(e["goals"]) >= min_goals}
 
 
 def show(res, verbose=False):
@@ -252,6 +286,16 @@ def show(res, verbose=False):
                           + (f" ({c['reason']})" if c["reason"] else ""))
         print(f"  ✓ worked (rise ≥ {RISE_MIN:g} and ≥ {RATIO_MIN:g}× unsteered, no loop)   "
               f"✗ no effect   ⚠️ breaks down (loop)   strength 0 is the unsteered control")
+    if res["recommendation"] is None and res.get("search"):  # --search-only
+        s = res["search"]
+        toks = s.get("tokens", [])
+        print(f"  query tokens: {toks}")
+        for f in s["features"][:CANDIDATES]:
+            pk = f.get("peak_token")
+            tok = toks[pk] if pk is not None and pk < len(toks) else None
+            print(f"  #{f['feature_id']:<6} {str(f.get('label'))[:34]:<34} "
+                  f"act {f['max_activation']:6.2f}  relative {f.get('relative_to_max')}  "
+                  f"density {f.get('density', 0):.4f}  peak token {pk} {tok!r}")
     rec = res["recommendation"]
     if rec and rec["status"] == RECOMMENDED:
         print(f"  Recommendation: #{rec['feature_id']} {rec['label']} at {rec['strength']:g} "
@@ -281,6 +325,20 @@ def print_ships(results):
             print(f"      {prompt!r}: {what}")
 
 
+def print_fillers(results):
+    found = fillers(results)
+    print(f"\nFeatures in the top {CANDIDATES} for 2 or more goals (peak token 0 = the first "
+          "query word, right after the newline prefix):")
+    if not found:
+        print("  none")
+    for fid, e in sorted(found.items(), key=lambda kv: (-len(kv[1]["goals"]), kv[0])):
+        first = sum(1 for pk, _, _ in e["goals"].values() if pk == 0)
+        print(f"  #{fid} {e['label']!r}  density {e['density'] or 0:.4f}: in {len(e['goals'])} "
+              f"goals, peaked on token 0 in {first} of them")
+        for goal, (pk, tok, rel) in e["goals"].items():
+            print(f"      {goal!r}: peak token {pk} {tok!r}, relative_to_max {rel}")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     # 127.0.0.1, not localhost: on Windows, Python's "localhost" tries IPv6 first and adds
@@ -296,7 +354,22 @@ def main(argv=None):
                                     "(demo/autolab_examples.json)")
     p.add_argument("-v", "--verbose", action="store_true", help="numbers per cell and per call")
     p.add_argument("--replay", help="re-score a --record file with the current rule; no server")
+    p.add_argument("--fillers", action="store_true",
+                   help="also list features in the top 5 for 2+ goals and the query token "
+                        "they peaked on (works with --replay)")
+    p.add_argument("--search-only", action="store_true",
+                   help="experiment: only the search step, with peak tokens (no sweeps, fast)")
+    p.add_argument("--sort", choices=["activation", "relative"], default="activation",
+                   help="experiment: the search sort (the UI uses activation)")
+    p.add_argument("--leading-space", action="store_true",
+                   help="experiment: send ' goal words', so the first word gets the token it "
+                        "has mid-sentence")
     a = p.parse_args(argv)
+    experiment = a.search_only or a.sort != "activation" or a.leading_space
+    if a.replay and experiment:
+        p.error("--replay re-scores the recorded UI chain; the experiment options need a server")
+    if a.record and experiment:
+        p.error("--record saves the UI chain only; drop the experiment options")
     if a.replay:
         data, results = replay(a.replay)
         print(f"Replay of {a.replay}: run {data.get('run_id')}, recorded with rule "
@@ -305,6 +378,8 @@ def main(argv=None):
         for res in results:
             show(res, a.verbose)
         print_ships(results)
+        if a.fillers:
+            print_fillers(results)
         return 0
     if bool(a.goal) == bool(a.goals_file):
         p.error("give --goal or --goals-file (or --replay FILE)")
@@ -322,7 +397,7 @@ def main(argv=None):
     results, t_all = [], time.perf_counter()
     for i in range(a.repeat):
         for goal, prompt in goals:
-            res = run_chain(a.url, goal, prompt)
+            res = run_chain(a.url, goal, prompt, a.sort, a.leading_space, a.search_only)
             res["repeat"] = i + 1
             results.append(res)
             if i == 0 or res["failures"] or a.verbose:
@@ -339,8 +414,10 @@ def main(argv=None):
     print(f"\n{len(results)} chain(s) in {total:.1f}s. Per chain: max {max(times):.1f}s, "
           f"mean {sum(times) / len(times):.1f}s (target under {TARGET_S:g}s). "
           f"{len(failed)} failed or timed-out call(s).")
-    if len(goals) > 1 or a.repeat > 1:
+    if not a.search_only and (len(goals) > 1 or a.repeat > 1):
         print_ships(results[:len(goals)])
+    if a.fillers:
+        print_fillers(results[:len(goals)])
     if a.record:
         firsts = [r for r in results[:len(goals)] if r.get("raw") and not r["failures"]]
         with open(a.record, "w", encoding="utf-8", newline="\n") as fh:

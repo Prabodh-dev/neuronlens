@@ -3,8 +3,8 @@
 Steering is a test of what a feature does, not a fix. Every function here runs seeded
 generation: the baseline and the steered run use the same seed, so a difference between
 them comes from the intervention. The steering maths is unchanged (steering.make_hook):
-amplify adds strength x max_activation x decoder direction at every position except the
-first; ablate subtracts the feature's own activation.
+amplify adds strength x max_activation x decoder direction at every position except
+position 0; ablate subtracts the feature's own activation.
 
 The functions take a runtime object with `generate(...)` (neuronlens.runtime.Runtime) and
 an `d_sae` attribute, so they can be tested without a GPU.

@@ -64,6 +64,14 @@ def load_examples(path=EXAMPLES_PATH) -> dict:
     return out
 
 
+def load_multi_examples(path=EXAMPLES_PATH) -> list:
+    """The W5 entries ("multi") of demo/phase4_examples.json, the only source for the mock."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get("multi") or []
+    except (OSError, ValueError):
+        return []
+
+
 class MockRuntime:
     is_simulated = True
 
@@ -74,6 +82,7 @@ class MockRuntime:
             "ORDER BY feature_id")]
         self.d_sae = db.one("SELECT COUNT(*) AS n FROM features")["n"]
         self._examples = load_examples() if examples is None else examples
+        self._multi = load_multi_examples() if examples is None else []
         self._generated = OrderedDict()  # token ids -> how they were made, for X1 activations
 
     def count_tokens(self, text: str) -> int:
@@ -103,15 +112,52 @@ class MockRuntime:
         """A steering_checks.Generation. The [simulated] tag is glued to the last prompt
         piece, so it shows in every text but is not counted as a generated token."""
         from .checks import steering_checks  # noqa: PLC0415
-        spec = None if steering is None else (steering.feature_id, steering.mode,
-                                              steering.strength)
+        if steering is None:
+            spec, max_activation = None, None
+        elif hasattr(steering, "steers"):  # MultiSteeringSpec (W5): several amplify steers
+            spec = ("multi", tuple((f, float(s)) for f, s, _ in steering.steers))
+            max_activation = {f: m for f, _, m in steering.steers}
+        else:
+            spec = (steering.feature_id, steering.mode, steering.strength)
+            max_activation = steering.max_activation
         prompt_pieces = tokenize(prompt) or [prompt]
         new_pieces = tokenize(self._continuation_text(prompt, max_new_tokens, seed, spec))
         pieces = prompt_pieces[:-1] + [prompt_pieces[-1] + SIMULATED_TAG] + new_pieces
         ids = [_seed("tok", p) % VOCAB for p in prompt_pieces + new_pieces]
-        self._remember(ids, (prompt, seed, max_new_tokens), spec,
-                       None if steering is None else steering.max_activation)
+        self._remember(ids, (prompt, seed, max_new_tokens), spec, max_activation)
         return steering_checks().Generation("".join(pieces), ids, len(prompt_pieces), pieces)
+
+    def recorded_multi(self, prompt, seed, max_new_tokens, steers, with_single_controls):
+        """W5: the recorded multi example from demo/phase4_examples.json when the request
+        matches it exactly (prompt, seed, length, feature ids and strengths), else None.
+        steers: [(feature_id, strength)]. Texts get the [simulated] tag after the prompt."""
+        wanted = sorted((f, float(s)) for f, s in steers)
+        for ex in self._multi:
+            got = sorted((s["feature_id"], float(s["strength"])) for s in ex["steers"])
+            if (ex["prompt"], ex["seed"], ex["max_new_tokens"], got) != \
+                    (prompt, seed, max_new_tokens, wanted):
+                continue
+            labels = {f["feature_id"]: f["label"] for f in ex["features"]}
+
+            def tagged(text):
+                return prompt + SIMULATED_TAG + text[len(prompt):]
+
+            singles = None
+            if with_single_controls:
+                singles = [{**r, "label": labels.get(r["feature_id"]),
+                            "steered_text": tagged(r["steered_text"])}
+                           for r in ex["single_feature_runs"]]
+            return {"prompt": prompt, "seed": seed, "max_new_tokens": max_new_tokens,
+                    "steers": [{"feature_id": s["feature_id"], "strength": s["strength"],
+                                "label": labels.get(s["feature_id"])} for s in ex["steers"]],
+                    "baseline_text": tagged(ex["baseline"]),
+                    "steered_text": tagged(ex["steered"]), "differs": ex["differs"],
+                    "first_divergence_index": ex["first_divergence_index"],
+                    "degenerate": ex["degenerate"], "reason": ex["reason"],
+                    "activations": [{**a, "label": labels.get(a["feature_id"])}
+                                    for a in ex["activations"]],
+                    "single_feature_runs": singles}
+        return None
 
     def feature_activations(self, token_ids, feature_id):
         """Per-position activation of one feature on a text this runtime generated: the
@@ -126,7 +172,11 @@ class MockRuntime:
         stats = recorded.get(("acts", feature_id, "baseline" if spec is None else spec))
         if stats is None:
             stats = (0.0, 0.0)  # stand-in: the feature is quiet on unsteered filler
-            if spec is not None and spec[0] == feature_id and spec[1] == "amplify" and spec[2] > 0:
+            if spec is not None and spec[0] == "multi":
+                strength = dict(spec[1]).get(feature_id, 0.0)
+                peak = round(0.2 * strength * (max_activation or {}).get(feature_id, 0.0), 4)
+                stats = (peak, peak / 4)
+            elif spec is not None and spec[0] == feature_id and spec[1] == "amplify" and spec[2] > 0:
                 peak = round(0.2 * spec[2] * (max_activation or 0.0), 4)
                 stats = (peak, peak / 4)
         peak, mean = stats
@@ -157,7 +207,15 @@ class MockRuntime:
         return f"{prompt}{SIMULATED_TAG}{self._continuation_text(prompt, max_new_tokens, seed, spec)}"
 
     def _continuation_text(self, prompt, max_new_tokens, seed, spec) -> str:
-        """New text only. spec is None (baseline) or (feature_id, mode, strength)."""
+        """New text only. spec is None (baseline), (feature_id, mode, strength), or
+        ("multi", ((feature_id, strength), ...)) for W5."""
+        if spec is not None and spec[0] == "multi":  # stand-in: markers for every feature
+            base_words = self._filler(seed, max_new_tokens)
+            rng = random.Random(_seed("multi", spec[1], seed))
+            share = min(1.0, sum(s for _, s in spec[1]) / 3)
+            ids = [f for f, s in spec[1] if s > 0] or [spec[1][0][0]]
+            return "".join(f" [feature {rng.choice(ids)}]" if rng.random() < share else w
+                           for w in base_words)
         if spec is not None:
             spec = (spec[0], spec[1], float(spec[2]) if spec[1] == "amplify" else 0.0)
         recorded = self._examples.get((prompt, seed, max_new_tokens))

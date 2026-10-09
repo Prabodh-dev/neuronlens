@@ -4,19 +4,26 @@ import Link from "next/link";
 import { FeatureTitle } from "@/components/FeatureBits";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
+import { dropFillers, FILLERS } from "@/lib/autolab-fillers";
 import { showToken } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import s from "./explorer.module.css";
 
 /* W8: the features that fired most on the words typed in the search box (POST /features/search).
    max_density 0.01 is always sent, with no toggle: without it a few very common features fill every
-   result (server/README.md). It shows which features fired on the words, not what they mean. */
+   result (server/README.md). The features that fire on the first word of almost any query (the
+   Auto-Lab fillers) are dropped, as in Auto-Lab. It shows which features fired on the words, not what
+   they mean. */
 const COMMON = 0.01;
+const TOP = 10;
 
 export function WordsResults({ q }: { q: string }) {
   const query = q.trim();
   const { data, error, loading, reload } = useApi(
-    (sig) => api.featureSearch({ query, top_n: 10, max_density: COMMON, sort: "activation" }, sig),
+    (sig) =>
+      api
+        .featureSearch({ query, top_n: TOP + FILLERS.size, max_density: COMMON, sort: "activation" }, sig)
+        .then((r) => ({ ...r, features: dropFillers(r.features).slice(0, TOP) })),
     query ? `w8:${query}` : null,
   );
 
@@ -91,8 +98,8 @@ export function WordsResults({ q }: { q: string }) {
           )}
           <div className={s.wordFoot}>
             <span className="small muted">
-              Shows which features fired on your words, not what the words mean. Features that fire on more than 1% of all tokens are left out. Ranked by
-              raw activation.
+              Shows which features fired on your words, not what the words mean. Features that fire on more than 1% of all tokens are left out, and so
+              are {FILLERS.size} that fire on almost any words. Ranked by raw activation.
             </span>
           </div>
         </div>

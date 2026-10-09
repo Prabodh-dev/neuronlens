@@ -1133,6 +1133,12 @@ export interface components {
              * @description amplify strengths, each 0 to 3, order kept
              */
             strengths?: number[];
+            /**
+             * With Activations
+             * @description also return target_activation_baseline and target_activation_steered per strength (as in /steer/check); one extra forward pass per text, no extra generations. Off: the response has no activation fields
+             * @default false
+             */
+            with_activations: boolean;
         };
         /**
          * SteerSweepResponse
@@ -1214,6 +1220,16 @@ export interface components {
             reason: string | null;
             /** Strength */
             strength: number;
+            /**
+             * Target Activation Baseline
+             * @description only with with_activations: max activation of the feature over the new tokens of the baseline (unsteered)
+             */
+            target_activation_baseline?: number | null;
+            /**
+             * Target Activation Steered
+             * @description only with with_activations: max activation of the feature over the new tokens of this strength's text, re-encoded without steering
+             */
+            target_activation_steered?: number | null;
             /** Text */
             text: string;
         };

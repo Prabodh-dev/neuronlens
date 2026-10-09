@@ -109,7 +109,7 @@ export function SweepPanel(props: {
   const { feature, prompt, seed, maxTokens, simulated } = props;
   const sweep = useAction((body: SteerSweepRequest, sig) => api.steerSweep(body, sig));
   const res = sweep.data;
-  const go = () => feature && sweep.run({ feature_id: feature.feature_id, prompt, seed, max_new_tokens: maxTokens });
+  const go = () => feature && sweep.run({ feature_id: feature.feature_id, prompt, seed, max_new_tokens: maxTokens, with_activations: false });
   return (
     <section className="card" aria-labelledby="sw-h">
       <div className="card-head">

@@ -1865,6 +1865,12 @@
             "minItems": 1,
             "title": "Strengths",
             "type": "array"
+          },
+          "with_activations": {
+            "default": false,
+            "description": "also return target_activation_baseline and target_activation_steered per strength (as in /steer/check); one extra forward pass per text, no extra generations. Off: the response has no activation fields",
+            "title": "With Activations",
+            "type": "boolean"
           }
         },
         "required": [
@@ -2077,6 +2083,30 @@
           "strength": {
             "title": "Strength",
             "type": "number"
+          },
+          "target_activation_baseline": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "only with with_activations: max activation of the feature over the new tokens of the baseline (unsteered)",
+            "title": "Target Activation Baseline"
+          },
+          "target_activation_steered": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "only with with_activations: max activation of the feature over the new tokens of this strength's text, re-encoded without steering",
+            "title": "Target Activation Steered"
           },
           "text": {
             "title": "Text",

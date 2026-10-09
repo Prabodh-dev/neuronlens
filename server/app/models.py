@@ -434,6 +434,12 @@ class SteerSweepRequest(_PromptRequest):
             raise ValueError(f"each strength must be from 0 to 3, got {bad}")
         return v
 
+    with_activations: bool = Field(
+        default=False,
+        description="also return target_activation_baseline and target_activation_steered "
+                    "per strength (as in /steer/check); one extra forward pass per text, no "
+                    "extra generations. Off: the response has no activation fields")
+
 
 class SweepMetrics(BaseModel):
     new_tokens: int
@@ -451,6 +457,13 @@ class SweepResult(BaseModel):
     degenerate: bool
     reason: Optional[str]
     metrics: SweepMetrics
+    target_activation_baseline: Optional[float] = Field(
+        default=None, description="only with with_activations: max activation of the "
+                                  "feature over the new tokens of the baseline (unsteered)")
+    target_activation_steered: Optional[float] = Field(
+        default=None, description="only with with_activations: max activation of the "
+                                  "feature over the new tokens of this strength's text, "
+                                  "re-encoded without steering")
 
 
 class SteerSweepResponse(BaseModel):

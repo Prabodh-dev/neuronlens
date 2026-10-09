@@ -1,12 +1,7 @@
-// Every response type comes from generated files, never written by hand.
-// schema.d.ts is generated from contracts/openapi.json. pending.d.ts is generated from
-// server/app/models.py for endpoints that are not in the contract yet; once Mirdul routes
-// them and the contract is regenerated, switch these imports to schema.d.ts.
-import type { components as Contract } from "./schema";
-import type { components as Pending } from "./pending";
+// Every response type is generated from contracts/openapi.json (npm run gen:types); never written by hand.
+import type { components } from "./schema";
 
-type C = Contract["schemas"];
-type P = Pending["schemas"];
+type C = components["schemas"];
 
 export type Health = C["Health"];
 export type FeatureList = C["FeatureList"];
@@ -17,17 +12,17 @@ export type LogitEntry = C["LogitEntry"];
 export type ErrorBody = C["ErrorBody"];
 export type LabelStatus = FeatureListItem["label_status"];
 
-export type InspectRequest = P["InspectRequest"];
-export type InspectResponse = P["InspectResponse"];
-export type InspectToken = P["InspectToken"];
-export type TokenFeature = P["TokenFeature"];
-export type SteerRequest = P["SteerRequest"];
-export type SteerResponse = P["SteerResponse"];
+export type InspectRequest = C["InspectRequest"];
+export type InspectResponse = C["InspectResponse"];
+export type InspectToken = C["InspectToken"];
+export type TokenFeature = C["TokenFeature"];
+export type SteerRequest = C["SteerRequest"];
+export type SteerResponse = C["SteerResponse"];
 export type SteerMode = SteerRequest["mode"];
-export type SteeringExample = P["SteeringExample"];
-export type SteeringExampleList = P["SteeringExampleList"];
-export type Run = P["Run"];
-export type RunList = P["RunList"];
-export type MetricsResponse = P["MetricsResponse"];
-export type CurvePoint = P["CurvePoint"];
-export type DensityBin = P["DensityBin"];
+export type SteeringExample = C["SteeringExample"];
+export type SteeringExampleList = C["SteeringExampleList"];
+export type Run = C["Run"];
+export type RunList = C["RunList"];
+export type MetricsResponse = C["MetricsResponse"];
+export type CurvePoint = C["CurvePoint"];
+export type DensityBin = C["DensityBin"];

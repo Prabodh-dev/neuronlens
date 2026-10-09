@@ -35,10 +35,9 @@
   font-size: 12.5px;
   color: var(--ink-2);
   cursor: pointer;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
 }
 .try:hover {
   border-style: solid;
@@ -105,7 +104,7 @@
 }
 .panel {
   position: sticky;
-  top: 76px;
+  top: calc(var(--head-h, 60px) + 16px);
   padding: 18px;
   min-width: 0;
 }

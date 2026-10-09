@@ -79,3 +79,135 @@ def test_main_requires_real_mode_env(monkeypatch):
     monkeypatch.delenv("NEURONLENS_CKPT", raising=False)
     with pytest.raises(SystemExit, match="NEURONLENS_DB"):
         demo.main([])
+
+
+# ------------------------------------------------------------------ explore mode
+
+def test_parse_strengths():
+    assert demo.parse_strengths("0,0.5, 0.75,1,1.5,2") == [0.0, 0.5, 0.75, 1.0, 1.5, 2.0]
+    assert demo.parse_strengths("2,2,1") == [2.0, 2.0, 1.0]       # used exactly as given
+    for bad in ("", "a,b", "1,,x", "nan", "inf"):
+        with pytest.raises(ValueError):
+            demo.parse_strengths(bad)
+
+
+def test_explore_amplify_uses_exactly_the_given_strengths(db):
+    rt = FakeRuntime(baseline_len=20)
+    lines = []
+    runs = demo.explore(rt, demo.open_readonly(db), [7, 13, 7], ["P one ", "P two "],
+                        [0.0, 0.75, 1.5], max_new_tokens=20, log=lines.append)
+    assert [(r["feature_id"], r["prompt"]) for r in runs] == [
+        (7, "P one "), (7, "P two "), (13, "P one "), (13, "P two ")]   # each feature x each prompt, deduped
+    for r in runs:
+        assert [x["strength"] for x in r["results"]] == [0.0, 0.75, 1.5]
+        assert r["mode"] == "amplify" and r["label_status"] == "named"
+        assert r["results"][0]["differs_from_baseline"] is False
+        assert r["results"][0]["first_divergence_index"] is None
+        assert r["results"][1]["first_divergence_index"] == 5
+        assert set(r["results"][1]) == {"strength", "text", "continuation", "differs_from_baseline",
+                                        "first_divergence_index", "degenerate", "reason", "metrics"}
+    out = "\n".join(lines)
+    assert "feature 7 | hon- – honing, honk | named | prompt: 'P one '" in out
+    assert out.count("x0.75") == 4 and "div=5" in out and "div=-" in out
+    assert out.count("baseline") == 4
+    json.dumps(runs)
+
+
+def test_explore_marks_degenerate_and_truncates_to_120_chars(db):
+    long_new = [ord("z")] * 150
+    rt = FakeRuntime(base_ids=[ord(c) for c in "abcdefghij" * 3], steered_ids=long_new)
+    lines = []
+    runs = demo.explore(rt, demo.open_readonly(db), [7], ["Hi "], [3.0], max_new_tokens=120,
+                        log=lines.append)
+    r = runs[0]["results"][0]
+    assert r["degenerate"] is True and len(r["continuation"]) == 150
+    row = next(l for l in lines if l.startswith("  x3"))
+    assert "DEGENERATE: mostly repeated tokens" in row
+    assert repr("z" * 120) in row and "z" * 121 not in row
+
+
+def test_explore_ablate_runs_once_and_ignores_strengths(db):
+    rt = FakeRuntime(baseline_len=20)
+    lines = []
+    runs = demo.explore(rt, demo.open_readonly(db), [7], ["Hi "], [1, 2, 3], mode="ablate",
+                        max_new_tokens=20, log=lines.append)
+    assert len(runs[0]["results"]) == 1 and runs[0]["results"][0]["strength"] == 0.0
+    assert runs[0]["results"][0]["differs_from_baseline"] is True
+    assert any(l.startswith("  ablate") for l in lines)
+    assert [c[3].mode for c in rt.calls if c[3]] == ["ablate"]
+
+
+def test_explore_skips_dead_and_missing_features(db):
+    con = sqlite3.connect(db)
+    con.execute("UPDATE features SET is_dead=1 WHERE feature_id=13")
+    con.commit()
+    con.close()
+    lines = []
+    runs = demo.explore(FakeRuntime(), demo.open_readonly(db), [13, 99, 7], ["Hi "], [1.0],
+                        max_new_tokens=20, log=lines.append)
+    assert [r["feature_id"] for r in runs] == [7]
+    assert any("skip feature 13" in l and "dead feature" in l for l in lines)
+    assert any("skip feature 99" in l and "not in the database" in l for l in lines)
+
+
+def _env(monkeypatch, db, tmp_path):
+    ckpt = tmp_path / "x.pt"
+    ckpt.write_bytes(b"")
+    monkeypatch.setenv("NEURONLENS_DB", db)
+    monkeypatch.setenv("NEURONLENS_CKPT", str(ckpt))
+    monkeypatch.setattr(demo, "load_runtime", lambda path: FakeRuntime(baseline_len=20))
+
+
+def test_main_explore_writes_only_the_explore_file(db, tmp_path, monkeypatch, capsys):
+    _env(monkeypatch, db, tmp_path)
+    out_dir = tmp_path / "demo"
+    out_dir.mkdir()
+    examples = out_dir / "phase4_examples.json"
+    examples.write_text('{"keep": true}')
+    explore_out = out_dir / "explore.json"
+    before = open(db, "rb").read()
+    demo.main(["--feature", "7", "--feature", "13", "--prompt", "A ", "--prompt", "B ",
+               "--strengths", "0,0.5,0.75,1,1.5,2", "--max-new-tokens", "20",
+               "--out", str(examples), "--explore-out", str(explore_out)])
+    data = json.loads(explore_out.read_text(encoding="utf-8"))
+    assert data["mode"] == "amplify" and data["strengths"] == [0, 0.5, 0.75, 1, 1.5, 2]
+    assert data["run_id"] == "test-run" and len(data["runs"]) == 4
+    assert examples.read_text() == '{"keep": true}'          # never touched
+    assert open(db, "rb").read() == before                   # database read-only
+    assert "feature 13 | upside – upside down | named" in capsys.readouterr().out
+
+
+def test_explore_out_defaults_to_demo_explore_json(db, tmp_path, monkeypatch):
+    _env(monkeypatch, db, tmp_path)
+    monkeypatch.setattr(demo, "REPO_ROOT", tmp_path)       # default paths hang off REPO_ROOT
+    demo.main(["--feature", "7", "--prompt", "A ", "--max-new-tokens", "20", "--strengths", "1"])
+    assert (tmp_path / "demo" / "explore.json").is_file()
+    assert not (tmp_path / "demo" / "phase4_examples.json").exists()
+
+
+def test_main_explore_argument_errors(db, tmp_path, monkeypatch):
+    _env(monkeypatch, db, tmp_path)
+    for argv in (["--feature", "7"],                                     # no prompt
+                 ["--prompt", "x"],                                      # no feature
+                 ["--strengths", "1,2"],                                 # explore option alone
+                 ["--mode", "ablate"],
+                 ["--feature", "7", "--prompt", "x", "--strengths", "a,b"],
+                 ["--feature", "7", "--prompt", "x", "--out", str(tmp_path / "same.json"),
+                  "--explore-out", str(tmp_path / "same.json")]):       # would overwrite --out
+        with pytest.raises(SystemExit) as e:
+            demo.main(argv)
+        assert e.value.code == 2
+    # out-of-range strength is reported cleanly, nothing is written
+    out = tmp_path / "e.json"
+    with pytest.raises(SystemExit, match="strength"):
+        demo.main(["--feature", "7", "--prompt", "x", "--strengths", "50", "--explore-out", str(out)])
+    assert not out.exists()
+
+
+def test_default_mode_unchanged_by_explore_options(db, tmp_path, monkeypatch):
+    _env(monkeypatch, db, tmp_path)
+    out = tmp_path / "phase4_examples.json"
+    demo.main(["--out", str(out), "--max-new-tokens", "20"])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert [e["feature_id"] for e in data["examples"]] == [7, 13, 7]
+    assert not (tmp_path / "explore.json").exists()

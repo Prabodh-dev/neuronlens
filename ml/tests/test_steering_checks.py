@@ -4,6 +4,17 @@ from neuronlens import steering_checks as sc
 from neuronlens.steering_checks import Generation, SteeringCheckError
 
 
+def _steers_something(steering):
+    """The fake runtime changes its output after the divergence point whenever the steering
+    adds something: a single spec with strength, an ablate, or a multi spec whose summed
+    strength x max_activation is not zero."""
+    if steering is None:
+        return False
+    if hasattr(steering, "steers"):
+        return sum(st * m for _, st, m in steering.steers) != 0
+    return steering.strength != 0.0 or steering.mode == "ablate"
+
+
 ACT_FIELDS = ("target_activation_baseline", "target_activation_steered",
               "target_activation_baseline_mean", "target_activation_steered_mean",
               "activation_change", "activation_verdict")
@@ -51,8 +62,7 @@ class FakeRuntime:
         base = self.base_ids if self.base_ids is not None else \
             [97 + (seed + i) % 26 for i in range(min(self.baseline_len, max_new_tokens))]
         new = list(base)
-        if steering is not None and steering.strength != 0.0 or (
-                steering is not None and steering.mode == "ablate"):
+        if _steers_something(steering):
             if self.steered_ids is not None:
                 new = list(self.steered_ids)
             else:

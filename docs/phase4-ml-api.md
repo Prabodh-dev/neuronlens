@@ -316,6 +316,152 @@ Left out because it was not recorded in the run: `new_tokens`.
 
 ---
 
+## W5. Multi-concept steering
+
+`multi_steering_check(rt, prompt, steers, max_new_tokens=60, seed=42, with_single_controls=False)`
+
+Steers 2 or 3 features together and compares the result with the baseline. The endpoint is not decided: Mirdul proposes it, Prabodh signs off. Nothing here was added to `contracts/` or `server/`.
+
+**How the directions combine.** The directions are summed in the same forward hook. For each steer, `strength x max_activation x decoder direction` is added at every position except position 0, and the terms are added together. Amplify only; there is no ablate in a combination. The terms are summed in order of feature id, so the order of `steers` in the request does not change the result. With one non-zero strength (the others at 0) the hook output is identical to the single-feature hook, and the result should match X1 for that feature; this was tested bitwise on a toy model and on random tensors, not on the real model. The single-feature maths and X1 to X4 are unchanged.
+
+**What the runtime must provide.** `rt.generate(prompt, max_new_tokens, seed, steering)` must accept `neuronlens.steering_checks.MultiSteeringSpec(steers=((feature_id, strength, max_activation), ...))` as `steering` (`neuronlens.runtime.Runtime` does), plus `rt.d_sae` and `rt.feature_activations(token_ids, feature_id)`, as for X1. `RealRuntime` and the mock need to forward or stand in for them.
+
+| Input | Type | Notes |
+| --- | --- | --- |
+| `prompt` | str | not blank |
+| `steers` | list of 2 or 3 objects | each `{"feature_id": int, "strength": float, "max_activation": float}`; the feature ids must be different |
+| `steers[].feature_id` | int | 0 to `d_sae - 1` |
+| `steers[].strength` | float | 0 to 10 in ML (the server keeps its own cap of 3); 0 adds nothing |
+| `steers[].max_activation` | float | from the database; must be above 0 (a feature with 0 is dead) |
+| `max_new_tokens` | int | 1 to 120, default 60 |
+| `seed` | int | 0 to 2147483647, default 42; used for the baseline and the steered run |
+| `with_single_controls` | bool | default `false`; ML-side option, see below |
+
+| Output field | Type | Notes |
+| --- | --- | --- |
+| `prompt` | str | echoed |
+| `seed`, `max_new_tokens` | int | echoed |
+| `steers` | list | echoed, with `strength` and `max_activation` as floats, in the order given |
+| `baseline_text` | str | no steering, prompt included |
+| `steered_text` | str | all steers applied together, prompt included |
+| `differs` | bool | `baseline_text != steered_text` |
+| `first_divergence_index` | int or null | as in X3 (0-based, new tokens only); `null` when the texts are identical |
+| `degenerate` | bool | the degeneration rule of X2 applied to the steered text |
+| `reason` | str or null | why `degenerate` is true; `null` otherwise |
+| `activations` | list | one entry per steered feature, in the order of `steers` |
+| `activations[].feature_id` | int | |
+| `activations[].target_activation_baseline` | float | that feature's maximum activation over the new tokens of the baseline text |
+| `activations[].target_activation_steered` | float | the same for the steered text |
+| `activations[].activation_verdict` | str | `"higher"`, `"lower"` or `"about the same"`, from `(steered max - baseline max) / max_activation` with the X1 threshold (`ACTIVATION_SAME_FRACTION`, 0.05, uncalibrated) |
+
+The activations are measured as in X1: both texts are generated, then re-encoded through the model without any steering hook, and each feature is read over the new tokens (the prompt and position 0 are left out). When the two texts are identical the baseline numbers are reused. This costs one forward pass per feature per text.
+
+**Comparing with the single-feature runs.** Either call X1 for each feature with the same `prompt`, `seed`, `max_new_tokens`, `strength` and `max_activation`, or pass `with_single_controls=true`. The option runs each feature alone at its own strength (one more generation per feature) and adds `single_feature_runs`, a list in the order of `steers`: `{feature_id, strength, steered_text, differs, first_divergence_index, degenerate, reason, target_activation_baseline, target_activation_steered, activation_verdict}`. It is not part of the default response.
+
+### Errors
+
+Same error type as the other functions (`SteeringCheckError`, with a `code`). Nothing is generated for a bad request.
+
+| `code` | When |
+| --- | --- |
+| `INVALID_INPUT` | fewer than 2 or more than 3 steers, or `steers` not a list; an entry missing `feature_id`, `strength` or `max_activation`; duplicate feature ids; a strength that is not a finite number from 0 to 10; a `max_activation` that is negative, not finite or 0 (a dead feature); a blank prompt; a bad `seed` or `max_new_tokens` |
+| `FEATURE_NOT_FOUND` | a `feature_id` that is negative or not below `rt.d_sae` |
+
+### Example (format only; all values are example values)
+
+This example shows the format only. Every value in it is an example value, not output of a real run, and the feature ids and the text are placeholders. The real demo example is in "Real demo example" below; the manual runs that came before it are in "Real runs before the search".
+
+```json
+{
+  "prompt": "(example prompt)",
+  "seed": 42,
+  "max_new_tokens": 60,
+  "steers": [
+    {"feature_id": 101, "strength": 0.5, "max_activation": 20.0},
+    {"feature_id": 202, "strength": 0.5, "max_activation": 15.0}
+  ],
+  "baseline_text": "(example baseline text)",
+  "steered_text": "(example steered text)",
+  "differs": true,
+  "first_divergence_index": 4,
+  "degenerate": false,
+  "reason": null,
+  "activations": [
+    {"feature_id": 101, "target_activation_baseline": 0.0, "target_activation_steered": 9.5, "activation_verdict": "higher"},
+    {"feature_id": 202, "target_activation_baseline": 2.0, "target_activation_steered": 2.1, "activation_verdict": "about the same"}
+  ]
+}
+```
+
+### Real runs before the search
+
+Real GPU runs, all with seed 42, 60 new tokens and the same strength applied to both features. Two feature pairs and three prompts, run by hand. "Reads higher" is the `activation_verdict`; the number is the feature's activation on the steered text.
+
+| Prompt | Features | Strength | What the activations showed |
+| --- | --- | --- | --- |
+| `The band walked on stage and` | 3446 (music) + 1863 (supreme court) | 0.25 and 0.5 | only 3446 reads higher (11.82 and 10.80); 1863 stays 0.00 |
+| `The band walked on stage and` | 3446 + 1863 | 0.75 | both 0.00 |
+| `She sat down at the piano and` | 3446 + 13 (upside) | 0.25, 0.5 and 0.75 | both read "about the same" |
+| `She opened the letter and read` | 3446 + 1863 | 0.25 | only 3446 reads higher (12.70) |
+| `She opened the letter and read` | 3446 + 1863 | 0.5 | both read 0.00, although 1863 alone read 17.27 at 0.5 on this prompt |
+| `The reporter wrote that the` | 3446 + 1863 | 0.25 and 0.5 | both 0.00; the text at 0.5 mentioned a "court-jailed judge" and "the appeal" (1863 fires on the word "Supreme", not on court wording) |
+
+What these manual runs showed: none of them had both activations higher at once. Combinations were not additive in any visible way in these runs: a feature that read high alone (1863 at 0.5 on the letter prompt) read 0.00 in the combination. These were a small search of two pairs and three prompts, not a proof that it cannot work. An automated search that followed found the example below.
+
+What a real demo example needs: both features clearly "higher" on the same prompt, with no loop warning.
+
+### Real demo example
+
+Observed on the GPU laptop: amplify, strength 0.5 on both features, seed 42. The pair is feature 4280 ("that – support that claim") and feature 9530 ("sin – moral wrongdoing"). It was picked by an automated search (600 candidate features, 100 pairs) and then checked on held-out prompts; both features rose together on 2 of 3 held-out prompts.
+
+| Prompt | 4280 | 9530 | Result |
+| --- | --- | --- | --- |
+| `The man walked into the room and` | 0.00 to 4.20 | 0.00 to 5.89 | both "higher"; the example below |
+| `The woman looked at him and` | no change | 0.00 to 1.41 | only one feature moved |
+| `She opened the letter and read` | 1.95 to 2.97 | 0.00 to 2.66 | both rose, but the steered text names real political figures, so it is not shown in the demo |
+
+On the `man` prompt, the same features steered alone at 0.5 read 2.29 (4280) and 4.45 (9530), against 4.20 and 5.89 together. That is one prompt, one seed and one strength.
+
+The recorded readings and steered text (shortened with "..."; fields that were not recorded here, such as `max_activation` and the divergence index, are left out):
+
+```json
+{
+  "prompt": "The man walked into the room and",
+  "seed": 42,
+  "steers": [
+    {"feature_id": 4280, "strength": 0.5},
+    {"feature_id": 9530, "strength": 0.5}
+  ],
+  "steered_text": "The man walked into the room and saw the man that had been talking, and had accused the man of making a false statement, claiming he was a Christian. A ...",
+  "activations": [
+    {"feature_id": 4280, "target_activation_baseline": 0.0, "target_activation_steered": 4.2, "activation_verdict": "higher"},
+    {"feature_id": 9530, "target_activation_baseline": 0.0, "target_activation_steered": 5.89, "activation_verdict": "higher"}
+  ],
+  "single_feature_runs": [
+    {"feature_id": 4280, "strength": 0.5, "target_activation_steered": 2.29},
+    {"feature_id": 9530, "strength": 0.5, "target_activation_steered": 4.45}
+  ]
+}
+```
+
+`ml/scripts/phase4_demo.py` records this example in the default run: `demo/phase4_examples.json` gets a `multi` list with this entry, including the per-feature activations and the single-feature runs (`with_single_controls`).
+
+**Negative results.** Two other pairs from the same search, 8658 + 10025 and 10849 + 11623, did not hold on held-out prompts, so they are not used. The pair above was picked from the 100 pairs tried.
+
+
+### Limits
+
+- 2 to 3 features, amplify only. A feature cannot be ablated inside a combination.
+- The example was found by a search, so there is a selection effect: it is the pair picked from 100 pairs of 600 candidates, and two other searched pairs did not hold on held-out prompts. Other pairs and prompts can behave differently.
+- It depends on the prompt: on `The woman looked at him and` only one of the two features moved.
+- The strength window is narrow. The example was recorded at 0.5 only, and in the earlier manual runs the readings were lost at higher strengths (both 0.00 at 0.75 for another pair).
+- The activation readings show which concepts were active in the finished text. The steered text is shown as a test of what the features do together, not as a fix and not as better text.
+- A combination can break the text at strengths where each feature alone is fine, so a combination should be set beside the single-feature runs. In the manual runs before the search (see "Real runs before the search"), the combinations did not show both features higher at once; whether a combination breaks the text where each feature alone is fine has not been measured.
+- The activation fields are measured on the finished text, re-encoded without steering. They say whether each feature appears in the output text, not whether the output is better, and the limits listed for X1 apply to each feature.
+- The `degenerate` flag has the limits of the X2 rule: it catches repetition loops and non-word runs, not all low-quality text, and a result marked ok can still be poor.
+- Cost: two generations (three or four with `with_single_controls`) plus two forward passes per feature. It has not been timed.
+- The combined output is a test of what the features do together; it is not presented as an improvement.
+
 ## Timing
 
 Two measurements, both on one GPU laptop:

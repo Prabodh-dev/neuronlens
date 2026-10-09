@@ -14,3 +14,6 @@ __pycache__/
 # Phase 4 data files (large, built on the GPU machine, shared separately)
 cofire*.json
 map2d*.json
+
+# Scratch output of ml/scripts/find_pairs.py
+pairs_search*.json

@@ -43,29 +43,61 @@ def _row(fid, verdicts, rises=None):
                       for s, v, r in zip(al.STRENGTHS, verdicts, rises)]}
 
 
-def test_all_no_effect_gives_no_button():
-    rows = [_row(f, [X] * len(al.STRENGTHS)) for f in range(5)]
-    assert al.recommend(rows) is None
+def test_all_no_effect_is_nothing_worked():
+    rows = [_row(f, [X] * 7) for f in range(5)]
+    assert al.recommend(rows) == {"status": al.NOTHING}
 
 
-def test_all_breaks_down_gives_no_button():
-    rows = [_row(f, [X] + [B] * (len(al.STRENGTHS) - 1)) for f in range(5)]
-    assert al.recommend(rows) is None
+def test_all_breaks_down_is_nothing_worked():
+    rows = [_row(f, [X] + [B] * 6) for f in range(5)]
+    assert al.recommend(rows) == {"status": al.NOTHING}
 
 
-def test_recommend_lowest_strength_then_larger_rise():
-    n = len(al.STRENGTHS)
-    a = _row(1, [X, X, X, X, W, B, B][:n], [0, 0, 0, 0, 20, 0, 0][:n])     # worked at 1.0
-    b = _row(2, [X, X, W, W, B, B, B][:n], [0, 0, 4, 9, 0, 0, 0][:n])      # worked at 0.5
-    c = _row(3, [X, X, W, B, B, B, B][:n], [0, 0, 6, 0, 0, 0, 0][:n])      # 0.5, bigger rise
-    rec = al.recommend([a, b, c])
-    assert (rec["feature_id"], rec["strength"], rec["rise"]) == (3, 0.5, 6)
+def test_worked_at_one_strength_only_is_not_reliable():
+    rows = [_row(1, [X, X, W, X, W, B, B]),   # 0.5 and 1.0 worked, not next to each other
+            _row(2, [X, W, B, B, B, B, B])]   # 0.25 alone
+    assert al.recommend(rows) == {"status": al.NOT_RELIABLE}
+    assert al.STATUS_TEXT[al.NOT_RELIABLE] == "Worked at one strength only, not reliable"
+    assert al.STATUS_TEXT[al.NOTHING] == "Nothing worked"
+
+
+def test_strength_0_is_ignored():
+    assert al.recommend([_row(1, [W, W, X, X, X, X, X])]) == {"status": al.NOT_RELIABLE}
+
+
+def test_most_worked_cells_then_lowest_stable_strength():
+    a = _row(1, [X, X, W, W, B, B, B], [0, 0, 9, 12, 0, 0, 0])           # 2 ✓, best rise 12
+    b = _row(2, [X, W, X, W, W, W, B], [0, 3, 0, 4, 5, 6, 0])            # 4 ✓, stable from 0.75
+    rec = al.recommend([a, b])
+    assert (rec["feature_id"], rec["strength"], rec["rise"], rec["worked_cells"]) == (2, 0.75, 4, 4)
+
+
+def test_tie_goes_to_higher_rise_at_best_cell():
+    a = _row(1, [X, X, W, W, X, X, X], [0, 0, 4, 5, 0, 0, 0])
+    b = _row(2, [X, X, X, W, W, X, X], [0, 0, 0, 3, 20, 0, 0])
+    assert (al.recommend([a, b])["feature_id"], al.recommend([a, b])["strength"]) == (2, 0.75)
+
+
+def test_only_features_with_a_stable_cell():
+    a = _row(1, [X, W, X, W, X, W, X], [0, 9, 0, 9, 0, 9, 0])             # 3 ✓, none stable
+    b = _row(2, [X, X, X, X, W, W, X], [0, 0, 0, 0, 3, 3, 0])             # 2 ✓, stable
+    assert al.recommend([a, b])["feature_id"] == 2
+
+
+def test_ship_needs_2_of_3_prompts():
+    ok, no = {"status": al.RECOMMENDED}, {"status": al.NOT_RELIABLE}
+    results = [{"goal": g, "prompt": p, "recommendation": r} for g, p, r in [
+        ("music", "p1", ok), ("music", "p2", ok), ("music", "p3", no),
+        ("rain", "p1", ok), ("rain", "p2", no), ("rain", "p3", None)]]
+    s = al.ship_summary(results)
+    assert (s["music"]["ship"], s["music"]["recommended_on"]) == (True, 2)
+    assert (s["rain"]["ship"], s["rain"]["recommended_on"]) == (False, 1)
 
 
 def test_rule_constants():
     """The README and Anand's UI copy these; change them together."""
-    assert (al.RISE_MIN, al.RATIO_MIN, al.SEED, al.CANDIDATES, al.MAX_DENSITY) == \
-        (3.0, 2.0, 42, 5, 0.01)
+    assert (al.RISE_MIN, al.RATIO_MIN, al.SEED, al.CANDIDATES, al.MAX_DENSITY,
+            al.SHIP_MIN_PROMPTS) == (3.0, 2.0, 42, 5, 0.01, 2)
     assert al.STRENGTHS == [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
 
 
@@ -204,7 +236,31 @@ def test_chain_on_mock(recorded, monkeypatch):
     assert marks[3446] == [X, X, W, W, B, B, B]
     assert marks[13] == [X] * 7                     # all no effect
     rec = res["recommendation"]
-    assert (rec["feature_id"], rec["strength"]) == (3446, 0.5)
+    assert (rec["status"], rec["feature_id"], rec["strength"]) == (al.RECOMMENDED, 3446, 0.5)
+
+
+# ---------- --replay and Prabodh's recorded run (demo/autolab_examples.json) ----------
+
+def _replayed(goal, prompt):
+    _, results = al.replay(str(mock.AUTOLAB_PATH))
+    hits = [r for r in results if (r["goal"], r["prompt"]) == (goal, prompt)]
+    assert hits, f"{goal!r} on {prompt!r} is not in the recorded file"
+    return hits[0]["recommendation"]
+
+
+def test_court_law_on_man_picks_8362_not_9489():
+    rec = _replayed("court law", "The man walked into the room and")
+    assert rec["status"] == al.RECOMMENDED and rec["feature_id"] == 8362
+
+
+def test_sports_on_band_is_not_reliable():
+    assert _replayed("sports game", "The band walked on stage and") == {"status": al.NOT_RELIABLE}
+
+
+def test_replay_needs_no_server(monkeypatch, capsys):
+    monkeypatch.setattr(al, "call", None)  # any server call would fail
+    assert al.main(["--replay", str(mock.AUTOLAB_PATH)]) == 0
+    assert "Buttons (a goal ships" in capsys.readouterr().out
 
 
 def test_recorded_sweep_without_flag_has_no_activations(recorded):

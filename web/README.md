@@ -35,11 +35,14 @@ User-facing wording from the copy deck (docs/APP_BUILD_GUIDE.md Appendix A) live
    The banner disappears when the server reports real mode and a non-synthetic database.
 4. If the web app runs on another machine, set `NEXT_PUBLIC_API_BASE` (for example `http://<gpu-laptop>:8000/api/v1`) in
    `web/.env.local` and restart `npm run dev`; the server's `NEURONLENS_CORS_ORIGINS` must include the web address.
+5. On the demo machine, add `NEXT_PUBLIC_MODEL_ONLY=1` to `web/.env.local` and restart `npm run dev`. The pages then show
+   only when the server runs the trained model on the real database; otherwise a "Not running on the model" screen
+   says what to fix.
 
 ## Layout
 
 - `src/app/`: one folder per page with its own CSS module (`/`, `/microscope`, `/features`, `/features/[id]`, `/inspect`,
   `/steer`, `/metrics`).
-- `src/components/`: top bar, mode banner, states, token heat text, neuron field, charts, feature picker.
+- `src/components/`: top bar, mode banner, model gate, states, token heat text, feature map, charts, feature picker.
 - `src/lib/`: API client, generated types, copy deck, formatting.
 - Decisions that differ from the build guide are in `docs/decisions.md`.

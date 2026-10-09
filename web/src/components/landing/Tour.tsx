@@ -12,8 +12,8 @@ import { fmtInt, showToken } from "@/lib/format";
 import s from "./tour.module.css";
 
 /** The landing hero: a guided tour that plays by itself and loops. It shows every feature, reads a
- *  sentence, flies into a few named features, shows a saved steering run, then pulls back out.
- *  Everything on screen comes from the server: features, /inspect, examples, next-word effect, metrics. */
+ *  sentence, flies into a few named features, steers one of them, then pulls back out.
+ *  Everything on screen comes from the server: features, /inspect, /steer, examples, metrics. */
 
 // stops the tour visits when the database has them; otherwise the strongest named features
 const PREFERRED = [1863, 3587, 3446];
@@ -22,11 +22,12 @@ const TAU = Math.PI * 2;
 
 type Named = { id: number; label: string };
 type Frame = { token: number; feats: { id: number; a: number }[] };
+type Run = Pick<SteeringExample, "prompt" | "seed" | "mode" | "baseline_text" | "steered_text"> & { live: boolean };
 type Scene =
   | { kind: "overview"; chapter: string; dur: number }
   | { kind: "read"; chapter: string; dur: number }
   | { kind: "focus"; chapter: string; dur: number; f: FeatureDetail }
-  | { kind: "steer"; chapter: string; dur: number; f: FeatureDetail; ex: SteeringExample }
+  | { kind: "steer"; chapter: string; dur: number; f: FeatureDetail; ex: Run }
   | { kind: "outro"; chapter: string; dur: number };
 
 /* ---------------- data ---------------- */
@@ -59,7 +60,7 @@ function useNeurons(enabled: boolean) {
   return items;
 }
 
-/** Up to three named features to visit, and a saved steering run for one of them. */
+/** Up to three named features to visit, and the saved steering run whose prompt, feature and seed the tour uses. */
 function useStops(named: Named[] | null) {
   const [stops, setStops] = useState<{ list: FeatureDetail[]; steer: SteeringExample | null } | null>(null);
   const key = named ? named.map((n) => n.id).join(",") : null;
@@ -91,6 +92,24 @@ function useStops(named: Named[] | null) {
     return () => ctl.abort();
   }, [key]);
   return stops;
+}
+
+/** In real mode the steering chapter runs on the model, with the saved run's prompt, feature and seed. */
+function useLiveRun(ex: SteeringExample | null) {
+  const [run, setRun] = useState<Run | null>(null);
+  useEffect(() => {
+    setRun(null);
+    if (!ex) return;
+    const ctl = new AbortController();
+    api
+      .steer({ feature_id: ex.feature_id, mode: ex.mode, strength: ex.strength, prompt: ex.prompt, seed: ex.seed, max_new_tokens: 40 }, ctl.signal)
+      .then((r) => setRun({ prompt: ex.prompt, seed: r.seed, mode: r.mode, baseline_text: r.baseline_text, steered_text: r.steered_text, live: true }))
+      .catch(() => {
+        // model not loaded or the call failed: the chapter is left out, never filled from storage
+      });
+    return () => ctl.abort();
+  }, [ex]);
+  return run;
 }
 
 /* ---------------- text helpers ---------------- */
@@ -125,6 +144,8 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
   const { error: offline } = useHealth();
   const neurons = useNeurons(!!h);
   const stops = useStops(named);
+  const real = h?.mode === "real";
+  const liveRun = useLiveRun(real ? (stops?.steer ?? null) : null);
   const tokens = useMemo(() => demo?.tokens ?? [], [demo]);
   const frames = useMemo<Frame[]>(
     () =>
@@ -138,12 +159,14 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
     const out: Scene[] = [{ kind: "overview", chapter: "Overview", dur: 6500 }];
     if (frames.length) out.push({ kind: "read", chapter: "Reading", dur: 1600 + frames.length * 680 });
     for (const f of stops?.list ?? []) out.push({ kind: "focus", chapter: `#${f.feature_id}`, dur: 7600, f });
-    const ex = stops?.steer;
-    const sf = ex ? stops?.list.find((f) => f.feature_id === ex.feature_id) : undefined;
+    // real mode: the model's own run; mock mode: the saved run, since mock steering is simulated
+    const saved = stops?.steer;
+    const ex: Run | null = real ? liveRun : saved && h?.mode === "mock" ? { ...saved, live: false } : null;
+    const sf = saved ? stops?.list.find((f) => f.feature_id === saved.feature_id) : undefined;
     if (ex && sf) out.push({ kind: "steer", chapter: "Steering", dur: 9800, f: sf, ex });
     out.push({ kind: "outro", chapter: "Quality", dur: 7200 });
     return out;
-  }, [frames, stops]);
+  }, [frames, stops, real, liveRun, h?.mode]);
 
   const [at, setAt] = useState(0);
   const [tok, setTok] = useState(-1);
@@ -807,7 +830,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
           </p>
         )}
 
-        {/* steering: the saved run, normal next to steered */}
+        {/* steering: normal next to steered, live on the model in real mode */}
         {sc?.kind === "steer" &&
           (() => {
             const base = continuation(sc.ex.baseline_text, sc.ex.prompt);
@@ -815,7 +838,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
             return (
               <div className={s.runs} key={`r-${k}`}>
                 <span className={s.cardLabel}>
-                  “{sc.ex.prompt}…” · same prompt, seed {sc.ex.seed} · saved example
+                  “{sc.ex.prompt}…” · same prompt, seed {sc.ex.seed} · {sc.ex.live ? "live on the model" : "saved example"}
                 </span>
                 <div className={s.runGrid}>
                   <div className={s.run}>

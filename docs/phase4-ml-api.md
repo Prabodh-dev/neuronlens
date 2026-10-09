@@ -309,17 +309,22 @@ Left out because it was not recorded in the run: `new_tokens`.
 
 ## Timing
 
-One measurement on the GPU laptop, a single run: 8 generations of 60 new tokens (one baseline plus 7 strengths) took 15.1 seconds of wall time, including model load. This is one run and the model-load share was not separated, so the figures below are estimates, not benchmarks:
+Two measurements, both on one GPU laptop:
+
+- A script run of 8 generations of 60 new tokens (one baseline plus 7 strengths) took 15.1 seconds of wall time. That run included loading the model, so it overstated the cost of a call. It is not used for the estimates below.
+- Through the running server in real mode with the model already loaded (warm): a sweep for feature 13, prompt `The acrobat hung`, strengths `[0, 0.5, 1]`, 60 new tokens, seed 42 (one baseline plus three steered generations, 4 generations in total) took 2.66 seconds of wall time for the whole HTTP request. That is about 0.65 seconds per generation.
+
+The estimates below come from the warm-server measurement. They are estimates, not benchmarks:
 
 | Call | Generations | Estimate |
 | --- | --- | --- |
-| one generation (X4) | 1 | roughly 1.5 to 2 seconds |
-| X1 or X3 check | 2 | about 3 to 4 seconds |
-| X2 sweep with 7 strengths | 8 (baseline plus 7) | about 12 to 15 seconds |
+| one generation (X4) | 1 | roughly 0.65 seconds |
+| X1 or X3 check | 2 | about 1.5 seconds |
+| X2 sweep with 7 strengths | 8 (baseline plus 7) | about 5 seconds |
 
-X1 now also re-encodes the two texts (two short forward passes after the generations); that extra time has not been measured.
+A call made right after the server starts, before the model has been used, will be slower because of model loading; that was not measured. The numbers will change on other hardware, and they were measured at 60 new tokens only. X1 also re-encodes the two texts (two short forward passes after the generations); that extra time was not measured separately.
 
-The server should use generous timeouts, and the UI should show a progress state for a sweep. The numbers will change on other hardware, and they were measured at 60 new tokens only.
+The server should still use generous timeouts, and the UI should show a progress state for a sweep.
 
 ## Open items for the server and contract owners
 

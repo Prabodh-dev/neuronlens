@@ -10,3 +10,7 @@ __pycache__/
 .venv/
 *.pyc
 .pytest_cache/
+
+# Phase 4 data files (large, built on the GPU machine, shared separately)
+cofire*.json
+map2d*.json

@@ -111,12 +111,13 @@ class FakeRuntime:
 
     def inspect(self, text, top_n):
         self.top_ns.append(top_n)
-        words = text.split(" ")
+        import re
+        words = re.findall(r"\n| ?[^ \n]+", text)  # like GPT-2: a newline is its own token
         out = []
         for i, w in enumerate(words):
             feats = [] if i == 0 else [{"feature_id": f, "activation": 10.0 - f * 0.1}
                                        for f in range(3, 3 + top_n)]
-            out.append({"index": i, "text": w if i == 0 else " " + w, "features": feats})
+            out.append({"index": i, "text": w, "features": feats})
         return out
 
 
@@ -223,3 +224,70 @@ def test_sort_validated(client):
                       ("inspect/compare", {"text_a": "a", "text_b": "b", "sort": "x"})):
         r = client.post(f"{API}/{path}", json=req)
         assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_INPUT"
+
+
+# ---------- W8 search ----------
+
+def test_strip_prefix():
+    from app.routes.analysis import strip_prefix
+    toks = [{"index": 0, "text": "\n", "features": []},
+            {"index": 1, "text": "music", "features": [{"feature_id": 1, "activation": 2.0}]}]
+    assert strip_prefix(toks, "\n") == [{"index": 0, "text": "music",
+                                         "features": [{"feature_id": 1, "activation": 2.0}]}]
+    straddle = [{"index": 0, "text": "\n ", "features": []},
+                {"index": 1, "text": "x", "features": []}]
+    assert [t["text"] for t in strip_prefix(straddle, "\n")] == [" ", "x"]
+
+
+def test_search_mock(client):
+    r = client.post(f"{API}/features/search", json={"query": "music", "top_n": 5})
+    assert r.status_code == 200
+    b = r.json()
+    assert b["query"] == "music" and b["simulated"] and b["tokens"] == ["music"]
+    assert 0 < len(b["features"]) <= 5  # a one-word query is scored
+    acts = [f["max_activation"] for f in b["features"]]
+    assert acts == sorted(acts, reverse=True)
+    for f in b["features"]:
+        detail = client.get(f"{API}/features/{f['feature_id']}").json()
+        assert f["label"] == detail["label"] and f["density"] == detail["density"]
+        assert f["peak_token"] == 0 and f["tokens_active"] == 1
+
+
+def test_search_prefix_never_returned(client):
+    for q in ("court ruling", "recipe for pasta", " music", "two\nlines"):
+        b = client.post(f"{API}/features/search", json={"query": q}).json()
+        assert "".join(b["tokens"]) == q  # exactly the query, no prefix
+        assert all(0 <= f["peak_token"] < len(b["tokens"]) for f in b["features"])
+
+
+def test_search_options(client):
+    body = {"query": "court ruling", "top_n": 20}
+    default = client.post(f"{API}/features/search", json=body).json()
+    assert default == client.post(f"{API}/features/search",
+                                  json={**body, "sort": "activation"}).json()
+    rel = client.post(f"{API}/features/search", json={**body, "sort": "relative"}).json()
+    rels = [f["relative_to_max"] for f in rel["features"]]
+    assert rels == sorted(rels, reverse=True)
+    cut = sorted(f["density"] for f in default["features"])[len(default["features"]) // 2]
+    dense = client.post(f"{API}/features/search", json={**body, "max_density": cut}).json()
+    assert dense["features"] and all(f["density"] <= cut for f in dense["features"])
+
+
+def test_search_limits(client):
+    ok = client.post(f"{API}/features/search", json={"query": " ".join(["w"] * 32)})
+    assert ok.status_code == 200  # 32 query tokens; the prefix is not counted
+    for body, status, code in (({"query": " ".join(["w"] * 33)}, 413, "TEXT_TOO_LONG"),
+                               ({"query": "  "}, 422, "INVALID_INPUT"),
+                               ({"query": "hi", "top_n": 51}, 422, "INVALID_INPUT"),
+                               ({"query": "hi", "sort": "meaning"}, 422, "INVALID_INPUT")):
+        r = client.post(f"{API}/features/search", json=body)
+        assert (r.status_code, r.json()["error"]["code"]) == (status, code), body
+
+
+def test_search_real_mode(monkeypatch):
+    fake = FakeRuntime()
+    monkeypatch.setattr(real.RealRuntime, "load", classmethod(lambda cls, ckpt: cls(fake)))
+    with TestClient(create_app(Settings(mode="real", ckpt="x.pt"))) as c:
+        b = c.post(f"{API}/features/search", json={"query": "music", "top_n": 3}).json()
+        assert fake.top_ns == [32] and not b["simulated"]
+        assert b["tokens"] == ["music"] and [f["feature_id"] for f in b["features"]] == [3, 4, 5]

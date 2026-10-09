@@ -22,6 +22,12 @@ Inspect analysis (aggregate `/inspect`; no new ML):
 
 Both call inspect with the SAE's k (every active feature), then rank and trim to `top_n`. Optional `max_density` (0 to 1, off by default) hides features whose `density` (share of tokens they fire on) is above it before ranking, so very common features such as "the – noun phrase start" do not crowd out specific ones. Optional `sort`: `activation` (default, raw max activation) or `relative` (by `relative_to_max`, how strongly each feature fired for that feature; for compare, by |relative_to_max in b - in a|). Features with no dictionary max go last.
 
+Search (W8):
+
+- `POST /features/search`: the features that fired most on the words of the query (1 to 32 query tokens), with `max_activation`, `relative_to_max`, `tokens_active`, `peak_token` and `density`. Same `top_n`, `max_density` and `sort` options as X6/X7. It shows which features fired on the query, not what the query means. Keyword search on labels is `GET /features?query=`.
+- A newline is put before the query so its first word is not token 0 (the outlier position, which has no features). The prefix is never returned in `tokens` and does not count toward the 32-token limit. Without a leading space, the first word is a different GPT-2 token than the same word mid-sentence.
+- Real-mode check: `python server/scripts/w8_check.py` (needs `NEURONLENS_MODE=real`, `NEURONLENS_DB`, `NEURONLENS_CKPT`).
+
 Each check holds the model for all its generations (same lock as `/steer`). Rough timing (real mode, warm server, Prabodh's laptop; estimates from two measurements, not benchmarks): about 0.65 s per generation, so a check takes about 1.5 s and a 7-point sweep about 5 s. A call right after server start may be slower. Clients allow 30 s (60 s for a sweep) as generous limits; see Timing in `docs/phase4-ml-api.md`. In mock mode, inputs that match `demo/phase4_examples.json` return those real outputs, still marked `[simulated]`; other inputs get a filler stand-in. Mock tokens are a word split, so counts and divergence indices differ from real mode.
 
 ## Run (from the repo root)

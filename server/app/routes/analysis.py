@@ -19,7 +19,9 @@ from fastapi import APIRouter, Depends
 
 from ..db import Database
 from ..deps import get_db, get_meta, get_runtime
+from ..errors import ApiError
 from ..models import (ReportFeature, ReportRequest, ReportResponse, ReportSentence,
+                      SearchFeature, SearchRequest, SearchResponse,
                       TextCompareFeature, TextCompareRequest, TextCompareResponse,
                       error_responses)
 from .model import check_length
@@ -164,3 +166,59 @@ def compare_texts(req: TextCompareRequest, db: Database = Depends(get_db),
     return TextCompareResponse(model_name=meta["model_name"],
                                simulated=bool(getattr(runtime, "is_simulated", False)),
                                tokens_a=len(tok_a), tokens_b=len(tok_b), features=features)
+
+
+# ---- W8: features that fired most on the query ----
+
+SEARCH_PREFIX = "\n"     # scored as token 0 (the outlier position), then hidden
+SEARCH_MAX_TOKENS = 32   # counts the query's own tokens only
+
+
+def strip_prefix(tokens: list[dict], prefix: str) -> list[dict]:
+    """The inspect tokens of prefix + query, without the prefix's characters. A token that
+    straddles the end of the prefix keeps its query part. Indices restart at 0."""
+    out, pos = [], 0
+    for t in tokens:
+        start, pos = pos, pos + len(t["text"])
+        if pos <= len(prefix):
+            continue
+        text = t["text"][max(0, len(prefix) - start):]
+        out.append({**t, "index": len(out), "text": text})
+    return out
+
+
+def densities(db: Database, ids) -> dict[int, float]:
+    ids = sorted(set(ids))
+    if not ids:
+        return {}
+    marks = ",".join("?" * len(ids))
+    return {r["feature_id"]: r["density"] for r in db.query(
+        f"SELECT feature_id, density FROM features WHERE feature_id IN ({marks})", tuple(ids))}
+
+
+@router.post("/features/search", response_model=SearchResponse)
+def search(req: SearchRequest, db: Database = Depends(get_db), meta: dict = Depends(get_meta),
+           runtime=Depends(get_runtime)):
+    """W8. The features that fired most on the words of the query. A fixed prefix is scored
+    as token 0 (an outlier position with no features) so every query word is scored; it is
+    never returned. Shows which features fired on the query, not what the query means."""
+    n = runtime.count_tokens(req.query)
+    if n > SEARCH_MAX_TOKENS:
+        raise ApiError("TEXT_TOO_LONG",
+                       f"query is {n} tokens; the limit is {SEARCH_MAX_TOKENS}")
+    tokens = strip_prefix(all_active(runtime, meta, SEARCH_PREFIX + req.query), SEARCH_PREFIX)
+    agg = drop_dense(db, aggregate(tokens), req.max_density)
+    info = dictionary(db, agg) if req.sort == "relative" else {}
+    top = sorted(agg.items(), key=report_key(req.sort, info))[:req.top_n]
+    info = dictionary(db, (fid for fid, _ in top))
+    dens = densities(db, (fid for fid, _ in top))
+    return SearchResponse(
+        query=req.query, model_name=meta["model_name"],
+        simulated=bool(getattr(runtime, "is_simulated", False)),
+        tokens=[t["text"] for t in tokens],
+        features=[SearchFeature(feature_id=fid, label=info.get(fid, (None,))[0],
+                                max_activation=v["max"],
+                                relative_to_max=relative(v["max"], fid, info),
+                                tokens_active=v["count"], peak_token=v["peak"],
+                                density=dens.get(fid, 0.0))
+                  for fid, v in top])

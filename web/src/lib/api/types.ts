@@ -26,3 +26,12 @@ export type RunList = C["RunList"];
 export type MetricsResponse = C["MetricsResponse"];
 export type CurvePoint = C["CurvePoint"];
 export type DensityBin = C["DensityBin"];
+
+// Phase 4 steering checks (X1 to X4)
+export type SteerCheckResponse = C["SteerCheckResponse"];
+export type SteerCompareResponse = C["SteerCompareResponse"];
+export type SteerSweepRequest = C["SteerSweepRequest"];
+export type SteerSweepResponse = C["SteerSweepResponse"];
+export type SweepResult = C["SweepResult"];
+export type PromptOnlyRequest = C["PromptOnlyRequest"];
+export type PromptOnlyResponse = C["PromptOnlyResponse"];

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useHealth } from "@/components/HealthProvider";
 import { API_BASE, api } from "@/lib/api/client";
-import type { FeatureDetail, FeatureListItem, Health, InspectResponse, SteeringExample } from "@/lib/api/types";
+import type { FeatureDetail, FeatureListItem, Health, InspectResponse, SteerMode } from "@/lib/api/types";
 import { t as copy } from "@/lib/copy";
 import { diffWords } from "@/lib/diff";
 import { fmtInt, readable, showToken } from "@/lib/format";
@@ -24,7 +24,22 @@ const TAU = Math.PI * 2;
 
 type Named = { id: number; label: string };
 type Frame = { token: number; feats: { id: number; a: number }[] };
-type Run = Pick<SteeringExample, "prompt" | "seed" | "mode" | "baseline_text" | "steered_text"> & { live: boolean };
+type Run = {
+  prompt: string;
+  seed: number;
+  mode: SteerMode;
+  strength: number;
+  baseline_text: string;
+  steered_text: string;
+  // X1: the feature's activation on each finished text
+  actFrom: number;
+  actTo: number;
+  verdict: string;
+};
+
+// the demo's headline steering run, checked on the GPU (demo/phase4_examples.json): #3446 "music"
+// up 0.5 on this prompt reads 0.00 to 12.44. At 1.0 it drifts, so the tour uses 0.5.
+const HEADLINE = { feature_id: 3446, mode: "amplify" as SteerMode, strength: 0.5, prompt: "The band walked on stage and", seed: 42, max_new_tokens: 60 };
 type Scene =
   | { kind: "overview"; chapter: string; dur: number }
   | { kind: "read"; chapter: string; dur: number }
@@ -62,9 +77,9 @@ function useNeurons(enabled: boolean) {
   return items;
 }
 
-/** Up to three named features to visit, and the saved steering run whose prompt, feature and seed the tour uses. */
+/** Up to three named features to visit. */
 function useStops(named: Named[] | null) {
-  const [stops, setStops] = useState<{ list: FeatureDetail[]; steer: SteeringExample | null } | null>(null);
+  const [stops, setStops] = useState<{ list: FeatureDetail[] } | null>(null);
   const key = named ? named.map((n) => n.id).join(",") : null;
   useEffect(() => {
     if (key === null) return;
@@ -82,36 +97,44 @@ function useStops(named: Named[] | null) {
           if (ctl.signal.aborted) return;
         }
       }
-      let steer: SteeringExample | null = null;
-      try {
-        const ex = (await api.steeringExamples(null, ctl.signal)).items.filter((e) => list.some((f) => f.feature_id === e.feature_id));
-        steer = ex.find((e) => e.is_curated && e.feature_id === list[0]?.feature_id) ?? ex.find((e) => e.is_curated) ?? ex[0] ?? null;
-      } catch {
-        if (ctl.signal.aborted) return;
-      }
-      setStops({ list, steer });
+      setStops({ list });
     })();
     return () => ctl.abort();
   }, [key]);
   return stops;
 }
 
-/** In real mode the steering chapter runs on the model, with the saved run's prompt, feature and seed. */
-function useLiveRun(ex: SteeringExample | null) {
-  const [run, setRun] = useState<Run | null>(null);
+/** The steering chapter: the headline run through /steer/check, so it shows the text and the feature's
+ *  activation on it. Live on the model in real mode, simulated in mock mode (and labelled so). */
+function useHeadline(enabled: boolean) {
+  const [out, setOut] = useState<{ f: FeatureDetail; run: Run } | null>(null);
   useEffect(() => {
-    setRun(null);
-    if (!ex) return;
+    if (!enabled) return;
     const ctl = new AbortController();
-    api
-      .steer({ feature_id: ex.feature_id, mode: ex.mode, strength: ex.strength, prompt: ex.prompt, seed: ex.seed, max_new_tokens: 40 }, ctl.signal)
-      .then((r) => setRun({ prompt: ex.prompt, seed: r.seed, mode: r.mode, baseline_text: r.baseline_text, steered_text: r.steered_text, live: true }))
+    Promise.all([api.feature(HEADLINE.feature_id, ctl.signal), api.steerCheck(HEADLINE, ctl.signal)])
+      .then(([f, r]) => {
+        if (f.is_dead) return;
+        setOut({
+          f,
+          run: {
+            prompt: HEADLINE.prompt,
+            seed: r.seed,
+            mode: r.mode,
+            strength: r.strength,
+            baseline_text: r.baseline_text,
+            steered_text: r.steered_text,
+            actFrom: r.target_activation_baseline,
+            actTo: r.target_activation_steered,
+            verdict: r.activation_verdict,
+          },
+        });
+      })
       .catch(() => {
         // model not loaded or the call failed: the chapter is left out, never filled from storage
       });
     return () => ctl.abort();
-  }, [ex]);
-  return run;
+  }, [enabled]);
+  return out;
 }
 
 /* ---------------- text helpers ---------------- */
@@ -147,7 +170,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
   const neurons = useNeurons(!!h);
   const stops = useStops(named);
   const real = h?.mode === "real";
-  const liveRun = useLiveRun(real ? (stops?.steer ?? null) : null);
+  const headline = useHeadline(!!h && !h.is_synthetic);
   const tokens = useMemo(() => demo?.tokens ?? [], [demo]);
   const frames = useMemo<Frame[]>(
     () =>
@@ -161,14 +184,10 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
     const out: Scene[] = [{ kind: "overview", chapter: "Overview", dur: 6500 }];
     if (frames.length) out.push({ kind: "read", chapter: "Reading", dur: 1600 + frames.length * 680 });
     for (const f of stops?.list ?? []) out.push({ kind: "focus", chapter: `#${f.feature_id}`, dur: 7600, f });
-    // real mode: the model's own run; mock mode: the saved run, since mock steering is simulated
-    const saved = stops?.steer;
-    const ex: Run | null = real ? liveRun : saved && h?.mode === "mock" ? { ...saved, live: false } : null;
-    const sf = saved ? stops?.list.find((f) => f.feature_id === saved.feature_id) : undefined;
-    if (ex && sf) out.push({ kind: "steer", chapter: "Steering", dur: 9800, f: sf, ex });
+    if (headline) out.push({ kind: "steer", chapter: "Steering", dur: 9800, f: headline.f, ex: headline.run });
     out.push({ kind: "outro", chapter: "Quality", dur: 7200 });
     return out;
-  }, [frames, stops, real, liveRun, h?.mode]);
+  }, [frames, stops, headline]);
 
   const [at, setAt] = useState(0);
   const [tok, setTok] = useState(-1);
@@ -770,7 +789,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
             });
             ctx.globalAlpha = 1;
           }
-          chip(sc.kind === "steer" ? `#${sc.f.feature_id} · ${sc.ex.mode === "amplify" ? "forced on" : "switched off"}` : `#${sc.f.feature_id}`, fx, fy + size + 18, false, k);
+          chip(sc.kind === "steer" ? `#${sc.f.feature_id} · ${sc.ex.mode === "amplify" ? `up ${+sc.ex.strength.toFixed(2)}×` : "off"} · seed ${sc.ex.seed}` : `#${sc.f.feature_id}`, fx, fy + size + 18, false, k);
         }
       }
     };
@@ -943,7 +962,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
           {sc.kind === "steer" && (
             <>
               <span className={s.eyebrow}>
-                Steering · #{sc.f.feature_id} {sc.ex.mode === "amplify" ? "forced on" : "switched off"}
+                Steering · #{sc.f.feature_id} {sc.ex.mode === "amplify" ? `up ${+sc.ex.strength.toFixed(2)}×` : "off"}
               </span>
               <p className={s.title}>{sc.ex.mode === "amplify" ? "Turn it up. The text changes." : "Switch it off. The text changes."}</p>
             </>
@@ -988,7 +1007,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
           </p>
         )}
 
-        {/* steering: normal next to steered, live on the model in real mode */}
+        {/* steering: the headline run, normal next to steered, and the activation check */}
         {sc?.kind === "steer" &&
           (() => {
             const base = continuation(sc.ex.baseline_text, sc.ex.prompt);
@@ -996,7 +1015,8 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
             return (
               <div className={s.runs} key={`r-${k}`}>
                 <span className={s.cardLabel}>
-                  “{sc.ex.prompt}…” · same prompt, seed {sc.ex.seed} · {sc.ex.live ? "live on the model" : "saved example"}
+                  “{sc.ex.prompt}…” · same prompt, seed {sc.ex.seed} · {sc.ex.mode === "amplify" ? `up ${+sc.ex.strength.toFixed(2)}×` : "off"} ·{" "}
+                  {real ? "live on the model" : "simulated"}
                 </span>
                 <div className={s.runGrid}>
                   <div className={s.run}>
@@ -1004,7 +1024,9 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
                     <p>{base}</p>
                   </div>
                   <div className={`${s.run} ${s.runOn}`}>
-                    <span className={s.runTag}>{sc.ex.mode === "amplify" ? "Feature on" : "Feature off"}</span>
+                    <span className={s.runTag}>
+                      {sc.ex.mode === "amplify" ? `Feature up ${+sc.ex.strength.toFixed(2)}×` : "Feature off"} · seed {sc.ex.seed}
+                    </span>
                     <p className={s.wipe}>
                       {diffWords(base, steered).map((seg, i) =>
                         seg.changed ? <mark key={i}>{seg.text}</mark> : <span key={i}>{seg.text}</span>,
@@ -1012,6 +1034,9 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
                     </p>
                   </div>
                 </div>
+                <span className={s.cardLabel}>
+                  #{sc.f.feature_id} on the finished text: {sc.ex.actFrom.toFixed(2)} → {sc.ex.actTo.toFixed(2)} · {sc.ex.verdict}
+                </span>
               </div>
             );
           })()}

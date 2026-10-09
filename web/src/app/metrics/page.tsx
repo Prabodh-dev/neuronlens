@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Histogram, LineChart } from "@/components/charts";
 import { CountUp } from "@/components/CountUp";
 import { isSampleData, useHealth } from "@/components/HealthProvider";
-import { LimitsBox } from "@/components/LimitsBox";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
 import type { MetricsResponse, Run } from "@/lib/api/types";
@@ -54,11 +53,6 @@ export default function MetricsPage() {
         </div>
       )}
       {m && <Body m={m} run={run} />}
-      {m && (
-        <div className={s.limits}>
-          <LimitsBox />
-        </div>
-      )}
     </div>
   );
 }

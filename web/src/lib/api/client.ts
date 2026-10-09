@@ -8,9 +8,15 @@ import type {
   InspectResponse,
   LabelStatus,
   MetricsResponse,
+  PromptOnlyRequest,
+  PromptOnlyResponse,
   RunList,
+  SteerCheckResponse,
+  SteerCompareResponse,
   SteerRequest,
   SteerResponse,
+  SteerSweepRequest,
+  SteerSweepResponse,
   SteeringExampleList,
 } from "./types";
 
@@ -37,9 +43,11 @@ export function errorMessage(e: ApiError): string {
 }
 
 // Reads give up after 10 s, steering after 60 s; inspect runs the model too, so it gets 30 s.
+// A strength sweep runs one generation per strength plus the baseline, so it gets 120 s.
 const READ_MS = 10_000;
 const INSPECT_MS = 30_000;
 const STEER_MS = 60_000;
+const SWEEP_MS = 120_000;
 
 async function request<T>(path: string, init: RequestInit = {}, signal?: AbortSignal, timeoutMs = READ_MS): Promise<T> {
   const ctl = new AbortController();
@@ -104,6 +112,15 @@ export const api = {
     request<InspectResponse>("/inspect", { method: "POST", body: JSON.stringify(body) }, signal, INSPECT_MS),
   steer: (body: SteerRequest, signal?: AbortSignal) =>
     request<SteerResponse>("/steer", { method: "POST", body: JSON.stringify(body) }, signal, STEER_MS),
+  // Phase 4: X1 activation check, X3 compare, X2 strength sweep, X4 prompt-only baseline
+  steerCheck: (body: SteerRequest, signal?: AbortSignal) =>
+    request<SteerCheckResponse>("/steer/check", { method: "POST", body: JSON.stringify(body) }, signal, STEER_MS),
+  steerCompare: (body: SteerRequest, signal?: AbortSignal) =>
+    request<SteerCompareResponse>("/steer/compare", { method: "POST", body: JSON.stringify(body) }, signal, STEER_MS),
+  steerSweep: (body: SteerSweepRequest, signal?: AbortSignal) =>
+    request<SteerSweepResponse>("/steer/sweep", { method: "POST", body: JSON.stringify(body) }, signal, SWEEP_MS),
+  promptOnly: (body: PromptOnlyRequest, signal?: AbortSignal) =>
+    request<PromptOnlyResponse>("/steer/prompt-only", { method: "POST", body: JSON.stringify(body) }, signal, STEER_MS),
   steeringExamples: (featureId: number | null, signal?: AbortSignal) =>
     request<SteeringExampleList>(`/steering-examples${qs({ feature_id: featureId })}`, {}, signal),
   runs: (signal?: AbortSignal) => request<RunList>("/runs", {}, signal),

@@ -140,6 +140,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/steer/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check
+         * @description X1. Baseline and steered with the same seed, plus the target feature's activation on
+         *     each finished text (re-encoded without steering). Not a quality score.
+         */
+        post: operations["check_api_v1_steer_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/steer/compare": {
         parameters: {
             query?: never;
@@ -499,6 +520,53 @@ export interface components {
         RunList: {
             /** Items */
             items: components["schemas"]["Run"][];
+        };
+        /**
+         * SteerCheckResponse
+         * @description X1: baseline vs steered (same seed) and the target feature's activation on each
+         *     finished text, re-encoded without steering. It reports whether the feature fires on the
+         *     resulting text; it does not say the output is better.
+         */
+        SteerCheckResponse: {
+            /**
+             * Activation Change
+             * @description (steered max - baseline max) / the feature's max_activation
+             */
+            activation_change: number;
+            /**
+             * Activation Verdict
+             * @enum {string}
+             */
+            activation_verdict: "higher" | "lower" | "about the same";
+            /** Baseline Text */
+            baseline_text: string;
+            /** Differs */
+            differs: boolean;
+            feature: components["schemas"]["SteerFeature"];
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "amplify" | "ablate";
+            /** Seed */
+            seed: number;
+            /** Steered Text */
+            steered_text: string;
+            /** Strength */
+            strength: number;
+            /**
+             * Target Activation Baseline
+             * @description max activation of the target feature over the new tokens of the baseline
+             */
+            target_activation_baseline: number;
+            /** Target Activation Baseline Mean */
+            target_activation_baseline_mean: number;
+            /** Target Activation Steered */
+            target_activation_steered: number;
+            /** Target Activation Steered Mean */
+            target_activation_steered_mean: number;
         };
         /**
          * SteerCompareResponse
@@ -1078,6 +1146,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SteerResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    check_api_v1_steer_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerCheckResponse"];
                 };
             };
             /** @description Not Found */

@@ -148,6 +148,28 @@ class _PromptRequest(BaseModel):
         return v
 
 
+class SteerCheckResponse(BaseModel):
+    """X1: baseline vs steered (same seed) and the target feature's activation on each
+    finished text, re-encoded without steering. It reports whether the feature fires on the
+    resulting text; it does not say the output is better."""
+    feature: SteerFeature
+    mode: Literal["amplify", "ablate"]
+    strength: float
+    seed: int
+    max_new_tokens: int
+    baseline_text: str
+    steered_text: str
+    differs: bool
+    target_activation_baseline: float = Field(
+        description="max activation of the target feature over the new tokens of the baseline")
+    target_activation_steered: float
+    target_activation_baseline_mean: float
+    target_activation_steered_mean: float
+    activation_change: float = Field(
+        description="(steered max - baseline max) / the feature's max_activation")
+    activation_verdict: Literal["higher", "lower", "about the same"]
+
+
 class SteerCompareResponse(BaseModel):
     """X3: baseline and steered with the same seed, compared token by token. Indices are
     0-based over newly generated tokens. In mock mode tokens are a word split."""

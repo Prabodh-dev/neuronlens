@@ -10,11 +10,12 @@ Text limit: `/inspect` text and `/steer` prompt are capped at 256 tokens (`TEXT_
 
 Phase 4 steering checks (fields in `docs/phase4-ml-api.md`; the code is `ml/neuronlens/steering_checks.py`):
 
+- `POST /steer/check` (X1): baseline vs steered plus the target feature's activation on each finished text (re-encoded without steering) and a verdict: higher, lower or about the same. It says whether the feature fires on the result, not whether the output is better.
 - `POST /steer/compare` (X3): seed-matched baseline vs steered, compared token by token.
 - `POST /steer/sweep` (X2): amplify at several strengths (default 0 to 2, each at most 3), with a degeneration flag.
 - `POST /steer/prompt-only` (X4): the prompt alone, same seed, no steering.
 
-Each check holds the model for all its generations (same lock as `/steer`). Measured on Prabodh's laptop: about 3 to 4 s for a check, 12 to 15 s for a 7-point sweep; clients should allow 30 s (60 s for a sweep). In mock mode, inputs that match `demo/phase4_examples.json` return those real outputs, still marked `[simulated]`; other inputs get a filler stand-in. Mock tokens are a word split, so counts and divergence indices differ from real mode.
+Each check holds the model for all its generations (same lock as `/steer`). Rough timing (real mode, warm server, Prabodh's laptop; estimates from two measurements, not benchmarks): about 0.65 s per generation, so a check takes about 1.5 s and a 7-point sweep about 5 s. A call right after server start may be slower. Clients allow 30 s (60 s for a sweep) as generous limits; see Timing in `docs/phase4-ml-api.md`. In mock mode, inputs that match `demo/phase4_examples.json` return those real outputs, still marked `[simulated]`; other inputs get a filler stand-in. Mock tokens are a word split, so counts and divergence indices differ from real mode.
 
 ## Run (from the repo root)
 

@@ -12,15 +12,17 @@ Sparse autoencoder (SAE) on GPT-2 small: training, evaluation, interpretation, a
 
 ## Results (final run, gpt2-l8-k32)
 
-| Metric                                      | Value                                           |
-| ------------------------------------------- | ----------------------------------------------- |
-| FVU                                         | 0.1637                                          |
-| L0                                          | 32                                              |
-| Dead features                               | 2.6% (small eval), about 0.008% (3M-token scan) |
-| CE original / zero-ablation / reconstructed | 3.2924 / 14.6982 / 3.4558                       |
-| CE recovered                                | 0.9857                                          |
+Final evaluation: 256 sequences, seed 999.
 
-The FVU comparison against the published GPT-2 layer-8 SAE is still to do.
+| Metric                                      | Value                                            |
+| ------------------------------------------- | ------------------------------------------------ |
+| FVU                                         | 0.1626                                           |
+| L0                                          | 32                                               |
+| Dead features                               | 0.42% (small eval), about 0.008% (3M-token scan) |
+| CE original / zero-ablation / reconstructed | 3.3089 / 14.7674 / 3.4714                        |
+| CE recovered                                | 0.9858                                           |
+
+The comparison with the published GPT-2 layer-8 SAE is in the section below.
 
 ## Run
 
@@ -50,6 +52,7 @@ Results: Result (256 sequences, seed 999): ours FVU 0.1626, CE recovered 0.9858;
 - neuronlens/train.py: training loop
 - neuronlens/evals.py: FVU, L0, dead %, cross-entropy evals
 - neuronlens/interpret.py, build_index.py: feature examples, logit attribution, database build
+- neuronlens/textdecode.py: byte-aware token decoding (characters split across tokens)
 - neuronlens/steering.py: steering hooks and generation
 - neuronlens/runtime.py: Runtime used by the server (load, count_tokens, inspect, steer)
 - scripts/: command-line entry points
@@ -58,5 +61,5 @@ Results: Result (256 sequences, seed 999): ours FVU 0.1626, CE recovered 0.9858;
 ## Notes
 
 - Checkpoints and the real database are not in git (data/ is ignored); they are shared by link.
-- This code was written before the hackathon and brought into this repo; the repo, API, web app and verification features are built during the event.
+- Prior work: see the Disclosures section of the root README.md for what existed before the hackathon and what was built during it.
 - Honest limits: GPT-2 small and one layer; the strongest features are word-piece features; some features are ambiguous; steering too hard breaks text.

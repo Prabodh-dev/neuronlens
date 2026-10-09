@@ -6,6 +6,7 @@ import { ErrorState } from "@/components/States";
 import { ApiError } from "@/lib/api/client";
 import {
   AUTOLAB_CANDIDATES,
+  AUTOLAB_ETA_S,
   AUTOLAB_LEN,
   AUTOLAB_SEED,
   AUTOLAB_STRENGTHS,
@@ -22,7 +23,7 @@ import {
 import { isBlockedGoal } from "@/lib/autolab-blocklist";
 import { FILLERS } from "@/lib/autolab-fillers";
 import { AUTOLAB_GOALS, AUTOLAB_PROMPTS, type AutoLabGoal } from "@/lib/autolab-presets";
-import { featureName } from "@/lib/format";
+import { featureName, showToken } from "@/lib/format";
 import { steerLink } from "@/lib/share";
 import { after, LiveTag, strengthLabel } from "../steer/checks";
 import s from "./autolab.module.css";
@@ -41,6 +42,7 @@ type State =
   | { kind: "done"; report: Report; secs: number }
   | { kind: "cancelled" }
   | { kind: "nomatch" }
+  | { kind: "pieces"; tokens: string[] }
   | { kind: "error"; error: ApiError };
 type Pick = { feature_id: number; strength: number };
 type Line = { id: number; text: string; tag: Tag | "info" };
@@ -136,7 +138,13 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
         }
       });
       if (c.signal.aborted) return;
-      setState(r === "nomatch" ? { kind: "nomatch" } : { kind: "done", report: r, secs: (performance.now() - t0) / 1000 });
+      setState(
+        "stop" in r
+          ? r.stop === "pieces"
+            ? { kind: "pieces", tokens: r.tokens }
+            : { kind: "nomatch" }
+          : { kind: "done", report: r, secs: (performance.now() - t0) / 1000 },
+      );
     } catch (e) {
       if (c.signal.aborted) setState({ kind: "cancelled" });
       else setState({ kind: "error", error: e instanceof ApiError ? e : new ApiError("INTERNAL", String((e as Error)?.message ?? e), 0) });
@@ -210,6 +218,13 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
                 // typing selects the typed goal; an empty box leaves Run disabled until a button is picked
                 setTyped(e.target.value);
                 setG(-1);
+                // a refused goal (blocklist, too many words) clears the last result, so it never sits
+                // under words it was not run for
+                if (typedGoal(e.target.value).problem) {
+                  setState({ kind: "idle" });
+                  setPick(null);
+                  setLog([]);
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") go();
@@ -235,7 +250,7 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
                 {goal ? (
                   <>
                     {goal.icon && `${goal.icon} `}
-                    {goal.label} on “{AUTOLAB_PROMPTS[p]}” · seed {AUTOLAB_SEED} · up to {AUTOLAB_CANDIDATES * AUTOLAB_STRENGTHS.length} tests · about 15 seconds
+                    {goal.label} on “{AUTOLAB_PROMPTS[p]}” · seed {AUTOLAB_SEED} · up to {AUTOLAB_CANDIDATES * AUTOLAB_STRENGTHS.length} tests · about {AUTOLAB_ETA_S} seconds
                   </>
                 ) : (
                   "Pick a goal or type one"
@@ -250,6 +265,14 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
         <div className={s.note} role="status">
           <b>No feature matches these words. Try another word.</b>
           <span>Fewer than 3 features were left once the ones that fire on almost any words were left out, so nothing else was run.</span>
+        </div>
+      )}
+      {state.kind === "pieces" && (
+        <div className={s.note} role="status">
+          <b>The model splits these words into small pieces, so no feature matches them. Try a common word.</b>
+          <span>
+            It read them as {state.tokens.length} pieces: <span className={s.mono}>{state.tokens.map(showToken).join(" · ")}</span>. Nothing else was run.
+          </span>
         </div>
       )}
       {state.kind === "cancelled" && (
@@ -333,7 +356,7 @@ function RunStatus({ step, t0, rows, log, onCancel }: { step: Step; t0: number; 
       <div className={s.statusTop}>
         <span className={s.spinner} aria-hidden="true" />
         <b>
-          {label} <span className={s.eta}>about 15 seconds in all</span>
+          {label} <span className={s.eta}>about {AUTOLAB_ETA_S} seconds in all</span>
         </b>
         <span className={s.clock}>{Math.floor((now - t0) / 1000)} s</span>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>

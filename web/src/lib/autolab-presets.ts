@@ -6,7 +6,7 @@ export type AutoLabGoal = { label: string; words: string; icon?: string };
 
 export const AUTOLAB_PROMPTS: string[] = ["The band walked on stage and", "The man walked into the room and", "She opened the door and"];
 
-// the goals that ship after the laptop test (Prabodh); the words are the ones recorded in
+// all 6 goals ship after the laptop test (Prabodh); the words are the ones recorded in
 // demo/autolab_examples.json, so the mock replays the real runs for them
 export const AUTOLAB_GOALS: AutoLabGoal[] = [
   { label: "Music", words: "music", icon: "♪" },
@@ -14,4 +14,5 @@ export const AUTOLAB_GOALS: AutoLabGoal[] = [
   { label: "Space", words: "space planet", icon: "✦" },
   { label: "Food", words: "cooking food", icon: "♨\uFE0E" },
   { label: "Weather", words: "weather rain", icon: "☂\uFE0E" },
+  { label: "Sports", words: "sports game", icon: "⚽\uFE0E" },
 ];

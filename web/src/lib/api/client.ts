@@ -86,7 +86,9 @@ async function request<T>(path: string, init: RequestInit = {}, signal?: AbortSi
     res = await fetch(API_BASE + path, {
       ...init,
       signal: ctl.signal,
-      headers: { "Content-Type": "application/json", ...init.headers },
+      // only a request with a body says it is JSON: on a GET that header makes the browser send an
+      // extra OPTIONS request first (a CORS preflight), one more round trip per read
+      headers: init.body === undefined ? init.headers : { "Content-Type": "application/json", ...init.headers },
     });
   } catch (e) {
     if (timedOut) throw new ApiError("NETWORK", `The server did not answer within ${timeoutMs / 1000} s.`, 0);

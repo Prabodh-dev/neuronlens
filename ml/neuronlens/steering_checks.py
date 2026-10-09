@@ -402,7 +402,8 @@ def validate_multi(rt, prompt, steers, max_new_tokens, seed):
     return [(f, float(s), float(m)) for f, s, m in out]
 
 
-def multi_steering_check(rt, prompt, steers, max_new_tokens=60, seed=42, with_single_controls=False):
+def multi_steering_check(rt, prompt, steers, max_new_tokens=60, seed=42, with_single_controls=False,
+                          baseline=None):
     """W5. Steer 2 or 3 features together (amplify only) and compare with the baseline.
 
     steers: [{feature_id, strength, max_activation}, ...]. The directions are added together
@@ -422,9 +423,13 @@ def multi_steering_check(rt, prompt, steers, max_new_tokens=60, seed=42, with_si
     target_activation_steered, activation_verdict}], so the combination can be set beside each
     single-feature result. Without it, compare with X1 on the same prompt, seed, feature and
     strength. Each control is one more generation.
+
+    `baseline` (ML-side option, not part of the documented API) is an optional Generation of the
+    unsteered run for this same prompt, max_new_tokens and seed; when given it is used instead of
+    generating the baseline again. The caller must make sure it matches.
     """
     items = validate_multi(rt, prompt, steers, max_new_tokens, seed)
-    base = rt.generate(prompt, max_new_tokens, seed, None)
+    base = baseline if baseline is not None else rt.generate(prompt, max_new_tokens, seed, None)
     steered = rt.generate(prompt, max_new_tokens, seed, MultiSteeringSpec(tuple(items)))
     singles = []
     if with_single_controls:

@@ -2,25 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/api/client";
+import type { InspectResponse } from "@/lib/api/types";
 import { featureName, showToken } from "@/lib/format";
 import { tokenColors } from "@/lib/heat";
-import { useApi } from "@/lib/useApi";
+import type { ApiState } from "@/lib/useApi";
 import s from "./landing.module.css";
 
 export const DEMO_TEXT = "The Supreme Court ruled that the decree was void.";
 
-/** One real /inspect call. Steps through the tokens by itself; hover or click to take over. */
-export function LiveDemo({ onReady }: { onReady?: (ok: boolean) => void }) {
-  const res = useApi((sig) => api.inspect({ text: DEMO_TEXT, top_n: 5 }, sig), "landing:demo");
+/** The landing page's one real /inspect result. Steps through the tokens by itself; hover or click to take over. */
+export function LiveDemo({ res }: { res: ApiState<InspectResponse> }) {
   const tokens = useMemo(() => res.data?.tokens ?? [], [res.data]);
   const [sel, setSel] = useState(1);
   const [hold, setHold] = useState(false);
-
-  useEffect(() => {
-    if (res.data) onReady?.(true);
-    else if (res.error) onReady?.(false);
-  }, [res.data, res.error, onReady]);
 
   // tokens worth stepping to: not the first (outlier) position, with features
   const steps = useMemo(() => tokens.filter((t) => !t.is_outlier_position && t.features.length > 0).map((t) => t.index), [tokens]);

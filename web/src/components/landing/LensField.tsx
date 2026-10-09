@@ -5,14 +5,19 @@ import { useEffect, useRef } from "react";
 import s from "./landing.module.css";
 
 type Named = { id: number; label: string };
+/** One token of a real /inspect result: its text and the features that fired on it. */
+export type Frame = { text: string; feats: { id: number; a: number }[] };
 
 /** Every feature as one dot, laid out row by row by id. A lens follows the cursor and magnifies
- *  what is under it, and 32 dots fire at a time (k = 32). Click a dot in the lens to open it. */
-export function LensField({ total, named }: { total: number; named: Named[] }) {
+ *  what is under it. The dots that light are the real features of each token in `frames`, one
+ *  token per beat. Click a dot in the lens to open it. */
+export function LensField({ total, named, frames, onFrame }: { total: number; named: Named[]; frames: Frame[]; onFrame?: (i: number) => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const router = useRouter();
   const labels = useRef(new Map<number, string>());
   const nav = useRef(router);
+  const framesRef = useRef(frames);
+  const onFrameRef = useRef(onFrame);
 
   useEffect(() => {
     labels.current = new Map(named.map((n) => [n.id, n.label]));
@@ -20,6 +25,10 @@ export function LensField({ total, named }: { total: number; named: Named[] }) {
   useEffect(() => {
     nav.current = router;
   }, [router]);
+  useEffect(() => {
+    framesRef.current = frames;
+    onFrameRef.current = onFrame;
+  }, [frames, onFrame]);
 
   useEffect(() => {
     const canvas = ref.current!;
@@ -91,16 +100,22 @@ export function LensField({ total, named }: { total: number; named: Named[] }) {
     const ro = new ResizeObserver(size);
     ro.observe(canvas);
 
-    // firing: every beat, 32 features light up and fade
+    // firing: every beat, the next token's real features light up, brighter the stronger they fired
     type Lit = { id: number; t0: number; amp: number };
     let lit: Lit[] = [];
     let lastBeat = -1e9;
+    let frameAt = -1;
     function beat(t: number) {
-      const named = [...labels.current.keys()];
-      for (let i = 0; i < 32; i++) {
-        const pick = named.length && Math.random() < 0.06 ? named[Math.floor(Math.random() * named.length)] : Math.floor(Math.random() * N);
-        lit.push({ id: pick, t0: t + i * 18, amp: 0.45 + Math.random() * 0.55 });
-      }
+      const all = framesRef.current;
+      if (!all.length) return false;
+      frameAt = (frameAt + 1) % all.length;
+      let peak = 1e-6;
+      for (const f of all) for (const x of f.feats) peak = Math.max(peak, x.a);
+      all[frameAt].feats.forEach((x, i) => {
+        if (x.id >= 0 && x.id < N) lit.push({ id: x.id, t0: t + i * 20, amp: 0.3 + 0.7 * (x.a / peak) });
+      });
+      onFrameRef.current?.(frameAt);
+      return true;
     }
     const env = (u: number) => (u < 0 ? 0 : u < 0.12 ? u / 0.12 : Math.exp(-(u - 0.12) * 3.2));
 
@@ -151,9 +166,10 @@ export function LensField({ total, named }: { total: number; named: Named[] }) {
     const frame = (t: number) => {
       raf = requestAnimationFrame(frame);
       if (!visible || !base) return;
-      const dt = Math.min(64, t - prev);
+      // the first frame's timestamp can be earlier than t0, so clamp: a negative age gave arc() a negative radius
+      const dt = Math.max(0, Math.min(64, t - prev));
       prev = t;
-      const age = t - t0;
+      const age = Math.max(0, t - t0);
       const intro = reduce ? 1 : Math.min(1, age / 1500);
       const ease = 1 - Math.pow(1 - intro, 3);
 
@@ -181,7 +197,7 @@ export function LensField({ total, named }: { total: number; named: Named[] }) {
       ctx.clearRect(0, 0, w, h);
 
       // field, revealed from the centre on load
-      const reach = Math.hypot(w, h) * 0.6 * ease;
+      const reach = Math.max(0, Math.hypot(w, h) * 0.6 * ease);
       ctx.save();
       if (intro < 1) {
         ctx.beginPath();
@@ -199,10 +215,7 @@ export function LensField({ total, named }: { total: number; named: Named[] }) {
       }
 
       // firing dots
-      if (!reduce && t - lastBeat > 760) {
-        lastBeat = t;
-        beat(t);
-      }
+      if (!reduce && t - lastBeat > 1300 && beat(t)) lastBeat = t;
       if (reduce && lit.length === 0) beat(t - 300);
       const bright = new Map<number, number>();
       lit = lit.filter((l) => t - l.t0 < 1500 || reduce);
@@ -305,10 +318,15 @@ export function LensField({ total, named }: { total: number; named: Named[] }) {
         ctx.font = font;
         ctx.textBaseline = "middle";
         for (const l of labelled.slice(0, 3)) {
-          const text = l.text.length > 26 ? l.text.slice(0, 25) + "…" : l.text;
+          // labels open toward the centre of the lens and are shortened to end before the rim
+          const left = l.x > lx;
+          const half = Math.sqrt(Math.max(0, R * R - (l.y - ly) * (l.y - ly)));
+          const room = left ? l.x - dotR - 9 - (lx - half) - 8 : lx + half - (l.x + dotR + 9) - 8;
+          let text = l.text;
+          while (text.length > 4 && ctx.measureText(text).width > room) text = text.slice(0, -2).trimEnd() + "…";
+          if (ctx.measureText(text).width > room) continue;
           const tw = ctx.measureText(text).width;
-          // labels open toward the centre of the lens so the rim never cuts them
-          const bx = l.x > lx ? l.x - dotR - 9 - tw : l.x + dotR + 9;
+          const bx = left ? l.x - dotR - 9 - tw : l.x + dotR + 9;
           ctx.fillStyle = "rgba(0,0,0,0.85)";
           ctx.fillRect(bx - 4, l.y - 9, tw + 8, 18);
           ctx.fillStyle = "#fff";

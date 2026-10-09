@@ -130,6 +130,31 @@
   letter-spacing: 0.04em;
   color: var(--faint);
 }
+/* which real token is lighting the field right now */
+.firing {
+  position: absolute;
+  z-index: 2;
+  left: max(var(--gutter), calc((100% - var(--col)) / 2 + var(--gutter)));
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.firing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px #fff;
+}
+.firing b {
+  font-weight: 500;
+  color: var(--ink);
+  white-space: pre;
+}
 .forTouch {
   display: none;
 }
@@ -747,20 +772,30 @@
   font-size: 18px;
   white-space: pre;
 }
+/* shading is the real activation; only the outline moves */
 .heatRow span {
   padding: 4px 1px;
   border-radius: 4px;
   color: var(--ink-2);
-  animation: heat 1.8s ease-in-out infinite alternate;
+  outline: 1.5px solid transparent;
+  outline-offset: 2px;
+  animation: scan 2.4s ease-in-out infinite;
 }
-@keyframes heat {
-  from {
-    background: rgb(255 255 255 / 0.04);
+.heatRow .heatSkip {
+  color: var(--faint);
+  outline: 1px dashed rgb(255 255 255 / 0.3);
+  outline-offset: -1px;
+  animation: none;
+}
+@keyframes scan {
+  0%,
+  30%,
+  100% {
+    outline-color: transparent;
   }
-  to {
-    background: rgb(255 255 255 / 0.88);
-    color: #000;
-    box-shadow: 0 0 18px rgb(255 255 255 / 0.35);
+  8%,
+  22% {
+    outline-color: #fff;
   }
 }
 

@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CountUp } from "@/components/CountUp";
 import { isSampleData, useHealth } from "@/components/HealthProvider";
-import { LensField } from "@/components/landing/LensField";
+import { type Frame, LensField } from "@/components/landing/LensField";
 import { DEMO_TEXT, LiveDemo } from "@/components/landing/LiveDemo";
 import { NeuronArt } from "@/components/landing/NeuronArt";
 import s from "@/components/landing/landing.module.css";
 import { api } from "@/lib/api/client";
-import { fmtInt } from "@/lib/format";
+import { fmtInt, showToken } from "@/lib/format";
+import { tokenColors } from "@/lib/heat";
 import { useApi } from "@/lib/useApi";
 
 /** Adds data-in="1" once the element scrolls into view. Works for elements that mount late. */
@@ -56,7 +57,17 @@ export default function Landing() {
   const names = useApi((sig) => api.features({ status: "named", sort: "max_activation", order: "desc", limit: 60 }, sig), "landing:names");
   const metrics = useApi((sig) => api.metrics(null, sig), "landing:metrics");
   const ceRec = metrics.data?.metrics.find((m) => m.name === "ce_recovered")?.value ?? null;
-  const [demoOk, setDemoOk] = useState(true);
+  // one real /inspect call feeds the hero, the live card and the inspect tile (top_n is capped at 20)
+  const demo = useApi((sig) => api.inspect({ text: DEMO_TEXT, top_n: 20 }, sig), "landing:demo");
+  const frames: Frame[] = useMemo(
+    () =>
+      (demo.data?.tokens ?? [])
+        .filter((t) => !t.is_outlier_position && t.features.length > 0)
+        .map((t) => ({ text: t.text, feats: t.features.map((f) => ({ id: f.feature_id, a: f.activation })) })),
+    [demo.data],
+  );
+  const demoPeak = Math.max(1e-6, ...frames.map((f) => f.feats[0]?.a ?? 0));
+  const [frame, setFrame] = useState(-1);
 
   const named = useMemo(() => (names.data?.items ?? []).filter((f) => f.label).map((f) => ({ id: f.feature_id, label: f.label! })), [names.data]);
   const ideas = useMemo(() => {
@@ -77,7 +88,7 @@ export default function Landing() {
       {/* hero: every feature as a dot, under a lens */}
       <section className={s.hero}>
         <div className={s.stage}>
-          {h && <LensField total={h.d_sae} named={named} />}
+          {h && <LensField total={h.d_sae} named={named} frames={frames} onFrame={setFrame} />}
           <div className={s.heroCopy}>
             <span className={`${s.kicker} rise`}>
               <i /> {h ? `${h.model_name} · layer ${h.hook_layer} · ${total} features` : "Connecting…"}
@@ -100,6 +111,11 @@ export default function Landing() {
               </Link>
             </div>
           </div>
+          {frames[frame] && (
+            <span className={s.firing} aria-hidden="true">
+              <i /> lit now: <b>“{showToken(frames[frame].text)}”</b> · its top {frames[frame].feats.length} features
+            </span>
+          )}
           <span className={s.hint} aria-hidden="true">
             click a dot in the lens to open it
           </span>
@@ -135,7 +151,7 @@ export default function Landing() {
       </section>
 
       {/* one sentence, live */}
-      {demoOk && (
+      {!demo.error && (
         <section className={s.live} ref={live}>
           <div className={s.liveCopy}>
             <span className="eyebrow">01 · Live</span>
@@ -145,7 +161,7 @@ export default function Landing() {
               Try your own <span aria-hidden="true">→</span>
             </Link>
           </div>
-          <LiveDemo onReady={setDemoOk} />
+          <LiveDemo res={demo} />
         </section>
       )}
 
@@ -154,7 +170,7 @@ export default function Landing() {
         <div className={s.splitHead}>
           <span className="eyebrow">02 · Why</span>
           <h2 className={s.h2}>One neuron, many ideas.</h2>
-          <p className={s.lead}>A sparse autoencoder pulls them apart{total ? `: ${total} features, one idea each` : " into features, one idea each"}.</p>
+          <p className={s.lead}>A neuron mixes many ideas. A sparse autoencoder splits the layer into {total ?? ""} features, one idea each. Five of them:</p>
         </div>
         <div className={s.splitBody}>
           <div className={s.splitArt}>
@@ -162,7 +178,7 @@ export default function Landing() {
               <div className={s.cutoutRing} aria-hidden="true" />
               <NeuronArt seed={11} />
             </div>
-            <span className={s.figTag}>fig. 1 — one neuron</span>
+            <span className={s.figTag}>fig. 1 — illustration</span>
           </div>
           <div className={s.fan} aria-hidden="true">
             <svg viewBox="0 0 100 500" preserveAspectRatio="none">
@@ -249,9 +265,14 @@ export default function Landing() {
           <Link href="/inspect" className={s.tile}>
             <div className={s.tileArt}>
               <div className={s.heatRow}>
-                {["The", " Supreme", " Court", " ruled"].map((w, i) => (
-                  <span key={i} style={{ animationDelay: `${i * 0.45}s` }}>
-                    {w}
+                {/* the first tokens of the real /inspect result, shaded by their real activations */}
+                {(demo.data?.tokens ?? []).slice(0, 4).map((t, i) => (
+                  <span
+                    key={t.index}
+                    className={t.is_outlier_position ? s.heatSkip : undefined}
+                    style={{ ...(t.is_outlier_position ? {} : tokenColors((t.features[0]?.activation ?? 0) / demoPeak)), animationDelay: `${i * 0.6}s` }}
+                  >
+                    {showToken(t.text)}
                   </span>
                 ))}
               </div>

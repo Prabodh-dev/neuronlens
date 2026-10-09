@@ -222,7 +222,27 @@ The call was `strength_sweep(rt, "The acrobat hung", 13, 21.4249, ...)`. Only tw
 
 A chunk counts as a word when, after stripping surrounding punctuation, it is not empty, has no U+FFFD, contains a letter or digit, and at least `NON_WORD_LETTER_RATIO` (0.5) of its characters are letters, digits, apostrophes or hyphens. Letters of any script count, so the rule does not judge language. One U+FFFD at the very end of the text is ignored, because cutting generation at `max_new_tokens` can end inside a multi-byte character.
 
-The limits are heuristics. They have not been checked against real GPT-2 outputs yet; `ml/scripts/phase4_demo.py` prints the measured values so they can be adjusted. A `degenerate` flag marks an output that is mostly repeats, noise or broken characters. It is not a quality score and says nothing about outputs that are not flagged. The rule catches repetition loops and non-word runs, not all low-quality text, and a result marked ok can still be poor.
+The limits are heuristics. They have been seen on only a few real outputs (see Observed behaviour below) and are not calibrated; `ml/scripts/phase4_demo.py` prints the measured values so they can be adjusted. A `degenerate` flag marks an output that is mostly repeats, noise or broken characters. It is not a quality score and says nothing about outputs that are not flagged. The rule catches repetition loops and non-word runs, not all low-quality text, and a result marked ok can still be poor.
+
+### Observed behaviour (one feature, one seed)
+
+One real run of a sweep: feature 13 (label "upside – upside down"), prompt `The acrobat hung`, `seed` 42, `max_new_tokens` 60, amplify. "Diverges at new token N" is `first_divergence_index`. Values that were not recorded in the run are marked as such.
+
+| Strength | Compared with the baseline | Degenerate flag |
+| --- | --- | --- |
+| 0.25 | identical for the first 25 new tokens, then drifts slightly | not recorded |
+| 0.5 | diverges at new token 4 | not recorded |
+| 0.75 | diverges at new token 4 | not recorded |
+| 1.0 | diverges at new token 2 | flagged as a repeating loop |
+| 1.5 | diverges at new token 0 | flagged as mostly repeated tokens |
+| 2.0 | diverges at new token 0 | flagged as mostly repeated tokens |
+
+Text from the run, shortened with "..." (the 0.5 and 1.0 texts are in the X2 example above):
+
+- 0.25 continues like the baseline, then drifts: `" his head and walked toward the door, but had no idea where he was going.\n\n\"Well, it's all right, I'll go for a ride, I "...` The baseline at the same point reads `"Well, it's all fine," he said.`
+- 1.5 and 2.0 (not separated in the notes) begin like `" down the down--down-down-down--..."`.
+
+This is one feature, one prompt and one seed. It is not a general rule: other features, prompts and seeds can behave differently, and the strengths at which loops start are not fixed. The default sweep covers 0 to 2 and is dense below 1 because, for this feature, the changes and the earliest loops appeared in that range.
 
 ---
 

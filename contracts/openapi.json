@@ -552,6 +552,72 @@
         "title": "MetricsResponse",
         "type": "object"
       },
+      "PromptOnlyRequest": {
+        "properties": {
+          "max_new_tokens": {
+            "default": 60,
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Max New Tokens",
+            "type": "integer"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "default": 42,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "PromptOnlyRequest",
+        "type": "object"
+      },
+      "PromptOnlyResponse": {
+        "description": "X4: what the model writes from the prompt alone, same seed, no steering.",
+        "properties": {
+          "continuation": {
+            "title": "Continuation",
+            "type": "string"
+          },
+          "max_new_tokens": {
+            "title": "Max New Tokens",
+            "type": "integer"
+          },
+          "new_tokens": {
+            "title": "New Tokens",
+            "type": "integer"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt",
+          "seed",
+          "max_new_tokens",
+          "text",
+          "continuation",
+          "new_tokens"
+        ],
+        "title": "PromptOnlyResponse",
+        "type": "object"
+      },
       "Run": {
         "properties": {
           "checkpoint_name": {
@@ -650,6 +716,156 @@
           "items"
         ],
         "title": "RunList",
+        "type": "object"
+      },
+      "SteerCompareResponse": {
+        "description": "X3: baseline and steered with the same seed, compared token by token. Indices are\n0-based over newly generated tokens. In mock mode tokens are a word split.",
+        "properties": {
+          "baseline_from_divergence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Baseline From Divergence",
+            "type": "array"
+          },
+          "baseline_from_divergence_text": {
+            "title": "Baseline From Divergence Text",
+            "type": "string"
+          },
+          "baseline_new_tokens": {
+            "title": "Baseline New Tokens",
+            "type": "integer"
+          },
+          "baseline_text": {
+            "title": "Baseline Text",
+            "type": "string"
+          },
+          "diverges": {
+            "title": "Diverges",
+            "type": "boolean"
+          },
+          "feature": {
+            "$ref": "#/components/schemas/SteerFeature"
+          },
+          "first_divergence_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Divergence Index"
+          },
+          "identical_prefix_text": {
+            "title": "Identical Prefix Text",
+            "type": "string"
+          },
+          "identical_prefix_tokens": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Identical Prefix Tokens",
+            "type": "array"
+          },
+          "max_new_tokens": {
+            "title": "Max New Tokens",
+            "type": "integer"
+          },
+          "mode": {
+            "enum": [
+              "amplify",
+              "ablate"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "percent_changed_from_divergence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent Changed From Divergence"
+          },
+          "percent_changed_raw": {
+            "title": "Percent Changed Raw",
+            "type": "number"
+          },
+          "percent_changed_raw_note": {
+            "title": "Percent Changed Raw Note",
+            "type": "string"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "steered_from_divergence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Steered From Divergence",
+            "type": "array"
+          },
+          "steered_from_divergence_text": {
+            "title": "Steered From Divergence Text",
+            "type": "string"
+          },
+          "steered_new_tokens": {
+            "title": "Steered New Tokens",
+            "type": "integer"
+          },
+          "steered_text": {
+            "title": "Steered Text",
+            "type": "string"
+          },
+          "strength": {
+            "title": "Strength",
+            "type": "number"
+          },
+          "tokens_changed": {
+            "title": "Tokens Changed",
+            "type": "integer"
+          },
+          "tokens_compared_from_divergence": {
+            "title": "Tokens Compared From Divergence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feature",
+          "mode",
+          "strength",
+          "seed",
+          "max_new_tokens",
+          "baseline_text",
+          "steered_text",
+          "prompt_tokens",
+          "baseline_new_tokens",
+          "steered_new_tokens",
+          "diverges",
+          "first_divergence_index",
+          "identical_prefix_tokens",
+          "identical_prefix_text",
+          "baseline_from_divergence",
+          "baseline_from_divergence_text",
+          "steered_from_divergence",
+          "steered_from_divergence_text",
+          "tokens_changed",
+          "tokens_compared_from_divergence",
+          "percent_changed_from_divergence",
+          "percent_changed_raw",
+          "percent_changed_raw_note"
+        ],
+        "title": "SteerCompareResponse",
         "type": "object"
       },
       "SteerFeature": {
@@ -767,6 +983,107 @@
         "title": "SteerResponse",
         "type": "object"
       },
+      "SteerSweepRequest": {
+        "properties": {
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "max_new_tokens": {
+            "default": 60,
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Max New Tokens",
+            "type": "integer"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "default": 42,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "strengths": {
+            "description": "amplify strengths, each 0 to 3, order kept",
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Strengths",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prompt",
+          "feature_id"
+        ],
+        "title": "SteerSweepRequest",
+        "type": "object"
+      },
+      "SteerSweepResponse": {
+        "description": "X2: amplify at several strengths with one seed. `degenerate` flags repetition loops,\nnon-word runs and broken characters; it is not a quality score.",
+        "properties": {
+          "baseline_degenerate": {
+            "title": "Baseline Degenerate",
+            "type": "boolean"
+          },
+          "baseline_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Reason"
+          },
+          "baseline_text": {
+            "title": "Baseline Text",
+            "type": "string"
+          },
+          "feature": {
+            "$ref": "#/components/schemas/SteerFeature"
+          },
+          "max_new_tokens": {
+            "title": "Max New Tokens",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "amplify",
+            "title": "Mode",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SweepResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feature",
+          "mode",
+          "seed",
+          "max_new_tokens",
+          "baseline_text",
+          "baseline_degenerate",
+          "baseline_reason",
+          "results"
+        ],
+        "title": "SteerSweepResponse",
+        "type": "object"
+      },
       "SteeringExample": {
         "properties": {
           "baseline_text": {
@@ -838,6 +1155,95 @@
           "items"
         ],
         "title": "SteeringExampleList",
+        "type": "object"
+      },
+      "SweepMetrics": {
+        "properties": {
+          "new_tokens": {
+            "title": "New Tokens",
+            "type": "integer"
+          },
+          "non_word_fraction": {
+            "title": "Non Word Fraction",
+            "type": "number"
+          },
+          "repeated_token_fraction": {
+            "title": "Repeated Token Fraction",
+            "type": "number"
+          },
+          "repeated_trigram_fraction": {
+            "title": "Repeated Trigram Fraction",
+            "type": "number"
+          },
+          "replacement_chars": {
+            "title": "Replacement Chars",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "new_tokens",
+          "repeated_token_fraction",
+          "repeated_trigram_fraction",
+          "non_word_fraction",
+          "replacement_chars"
+        ],
+        "title": "SweepMetrics",
+        "type": "object"
+      },
+      "SweepResult": {
+        "properties": {
+          "degenerate": {
+            "title": "Degenerate",
+            "type": "boolean"
+          },
+          "differs_from_baseline": {
+            "title": "Differs From Baseline",
+            "type": "boolean"
+          },
+          "first_divergence_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Divergence Index"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/SweepMetrics"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "strength": {
+            "title": "Strength",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strength",
+          "text",
+          "differs_from_baseline",
+          "first_divergence_index",
+          "degenerate",
+          "reason",
+          "metrics"
+        ],
+        "title": "SweepResult",
         "type": "object"
       },
       "TokenFeature": {
@@ -1429,6 +1835,252 @@
         "summary": "Steer",
         "tags": [
           "model"
+        ]
+      }
+    },
+    "/api/v1/steer/compare": {
+      "post": {
+        "description": "X3. Baseline and steered with the same seed, compared token by token.",
+        "operationId": "compare_api_v1_steer_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SteerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SteerCompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Compare",
+        "tags": [
+          "steering checks"
+        ]
+      }
+    },
+    "/api/v1/steer/prompt-only": {
+      "post": {
+        "description": "X4. What the model writes from the prompt alone: no steering, same seed. Its text\nequals the baseline_text of the steering calls with the same prompt, seed and length.",
+        "operationId": "prompt_only_api_v1_steer_prompt_only_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptOnlyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptOnlyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Prompt Only",
+        "tags": [
+          "steering checks"
+        ]
+      }
+    },
+    "/api/v1/steer/sweep": {
+      "post": {
+        "description": "X2. Amplify at several strengths (default 0 to 2) with one seed; flags degenerate text.\nOne generation per strength plus the baseline, so this is the slowest call.",
+        "operationId": "sweep_api_v1_steer_sweep_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SteerSweepRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SteerSweepResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Sweep",
+        "tags": [
+          "steering checks"
         ]
       }
     },

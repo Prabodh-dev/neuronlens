@@ -9,6 +9,10 @@ import numpy as np
 from .activations import Collector, load_model, token_sequences
 from .interpret import build_examples, load_sae, logit_attribution, scan
 
+# meta.schema_version written into every database; MAJOR.MINOR as in contracts/schema.sql
+# (the fixture uses the same value, and the server accepts any 1.x)
+SCHEMA_VERSION = "1.0"
+
 METRIC_NAMES = {"fvu": "fvu", "l0": "l0", "dead_pct": "dead_pct",
                 "ce_orig": "ce_original", "ce_zero": "ce_zero_ablation",
                 "ce_recon": "ce_reconstructed", "ce_recovered": "ce_recovered"}
@@ -58,7 +62,7 @@ def build(ckpt_path, out_db, schema_path, n_seqs=3000, labels_path="labels.json"
     con = sqlite3.connect(out_db)
     con.executescript(open(schema_path).read())
 
-    meta = {"schema_version": "1", "run_id": run_id, "model_name": "gpt2",
+    meta = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "model_name": "gpt2",
             "hook_layer": ck["layer"], "d_model": ck["d_model"], "d_sae": F,
             "k": ck["k"], "created_at": now, "is_synthetic": "false"}
     con.executemany("INSERT INTO meta VALUES (?,?)", [(k, str(v)) for k, v in meta.items()])

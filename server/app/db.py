@@ -41,8 +41,11 @@ def load_meta(db: Database) -> dict:
     missing = [k for k in REQUIRED_META if k not in meta]
     if missing:
         raise ApiError("SCHEMA_MISMATCH", f"meta is missing keys: {', '.join(missing)}")
-    major = meta["schema_version"].split(".")[0]
+    version = meta["schema_version"].strip()
+    major = version.split(".")[0]
     if major != "1":
         raise ApiError("SCHEMA_MISMATCH",
                        f"schema_version {meta['schema_version']!r} is not supported (need 1.x)")
+    # MAJOR.MINOR per the contract; the real DB was built with a bare "1"
+    meta["schema_version"] = version if "." in version else f"{version}.0"
     return meta

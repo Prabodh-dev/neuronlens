@@ -140,6 +140,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/steer/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare
+         * @description X3. Baseline and steered with the same seed, compared token by token.
+         */
+        post: operations["compare_api_v1_steer_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/steer/prompt-only": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prompt Only
+         * @description X4. What the model writes from the prompt alone: no steering, same seed. Its text
+         *     equals the baseline_text of the steering calls with the same prompt, seed and length.
+         */
+        post: operations["prompt_only_api_v1_steer_prompt_only_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/steer/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sweep
+         * @description X2. Amplify at several strengths (default 0 to 2) with one seed; flags degenerate text.
+         *     One generation per strength plus the baseline, so this is the slowest call.
+         */
+        post: operations["sweep_api_v1_steer_sweep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/steering-examples": {
         parameters: {
             query?: never;
@@ -375,6 +437,39 @@ export interface components {
             /** Training Curve */
             training_curve: components["schemas"]["CurvePoint"][];
         };
+        /** PromptOnlyRequest */
+        PromptOnlyRequest: {
+            /**
+             * Max New Tokens
+             * @default 60
+             */
+            max_new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number;
+        };
+        /**
+         * PromptOnlyResponse
+         * @description X4: what the model writes from the prompt alone, same seed, no steering.
+         */
+        PromptOnlyResponse: {
+            /** Continuation */
+            continuation: string;
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /** New Tokens */
+            new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /** Seed */
+            seed: number;
+            /** Text */
+            text: string;
+        };
         /** Run */
         Run: {
             /** Checkpoint Name */
@@ -404,6 +499,61 @@ export interface components {
         RunList: {
             /** Items */
             items: components["schemas"]["Run"][];
+        };
+        /**
+         * SteerCompareResponse
+         * @description X3: baseline and steered with the same seed, compared token by token. Indices are
+         *     0-based over newly generated tokens. In mock mode tokens are a word split.
+         */
+        SteerCompareResponse: {
+            /** Baseline From Divergence */
+            baseline_from_divergence: string[];
+            /** Baseline From Divergence Text */
+            baseline_from_divergence_text: string;
+            /** Baseline New Tokens */
+            baseline_new_tokens: number;
+            /** Baseline Text */
+            baseline_text: string;
+            /** Diverges */
+            diverges: boolean;
+            feature: components["schemas"]["SteerFeature"];
+            /** First Divergence Index */
+            first_divergence_index: number | null;
+            /** Identical Prefix Text */
+            identical_prefix_text: string;
+            /** Identical Prefix Tokens */
+            identical_prefix_tokens: string[];
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "amplify" | "ablate";
+            /** Percent Changed From Divergence */
+            percent_changed_from_divergence: number | null;
+            /** Percent Changed Raw */
+            percent_changed_raw: number;
+            /** Percent Changed Raw Note */
+            percent_changed_raw_note: string;
+            /** Prompt Tokens */
+            prompt_tokens: number;
+            /** Seed */
+            seed: number;
+            /** Steered From Divergence */
+            steered_from_divergence: string[];
+            /** Steered From Divergence Text */
+            steered_from_divergence_text: string;
+            /** Steered New Tokens */
+            steered_new_tokens: number;
+            /** Steered Text */
+            steered_text: string;
+            /** Strength */
+            strength: number;
+            /** Tokens Changed */
+            tokens_changed: number;
+            /** Tokens Compared From Divergence */
+            tokens_compared_from_divergence: number;
         };
         /** SteerFeature */
         SteerFeature: {
@@ -457,6 +607,53 @@ export interface components {
             /** Strength */
             strength: number;
         };
+        /** SteerSweepRequest */
+        SteerSweepRequest: {
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * Max New Tokens
+             * @default 60
+             */
+            max_new_tokens: number;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Seed
+             * @default 42
+             */
+            seed: number;
+            /**
+             * Strengths
+             * @description amplify strengths, each 0 to 3, order kept
+             */
+            strengths?: number[];
+        };
+        /**
+         * SteerSweepResponse
+         * @description X2: amplify at several strengths with one seed. `degenerate` flags repetition loops,
+         *     non-word runs and broken characters; it is not a quality score.
+         */
+        SteerSweepResponse: {
+            /** Baseline Degenerate */
+            baseline_degenerate: boolean;
+            /** Baseline Reason */
+            baseline_reason: string | null;
+            /** Baseline Text */
+            baseline_text: string;
+            feature: components["schemas"]["SteerFeature"];
+            /** Max New Tokens */
+            max_new_tokens: number;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "amplify";
+            /** Results */
+            results: components["schemas"]["SweepResult"][];
+            /** Seed */
+            seed: number;
+        };
         /** SteeringExample */
         SteeringExample: {
             /** Baseline Text */
@@ -485,6 +682,35 @@ export interface components {
         SteeringExampleList: {
             /** Items */
             items: components["schemas"]["SteeringExample"][];
+        };
+        /** SweepMetrics */
+        SweepMetrics: {
+            /** New Tokens */
+            new_tokens: number;
+            /** Non Word Fraction */
+            non_word_fraction: number;
+            /** Repeated Token Fraction */
+            repeated_token_fraction: number;
+            /** Repeated Trigram Fraction */
+            repeated_trigram_fraction: number;
+            /** Replacement Chars */
+            replacement_chars: number;
+        };
+        /** SweepResult */
+        SweepResult: {
+            /** Degenerate */
+            degenerate: boolean;
+            /** Differs From Baseline */
+            differs_from_baseline: boolean;
+            /** First Divergence Index */
+            first_divergence_index: number | null;
+            metrics: components["schemas"]["SweepMetrics"];
+            /** Reason */
+            reason: string | null;
+            /** Strength */
+            strength: number;
+            /** Text */
+            text: string;
         };
         /** TokenFeature */
         TokenFeature: {
@@ -852,6 +1078,213 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SteerResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    compare_api_v1_steer_compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerCompareResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    prompt_only_api_v1_steer_prompt_only_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptOnlyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptOnlyResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    sweep_api_v1_steer_sweep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerSweepRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerSweepResponse"];
                 };
             };
             /** @description Not Found */

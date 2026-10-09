@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { FeaturePicker, type PickedFeature } from "@/components/FeaturePicker";
-import { isSimulated, useHealth } from "@/components/HealthProvider";
+import { isMockModel, useHealth } from "@/components/HealthProvider";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
 import type { SteerMode, SteerRequest, SteeringExample } from "@/lib/api/types";
 import { changedShare, diffWords } from "@/lib/diff";
 import { featureName, fmtNum } from "@/lib/format";
+import { t } from "@/lib/copy";
 import { useAction, useApi } from "@/lib/useApi";
 import s from "./steer.module.css";
 
@@ -44,7 +45,7 @@ function Steer() {
   const [feature, setFeature] = useState<PickedFeature | null>(null);
   const [mode, setMode] = useState<SteerMode>("amplify");
   const [strength, setStrength] = useState(1);
-  const [prompt, setPrompt] = useState("I went to the market and");
+  const [prompt, setPrompt] = useState("The weather here is");
   const [seed, setSeed] = useState(42);
   const [maxTokens, setMaxTokens] = useState(60);
   const [shown, setShown] = useState<Shown | null>(null);
@@ -213,9 +214,9 @@ function Steer() {
           </div>
 
           <button className="btn btn-lg" type="submit" disabled={!feature || !prompt.trim() || steer.loading}>
-            {steer.loading ? "Generating…" : "Generate"}
+            {steer.loading ? "Generating…" : t("button.steer")}
           </button>
-          <p className={s.limit}>A test, not a fix.</p>
+          <p className={s.limit}>{t("note.steering")}</p>
         </form>
 
         <div className="stack" style={{ minWidth: 0 }}>
@@ -226,18 +227,18 @@ function Steer() {
             />
           )}
           {steer.error?.code === "MODEL_NOT_LOADED" && savedItems.length > 0 && (
-            <p className="small muted">Saved runs below are earlier runs of the real model.</p>
+            <p className="small muted">Saved examples below were recorded earlier.</p>
           )}
 
           {steer.loading && !shown && <ResultSkeleton />}
           {shown ? (
-            <Comparison shown={shown} simulated={isSimulated(h)} busy={steer.loading} />
+            <Comparison shown={shown} simulated={isMockModel(h)} busy={steer.loading} />
           ) : (
             !steer.loading &&
             !steer.error && (
               <div className="card">
                 <EmptyState title={feature ? "Ready" : "Pick a feature"} icon="spark">
-                  {feature ? "Press Generate." : "Search by name or #."}
+                  {feature ? `Press ${t("button.steer")}.` : "Search by name or #."}
                 </EmptyState>
               </div>
             )
@@ -245,7 +246,7 @@ function Steer() {
 
           <section className="card" aria-labelledby="saved-h">
             <div className="card-head">
-              <h2 id="saved-h">Saved runs{feature ? ` for #${feature.feature_id}` : ""}</h2>
+              <h2 id="saved-h">Saved examples{feature ? ` for #${feature.feature_id}` : ""}</h2>
               
             </div>
             {saved.loading && !saved.data && (
@@ -301,9 +302,9 @@ function Comparison({ shown, simulated, busy }: { shown: Shown; simulated: boole
         </h2>
         <div className="row" style={{ gap: 6 }}>
           {shown.source === "live" ? (
-            <span className={`pill ${simulated ? "pill-sim" : "pill-live"} pill-dot`}>{simulated ? "Simulated run" : "Live run"}</span>
+            <span className={`pill ${simulated ? "pill-sim" : "pill-live"} pill-dot`}>{simulated ? "Simulated" : t("badge.live")}</span>
           ) : (
-            <span className="pill pill-saved pill-dot">Saved run</span>
+            <span className="pill pill-saved pill-dot">{t("badge.saved")}</span>
           )}
           {shown.curated && <span className="pill pill-outline">Curated</span>}
         </div>

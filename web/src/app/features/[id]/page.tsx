@@ -1,17 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FeatureTitle, StatusPill } from "@/components/FeatureBits";
 import { HeatText } from "@/components/HeatText";
-import { isSimulated, useHealth } from "@/components/HealthProvider";
+import { isSampleData, useHealth } from "@/components/HealthProvider";
 import { LogitBars } from "@/components/LogitBars";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
 import type { Example, FeatureDetail } from "@/lib/api/types";
 import { featureName, fmtDensity, fmtNum, oneIn } from "@/lib/format";
 import { heatCss } from "@/lib/heat";
+import { t } from "@/lib/copy";
 import { useApi } from "@/lib/useApi";
 import s from "./detail.module.css";
 
@@ -62,7 +63,7 @@ export default function FeaturePage() {
         </div>
       )}
       {valid && loading && !f && <DetailSkeleton />}
-      {f && f.feature_id === id && <Detail f={f} sim={isSimulated(h)} />}
+      {f && f.feature_id === id && <Detail f={f} sim={isSampleData(h)} />}
     </div>
   );
 }
@@ -72,6 +73,18 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
   const [copied, setCopied] = useState(false);
   const examples = showAll ? f.examples : f.examples.slice(0, FIRST);
   const freq = oneIn(f.density);
+
+  const router = useRouter();
+  const [rolling, setRolling] = useState(false);
+  async function randomFeature() {
+    setRolling(true);
+    try {
+      const r = await api.randomFeature();
+      router.push(`/features/${r.feature_id}`);
+    } catch {
+      setRolling(false);
+    }
+  }
 
   async function copyLink() {
     try {
@@ -89,7 +102,7 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
         <div className={s.titleBlock}>
           <span className="eyebrow">
             Feature <span className={s.fid}>#{f.feature_id}</span>
-            {sim && " · simulated"}
+            {sim && " · sample data"}
           </span>
           <h1 className={s.title}>
             <FeatureTitle label={f.label} id={f.feature_id} />
@@ -101,16 +114,19 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
           <div className={s.actions}>
             {f.is_dead ? (
               <button className="btn" disabled title="A dead feature never fires, so there is nothing to steer.">
-                Steer this feature
+                {t("button.steerFeature")}
               </button>
             ) : (
               <Link href={`/steer?feature=${f.feature_id}`} className="btn btn-heat">
-                Steer this feature
+                {t("button.steerFeature")}
               </Link>
             )}
             <Link href={`/?neuron=${f.feature_id}`} className="btn btn-ghost">
               Microscope
             </Link>
+            <button className="btn btn-ghost" onClick={randomFeature} disabled={rolling}>
+              {rolling ? t("loading.default") : t("button.random")}
+            </button>
             <button className="btn btn-ghost" onClick={copyLink}>
               {copied ? "Link copied" : "Copy link"}
             </button>
@@ -144,9 +160,7 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
             </span>
           </div>
           {f.is_dead || !f.examples.length ? (
-            <EmptyState title="No examples" icon="spark">
-              {f.is_dead ? "This feature never fired in the scan." : "No passages were stored for this feature."}
-            </EmptyState>
+            <EmptyState title={f.is_dead ? t("feature.dead") : t("empty.examples")} icon="spark" />
           ) : (
             <>
               <ol className={s.examples}>
@@ -172,7 +186,6 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
             </div>
             <div className={s.panelBody}>
               <LogitBars promoted={f.logits.promoted} suppressed={f.logits.suppressed} />
-              <p className={s.note}>· = leading space</p>
             </div>
           </section>
 
@@ -191,6 +204,7 @@ function ExampleRow({ ex, max }: { ex: Example; max: number }) {
           className={s.exText}
           tokens={ex.tokens.map((t, i) => ({
             text: t,
+            value: ex.activations[i] ?? 0,
             heat: (ex.activations[i] ?? 0) / (max || 1),
             peak: i === ex.peak_index,
             tip: (

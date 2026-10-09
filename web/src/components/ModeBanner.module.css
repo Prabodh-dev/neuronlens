@@ -1,0 +1,30 @@
+/* Full-width strip directly under the header. Solid, so nothing scrolls through it. */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 5px var(--gutter);
+  border-top: 1px dashed rgb(255 255 255 / 0.28);
+  background: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.07) 0 8px, transparent 8px 16px), #070707;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.off {
+  border-top-style: solid;
+  border-top-color: rgb(255 255 255 / 0.6);
+}
+.mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  flex-shrink: 0;
+}
+.off .mark {
+  background: #fff;
+}
+.text {
+  min-width: 0;
+}

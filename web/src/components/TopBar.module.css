@@ -1,102 +1,179 @@
+/* Solid black bar, full width. Nothing behind it shows through. */
 .bar {
   position: sticky;
   top: 0;
   z-index: 40;
-  padding: 14px var(--gutter) 0;
-  transition: padding 0.3s var(--ease);
+  background: #000;
+  border-bottom: 1px solid var(--line);
+  transition: border-color 0.3s;
+}
+.scrolled {
+  border-bottom-color: var(--line-3);
+}
+.skip {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 2;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 13px;
+  font-weight: 500;
+}
+.skip:focus-visible {
+  top: 10px;
 }
 .inner {
+  position: relative;
   max-width: var(--col);
   margin-inline: auto;
-  height: 56px;
+  height: 60px;
+  padding-inline: var(--gutter);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 8px 0 18px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  transition: background 0.3s var(--ease), border-color 0.3s, backdrop-filter 0.3s;
+  gap: 20px;
 }
-.scrolled .inner {
-  background: rgb(10 10 10 / 0.72);
-  border-color: var(--line);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-}
+
+/* brand */
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 600;
-  font-size: 16px;
-  letter-spacing: -0.02em;
   flex-shrink: 0;
 }
+.logo {
+  display: grid;
+  place-items: center;
+  transition: transform 0.6s var(--ease);
+}
+.brand:hover .logo {
+  transform: rotate(90deg);
+}
+.word {
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -0.03em;
+}
+
+/* links with a highlight that glides to the hovered one */
 .nav {
+  position: relative;
   display: flex;
-  gap: 2px;
-  margin-inline: auto;
-  padding: 4px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.04);
-  border: 1px solid var(--line-2);
+  align-items: center;
+  height: 100%;
+  margin-left: 12px;
+}
+.glide {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 34px;
+  margin-top: -17px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.08);
+  pointer-events: none;
+  transition: transform 0.35s var(--ease), width 0.35s var(--ease), opacity 0.2s;
 }
 .link {
   position: relative;
-  padding: 7px 14px;
-  border-radius: 999px;
-  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 13px;
+  font-size: 14px;
   color: var(--muted);
   white-space: nowrap;
-  transition: color 0.2s, background 0.25s var(--ease);
+  transition: color 0.2s;
 }
 .link:hover {
   color: var(--ink);
 }
 .link[aria-current="page"] {
-  color: var(--bg);
-  background: var(--ink);
+  color: var(--ink);
 }
+/* the current page gets a white line sitting on the bar's bottom edge */
+.link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: #fff;
+  box-shadow: 0 0 12px rgb(255 255 255 / 0.6);
+}
+
+/* right side */
 .right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  margin-left: auto;
   flex-shrink: 0;
+}
+.chip {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .status {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-3);
   font-size: 12.5px;
-  color: var(--muted);
+  color: var(--ink-2);
+  white-space: nowrap;
 }
 .status i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
 }
-.dotSim {
+.status[data-kind="sim"] i {
   border: 1.5px dashed #fff;
 }
-.dotLive {
+.status[data-kind="live"] i {
   background: #fff;
   box-shadow: 0 0 10px #fff;
   animation: blink 2s ease-in-out infinite;
 }
-.dotOff {
-  background: #444;
+.status[data-kind="off"] i {
+  background: #555;
 }
 @keyframes blink {
   50% {
     opacity: 0.35;
   }
 }
+
+/* scroll progress along the bottom edge */
+.progress {
+  --p: 0;
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.2), #fff);
+  transform: scaleX(var(--p));
+  transform-origin: left;
+  pointer-events: none;
+}
+
 .menu {
   display: none;
   width: 40px;
   height: 40px;
   border: 1px solid var(--line-3);
-  border-radius: 999px;
+  border-radius: 10px;
   background: transparent;
   cursor: pointer;
   flex-direction: column;
@@ -117,25 +194,12 @@
 .menu[aria-expanded="true"] span:last-child {
   transform: translateY(-3.25px) rotate(-45deg);
 }
-.banner {
-  max-width: var(--col);
-  margin: 10px auto 0;
-  padding: 8px 8px 8px 18px;
-  width: calc(100% - 2 * var(--gutter));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line-3);
-  font-size: 13px;
-  color: var(--ink-2);
-}
-.banner code {
-  font-family: var(--f-mono);
-  font-size: 12px;
-}
 
+@media (max-width: 1180px) {
+  .chip {
+    display: none;
+  }
+}
 @media (max-width: 900px) {
   .right .cta {
     display: none;
@@ -143,30 +207,28 @@
 }
 @media (max-width: 760px) {
   .inner {
-    background: rgb(10 10 10 / 0.8);
-    border-color: var(--line);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    padding-left: 14px;
+    gap: 12px;
   }
   .menu {
     display: flex;
   }
-  .right {
-    margin-left: auto;
+  .glide {
+    display: none;
   }
   .nav {
     position: absolute;
-    top: calc(100% + 8px);
-    left: var(--gutter);
-    right: var(--gutter);
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: auto;
+    margin: 0;
     flex-direction: column;
-    padding: 8px;
-    border-radius: 20px;
-    background: #0a0a0a;
-    border-color: var(--line);
+    align-items: stretch;
+    padding: 8px var(--gutter) 14px;
+    background: #000;
+    border-bottom: 1px solid var(--line-3);
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
     pointer-events: none;
     transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
   }
@@ -176,7 +238,19 @@
     pointer-events: auto;
   }
   .link {
-    padding: 12px 16px;
-    font-size: 15px;
+    height: auto;
+    padding: 13px 4px;
+    font-size: 16px;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .link[aria-current="page"]::after {
+    left: auto;
+    right: 4px;
+    top: 50%;
+    bottom: auto;
+    width: 6px;
+    height: 6px;
+    margin-top: -3px;
+    border-radius: 50%;
   }
 }

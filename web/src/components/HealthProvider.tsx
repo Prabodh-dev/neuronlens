@@ -18,7 +18,12 @@ export function useHealth(): ApiState<Health> {
   return ctx;
 }
 
-/** Mock mode or a synthetic database: anything on screen is simulated. */
-export function isSimulated(h: Health | null): boolean {
-  return !!h && (h.mode === "mock" || h.is_synthetic);
+/** The database is the synthetic fixture: features, examples and metrics are fake. */
+export function isSampleData(h: Health | null): boolean {
+  return !!h?.is_synthetic;
+}
+
+/** The server runs the mock runtime: Inspect and Steer results are simulated. */
+export function isMockModel(h: Health | null): boolean {
+  return h?.mode === "mock";
 }

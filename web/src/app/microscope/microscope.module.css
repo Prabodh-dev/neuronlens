@@ -74,6 +74,11 @@
 .tok:hover {
   color: var(--ink);
 }
+.tokEmpty {
+  min-width: 1.4em;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.2);
+  border-radius: 999px;
+}
 .tokPast {
   color: var(--ink-2);
 }

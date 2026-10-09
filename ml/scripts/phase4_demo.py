@@ -9,6 +9,8 @@ Runs the X1 to X4 functions (neuronlens.steering_checks) for seven examples: fea
 ("music") twice, feature 1863 ("supreme") amplified and ablated,
 feature 13 ("upside"), feature 3587 ("alzheimer") and feature 7 ("hon"). Four of them carry a note
 that says what limit they show.
+The file also gets a "multi" list (W5): two features steered together, with the single-feature
+runs beside it (feature 4280 + 9530 on "The man walked into the room and", amplify 0.5).
 Each amplify example also gets a strength sweep with the degeneration flags. The database is
 opened read-only; the only file written is the JSON output. Steering is a test of what a
 feature does, not a fix: the outputs shift the text and are not an improvement.
@@ -78,6 +80,19 @@ EXAMPLES = [
     {"feature_id": 7, "expect_label": "hon", "mode": "amplify", "strength": 1.0,
      "prompt": "She looked out of the window and saw", "note": LIMIT_NOTE_7},
 ]
+# W5: two features steered together. Found by an automated search, then checked on held-out prompts.
+NOTE_W5 = (
+    "Found by an automated search over many candidates and pairs, so this example is selected: "
+    "on \"The woman looked at him and\" only one of the two features moved, and two other searched "
+    "pairs did not hold on held-out prompts. The result depends on the prompt and sits in a narrow "
+    "strength window. The activation readings are taken on the finished text and show which "
+    "concepts were active; steering is a test, not a fix.")
+
+MULTI_EXAMPLES = [
+    {"steers": [(4280, "that"), (9530, "sin")], "strength": 0.5,
+     "prompt": "The man walked into the room and", "note": NOTE_W5},
+]
+
 SEED = 42
 MAX_NEW_TOKENS = 60
 
@@ -146,6 +161,63 @@ def build_examples(rt, con, examples=EXAMPLES, seed=SEED, max_new_tokens=MAX_NEW
                                           for r in sw["results"]]}
         out.append(check)
     return out
+
+
+def build_multi_examples(rt, con, multi_examples=MULTI_EXAMPLES, seed=SEED,
+                         max_new_tokens=MAX_NEW_TOKENS, log=print):
+    """W5 examples: several features steered together (multi_steering_check with the
+    single-feature controls). Returns the list written under "multi"; an example whose features
+    are missing or dead is skipped with a message."""
+    out = []
+    for ex in multi_examples:
+        feats, steers, skip = [], [], False
+        for fid, expect in ex["steers"]:
+            row = feature_row(con, fid)
+            if row is None or row[3] or not row[2]:
+                log(f"skip multi example: feature {fid} is not in the database, dead, or has "
+                    f"max_activation 0")
+                skip = True
+                break
+            label, status, max_act, _ = row
+            ok = bool(label) and expect.lower() in label.lower()
+            if not ok:
+                log(f"WARNING feature {fid}: label is {label!r}, expected it to mention "
+                    f"{expect!r}; check the feature id")
+            feats.append({"feature_id": fid, "label": label, "label_status": status,
+                          "label_matches_expected": ok, "max_activation": max_act})
+            steers.append({"feature_id": fid, "strength": ex["strength"], "max_activation": max_act})
+        if skip:
+            continue
+        r = sc.multi_steering_check(rt, ex["prompt"], steers, max_new_tokens, seed,
+                                    with_single_controls=True)
+        entry = {"prompt": ex["prompt"], "seed": seed, "mode": "amplify", "strength": ex["strength"],
+                 "max_new_tokens": max_new_tokens, "features": feats, "steers": r["steers"],
+                 "baseline": r["baseline_text"], "steered": r["steered_text"], "differs": r["differs"],
+                 "first_divergence_index": r["first_divergence_index"],
+                 "degenerate": r["degenerate"], "reason": r["reason"],
+                 "activations": r["activations"], "single_feature_runs": r["single_feature_runs"]}
+        if ex.get("note"):
+            entry["note"] = ex["note"]
+        out.append(entry)
+    return out
+
+
+def summary_multi(multi, width=160):
+    """Readable lines for the W5 entries: the text, the loop flag, one activation line per
+    feature and the same features steered alone."""
+    lines = []
+    for e in multi:
+        names = " + ".join(f"{f['feature_id']} ({f['label']})" for f in e["features"])
+        lines += [f"together: {names} amplify x{e['strength']:g}", f"  prompt:   {e['prompt']}",
+                  f"  baseline: {e['baseline'][len(e['prompt']):][:width]!r}",
+                  f"  steered:  {e['steered'][len(e['prompt']):][:width]!r}",
+                  "  " + _flag(e["degenerate"], e["reason"])]
+        for a in e["activations"]:
+            lines.append(f"  feature {a['feature_id']}: {activation_line(a)}")
+        for c in e["single_feature_runs"]:
+            lines.append(f"  alone, feature {c['feature_id']}: {activation_line(c)}")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def summary(examples, width=160):
@@ -409,16 +481,19 @@ def main(argv=None):
     try:
         examples = build_examples(rt, con, seed=a.seed, max_new_tokens=a.max_new_tokens,
                                   sweep=not a.no_sweep)
+        multi = build_multi_examples(rt, con, seed=a.seed, max_new_tokens=a.max_new_tokens)
         run_id = con.execute("SELECT value FROM meta WHERE key='run_id'").fetchone()
     finally:
         con.close()
     result = {"note": "Steering is a test of what a feature does, not a fix. These outputs shift "
                       "the text; they are not an improvement.",
-              "run_id": run_id[0] if run_id else None, "examples": examples}
+              "run_id": run_id[0] if run_id else None, "examples": examples, "multi": multi}
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(summary(examples))
+    if multi:
+        print(summary_multi(multi))
     print(f"wrote {out}")
 
 

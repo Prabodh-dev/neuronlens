@@ -120,6 +120,15 @@ Example values for the new fields. These numbers are example values, not measure
 }
 ```
 
+### Limits of the activation check
+
+Observed on the GPU laptop, seed 42: one feature each and a few prompts. These are observations, not general rules. The numbers are the maximum activation over the new tokens, `target_activation_baseline` to `target_activation_steered`.
+
+- A feature that already fires near its maximum cannot show an increase. Feature 1863 on `The lawyers argued before the` had a baseline activation of 18.57 (its `max_activation` is about 19.7), so amplify reads "about the same".
+- For ablate, the check re-encodes the finished text, so if the concept's word is still in the text the feature still fires. Feature 1863 with ablate read "about the same" on two prompts (18.57 to 18.57, and 18.89 to 18.89).
+- Results depend on the prompt and the strength. Feature 3446 on `The band walked on stage and` went from 0.00 to 12.44 at strength 0.5, but read 0.00 at 1.0, where the text drifted to "video". Feature 1863 on `She opened the letter and read` went from 0.00 to 17.27 at 0.5 and read 0.00 at 1.0.
+- The check says whether the feature appears in the output text, not whether the output is better.
+
 ---
 
 ## X3. Seed-matched compare

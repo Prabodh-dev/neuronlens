@@ -2,8 +2,9 @@ import torch
 
 
 @torch.no_grad()
-def generate(model, tok, prompt, max_new_tokens, seed, hook_fn=None,
-             layer=8, device="cuda"):
+def generate_ids(model, tok, prompt, max_new_tokens, seed, hook_fn=None,
+                 layer=8, device="cuda"):
+    """Seeded sampling; returns (all token ids as a list, number of prompt tokens)."""
     ids = tok(prompt, return_tensors="pt").input_ids.to(device)
     handle = None
     if hook_fn is not None:
@@ -17,7 +18,13 @@ def generate(model, tok, prompt, max_new_tokens, seed, hook_fn=None,
     finally:
         if handle is not None:
             handle.remove()
-    return tok.decode(out[0], skip_special_tokens=True)
+    return out[0].tolist(), ids.shape[1]
+
+
+def generate(model, tok, prompt, max_new_tokens, seed, hook_fn=None,
+             layer=8, device="cuda"):
+    out, _ = generate_ids(model, tok, prompt, max_new_tokens, seed, hook_fn, layer, device)
+    return tok.decode(out, skip_special_tokens=True)
 
 
 def make_hook(sae, feature_id, mode, strength, max_activation, mu, scale):

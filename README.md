@@ -104,6 +104,10 @@ Flags: `--db` (default `../data/neuronlens.db`), `--rebuild-examples` (required 
 - Some features are ambiguous.
 - Steering too hard breaks text.
 
+## About the labels
+
+Feature names were generated automatically with gemini-3.5-flash-lite from each feature's top examples. We then reviewed a random sample of 50 features: 47 were right or roughly right and 3 were wrong. About 20 features, including the demo ones, were named by hand. About 15% of features are marked ambiguous, and one feature is unlabelled because it never fired.
+
 ## Disclosures
 
 **Prior work.** No part of this project existed before the event. The SAE training, evaluation, interpretation and steering code, the contracts, the API server, the web app, the real-mode runtime, the evaluation and published-SAE comparison scripts, and the feature labelling were all built during the event. It builds on public tools and data: GPT-2 small, PyTorch, Hugging Face Transformers, FineWeb-Edu, and OpenAI's published GPT-2 SAE for the comparison.

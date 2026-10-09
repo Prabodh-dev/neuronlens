@@ -47,6 +47,7 @@ MAX_NEW_TOKENS = 60
 SEARCH_TOP_N = 8                     # search for the goal with a leading space, top 8 ...
 CANDIDATES = 5                       # ... drop the filler features, keep the first 5
 MIN_CANDIDATES = 3                   # fewer than 3 left: "no good match"
+MAX_PIECES_PER_WORD = 2              # query tokens / words above 2 (e.g. "asdgf"): "no good match"
 MAX_DENSITY = 0.01                   # search hides features firing on more than 1% of tokens
 STRENGTHS = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]   # the /steer/sweep default; 0 is the control
 RISE_MIN = 3.0                       # worked: steered - unsteered >= 3.0 ...
@@ -97,8 +98,7 @@ RECOMMENDED, NOT_RELIABLE, NOTHING = "recommended", "not reliable", "nothing wor
 NO_MATCH = "no good match"
 STATUS_TEXT = {NOT_RELIABLE: "Worked at one strength only, not reliable",
                NOTHING: "Nothing worked",
-               NO_MATCH: f"No good match (fewer than {MIN_CANDIDATES} features left after "
-                         "dropping the filler features)"}
+               NO_MATCH: "No good match"}
 SHIP_MIN_PROMPTS = 2                 # a goal ships if it has a recommendation on 2 of 3 prompts
 
 
@@ -153,6 +153,21 @@ def select_candidates(features, filler_ids):
     dropped = [f["feature_id"] for f in features if f["feature_id"] in filler_ids]
     kept = [f for f in features if f["feature_id"] not in filler_ids][:CANDIDATES]
     return kept, dropped
+
+
+def no_match_reason(goal, tokens, kept):
+    """Why a goal gets "no good match" before any sweep, or None. The goal words split into
+    more than MAX_PIECES_PER_WORD tokens a word (made-up or misspelt words such as "asdgf"
+    come back as many small pieces), or fewer than MIN_CANDIDATES candidates are left after
+    the filler features are dropped."""
+    words = len(goal.split())
+    if words and len(tokens) / words > MAX_PIECES_PER_WORD:
+        return (f"the goal words split into {len(tokens)} pieces for {words} word(s), more "
+                f"than {MAX_PIECES_PER_WORD} a word")
+    if len(kept) < MIN_CANDIDATES:
+        return (f"fewer than {MIN_CANDIDATES} features left after dropping the filler "
+                "features")
+    return None
 
 
 def load_fillers(path=FILLERS_PATH):
@@ -249,8 +264,9 @@ def run_chain(base, goal, prompt, sort="activation", search_only=False, filler_i
         out["recommendation"] = None
         out["total_s"] = time.perf_counter() - t0
         return out
-    if len(kept) < MIN_CANDIDATES:
-        out["recommendation"] = {"status": NO_MATCH}
+    reason = no_match_reason(goal, search.get("tokens", []), kept)
+    if reason:
+        out["recommendation"] = {"status": NO_MATCH, "reason": reason}
         out["total_s"] = time.perf_counter() - t0
         return out
     for f in kept:
@@ -298,8 +314,9 @@ def replay(path, filler_ids=()):
                "calls": [], "total_s": 0.0, "simulated": g["search"].get("simulated"),
                "search": g["search"]}
         kept, out["dropped_fillers"] = select_candidates(g["search"]["features"], filler_ids)
-        if len(kept) < MIN_CANDIDATES:
-            out["recommendation"] = {"status": NO_MATCH}
+        reason = no_match_reason(g["goal"], g["search"].get("tokens", []), kept)
+        if reason:
+            out["recommendation"] = {"status": NO_MATCH, "reason": reason}
             results.append(out)
             continue
         sweeps = {sw["request"]["feature_id"]: sw["response"] for sw in g["sweeps"]}
@@ -395,7 +412,8 @@ def show(res, verbose=False):
               f"(rise {rec['rise']:+.2f}, {rec['worked_cells']} ✓ cells). Tuned on this prompt "
               "and seed; a test, not a fix.")
     elif rec:
-        print(f"  Recommendation: none. {STATUS_TEXT[rec['status']]}.")
+        print(f"  Recommendation: none. {STATUS_TEXT[rec['status']]}"
+              + (f" ({rec['reason']})." if rec.get("reason") else "."))
     for f in res["failures"]:
         print(f"  FAILED: {f}")
     calls = ", ".join(f"{n} {s:.1f}s" for n, s in res["calls"])
@@ -414,7 +432,8 @@ def print_ships(results):
             elif rec["status"] == RECOMMENDED:
                 what = f"#{rec['feature_id']} {rec['label']} at {rec['strength']:g}"
             else:
-                what = STATUS_TEXT[rec["status"]]
+                what = STATUS_TEXT[rec["status"]] + (f" ({rec['reason']})"
+                                                     if rec.get("reason") else "")
             print(f"      {prompt!r}: {what}")
 
 

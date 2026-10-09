@@ -4,6 +4,8 @@ data/*
 *.db
 !contracts/fixtures/sample.db
 .env
+.env.*
+!.env.example
 node_modules/
 .next/
 __pycache__/
@@ -17,3 +19,10 @@ map2d*.json
 
 # Scratch output of ml/scripts/find_pairs.py
 pairs_search*.json
+
+# Scratch files from demo prep
+demo/explore*.json
+/goals.txt
+/noise.txt
+/run*.txt
+*.backup.json

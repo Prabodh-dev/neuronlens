@@ -84,7 +84,7 @@ Phase Goal Main people Exit gate
    Scaffold Next.js with generated types from openapi.json.
    Explorer (C1), Feature Detail (C2), Metrics (C5), Text Inspector (C3), Steering Panel
    (C4), each with loading, empty and error states.
-   Review the contract against what the server returns; answer questions the same day.
+   Review the contract against what the server returns; answer questions promptly.
    Write run_evals.py and start the FVU comparison against the published GPT-2 SAE.
    Real mode: NEURONLENS_MODE=real loads the Runtime and the real DB.
    Write and run auto_label.py (never overwrites human labels).
@@ -118,6 +118,8 @@ Phase Goal Main people Exit gate
    (Mirdul). S1 and S4 (Prabodh) only if many hours remain.
    Each item ships only if it is finished, tested and demoable on real data; otherwise it
    is cut. The stretch window closes before the freeze.
+   Status: S5 and Auto-Lab are done. S1, S2, S3 and S4 were not built; the scope was
+   narrowed to Auto-Lab.
    Part 2: Freeze
    The freeze starts when the stretch window closes. No new features. Bug fixes, copy fixes and rehearsal only.
    Anand finalises the demo script and records a backup screen recording in

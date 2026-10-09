@@ -666,6 +666,251 @@
         "title": "MetricsResponse",
         "type": "object"
       },
+      "MultiActivation": {
+        "properties": {
+          "activation_verdict": {
+            "enum": [
+              "higher",
+              "lower",
+              "about the same"
+            ],
+            "title": "Activation Verdict",
+            "type": "string"
+          },
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "target_activation_baseline": {
+            "title": "Target Activation Baseline",
+            "type": "number"
+          },
+          "target_activation_steered": {
+            "title": "Target Activation Steered",
+            "type": "number"
+          }
+        },
+        "required": [
+          "feature_id",
+          "label",
+          "target_activation_baseline",
+          "target_activation_steered",
+          "activation_verdict"
+        ],
+        "title": "MultiActivation",
+        "type": "object"
+      },
+      "MultiSteer": {
+        "properties": {
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "strength": {
+            "default": 0.5,
+            "description": "1.0 = the feature's own max activation. Default 0.5: several features loop at 1.0 and above, and steers add together",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Strength",
+            "type": "number"
+          }
+        },
+        "required": [
+          "feature_id"
+        ],
+        "title": "MultiSteer",
+        "type": "object"
+      },
+      "MultiSteerEcho": {
+        "properties": {
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "strength": {
+            "title": "Strength",
+            "type": "number"
+          }
+        },
+        "required": [
+          "feature_id",
+          "label",
+          "strength"
+        ],
+        "title": "MultiSteerEcho",
+        "type": "object"
+      },
+      "MultiSteerRequest": {
+        "properties": {
+          "max_new_tokens": {
+            "default": 60,
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Max New Tokens",
+            "type": "integer"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "default": 42,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "steers": {
+            "description": "2 or 3 different features, amplify only",
+            "items": {
+              "$ref": "#/components/schemas/MultiSteer"
+            },
+            "maxItems": 3,
+            "minItems": 2,
+            "title": "Steers",
+            "type": "array"
+          },
+          "with_single_controls": {
+            "default": false,
+            "description": "also run each feature alone (one more generation each)",
+            "title": "With Single Controls",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prompt",
+          "steers"
+        ],
+        "title": "MultiSteerRequest",
+        "type": "object"
+      },
+      "MultiSteerResponse": {
+        "description": "W5: 2 or 3 features amplified together, same seed as the baseline. The activations\nare read on the finished texts and show which concepts were active; steering is a test\nof what features do. `degenerate` flags loops and broken text.",
+        "properties": {
+          "activations": {
+            "items": {
+              "$ref": "#/components/schemas/MultiActivation"
+            },
+            "title": "Activations",
+            "type": "array"
+          },
+          "baseline_text": {
+            "title": "Baseline Text",
+            "type": "string"
+          },
+          "degenerate": {
+            "title": "Degenerate",
+            "type": "boolean"
+          },
+          "differs": {
+            "title": "Differs",
+            "type": "boolean"
+          },
+          "first_divergence_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Divergence Index"
+          },
+          "max_new_tokens": {
+            "title": "Max New Tokens",
+            "type": "integer"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "single_feature_runs": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SingleFeatureRun"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null unless with_single_controls",
+            "title": "Single Feature Runs"
+          },
+          "steered_text": {
+            "title": "Steered Text",
+            "type": "string"
+          },
+          "steers": {
+            "items": {
+              "$ref": "#/components/schemas/MultiSteerEcho"
+            },
+            "title": "Steers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prompt",
+          "seed",
+          "max_new_tokens",
+          "simulated",
+          "steers",
+          "baseline_text",
+          "steered_text",
+          "differs",
+          "first_divergence_index",
+          "degenerate",
+          "reason",
+          "activations",
+          "single_feature_runs"
+        ],
+        "title": "MultiSteerResponse",
+        "type": "object"
+      },
       "PromptOnlyRequest": {
         "properties": {
           "max_new_tokens": {
@@ -1142,6 +1387,95 @@
           "features"
         ],
         "title": "SearchResponse",
+        "type": "object"
+      },
+      "SingleFeatureRun": {
+        "properties": {
+          "activation_verdict": {
+            "enum": [
+              "higher",
+              "lower",
+              "about the same"
+            ],
+            "title": "Activation Verdict",
+            "type": "string"
+          },
+          "degenerate": {
+            "title": "Degenerate",
+            "type": "boolean"
+          },
+          "differs": {
+            "title": "Differs",
+            "type": "boolean"
+          },
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "first_divergence_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Divergence Index"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "steered_text": {
+            "title": "Steered Text",
+            "type": "string"
+          },
+          "strength": {
+            "title": "Strength",
+            "type": "number"
+          },
+          "target_activation_baseline": {
+            "title": "Target Activation Baseline",
+            "type": "number"
+          },
+          "target_activation_steered": {
+            "title": "Target Activation Steered",
+            "type": "number"
+          }
+        },
+        "required": [
+          "feature_id",
+          "label",
+          "target_activation_baseline",
+          "target_activation_steered",
+          "activation_verdict",
+          "strength",
+          "steered_text",
+          "differs",
+          "first_divergence_index",
+          "degenerate",
+          "reason"
+        ],
+        "title": "SingleFeatureRun",
         "type": "object"
       },
       "SteerCheckResponse": {
@@ -2954,6 +3288,88 @@
           }
         },
         "summary": "Compare",
+        "tags": [
+          "steering checks"
+        ]
+      }
+    },
+    "/api/v1/steer/multi": {
+      "post": {
+        "description": "W5. Amplify 2 or 3 features together (same seed as the baseline), with each feature's\nactivation on the finished texts: shows which concepts were active. Optional controls run\neach feature alone. Higher strengths often loop; see `degenerate`.",
+        "operationId": "multi_api_v1_steer_multi_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MultiSteerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultiSteerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Multi",
         "tags": [
           "steering checks"
         ]

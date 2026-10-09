@@ -3,6 +3,8 @@ do the work; this layer does what /steer does (DB lookup, dead-feature and lengt
 and holds the model for the whole check, since each one runs several generations.
 Steering is a test of what a feature does, not a fix."""
 from fastapi import APIRouter, Depends
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 from ..db import Database
 from ..deps import get_db, get_runtime
@@ -100,12 +102,19 @@ def sweep(req: SteerSweepRequest, db: Database = Depends(get_db),
           runtime=Depends(get_runtime)):
     """X2. Amplify at several strengths (default 0 to 2) with one seed; flags degenerate text.
     One generation per strength plus the baseline, so this is the slowest call."""
+    # with_activations (described on the request field) adds the feature's activation on the
+    # baseline and on each text; the docstring stays as it was so openapi.json only gains lines
     row = steerable_feature(db, req.feature_id)
     check_length(runtime, req.prompt, "prompt")
     out = run_check(runtime, lambda sc, rt: sc.strength_sweep(
         rt, req.prompt, req.feature_id, row["max_activation"], req.strengths,
-        req.max_new_tokens, req.seed))
-    return SteerSweepResponse(**with_feature(out, row))
+        req.max_new_tokens, req.seed, with_activations=req.with_activations))
+    resp = SteerSweepResponse(**with_feature(out, row))
+    if req.with_activations:
+        return resp
+    # flag off: the response is exactly what it was before the flag existed
+    return JSONResponse(jsonable_encoder(resp.model_dump(exclude={"results": {"__all__": {
+        "target_activation_baseline", "target_activation_steered"}}})))
 
 
 @router.post("/steer/prompt-only", response_model=PromptOnlyResponse)

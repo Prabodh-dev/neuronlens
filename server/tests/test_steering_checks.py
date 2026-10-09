@@ -134,6 +134,32 @@ def test_sweep_default_strengths(client):
     assert b["baseline_degenerate"] is False and b["baseline_reason"] is None
 
 
+SWEEP_RESULT_KEYS = {"strength", "text", "differs_from_baseline", "first_divergence_index",
+                     "degenerate", "reason", "metrics"}
+
+
+def test_sweep_without_flag_is_unchanged(client):
+    for body in (ACROBAT, {**ACROBAT, "with_activations": False}):
+        b = client.post(f"{API}/steer/sweep", json=body).json()
+        assert all(set(r) == SWEEP_RESULT_KEYS for r in b["results"])
+        assert "target_activation_baseline" not in b
+
+
+def test_sweep_with_activations(client):
+    b = client.post(f"{API}/steer/sweep", json={**ACROBAT, "with_activations": True}).json()
+    by = {r["strength"]: r for r in b["results"]}
+    assert all(set(r) == SWEEP_RESULT_KEYS | {"target_activation_baseline",
+                                              "target_activation_steered"} for r in b["results"])
+    # the recorded X1 numbers for 13 at 0.5 (demo/phase4_examples.json)
+    assert by[0.5]["target_activation_baseline"] == 0.0
+    assert round(by[0.5]["target_activation_steered"], 2) == 2.87
+    assert by[0.0]["target_activation_steered"] == by[0.0]["target_activation_baseline"]
+    assert len({r["target_activation_baseline"] for r in b["results"]}) == 1
+    # the texts are the same as without the flag
+    plain = client.post(f"{API}/steer/sweep", json=ACROBAT).json()
+    assert [r["text"] for r in plain["results"]] == [r["text"] for r in b["results"]]
+
+
 def test_sweep_keeps_given_order(client):
     b = client.post(f"{API}/steer/sweep", json={**ACROBAT, "strengths": [2, 0.5, 0]}).json()
     assert [r["strength"] for r in b["results"]] == [2.0, 0.5, 0.0]
@@ -253,6 +279,20 @@ def test_real_mode_check_reads_activations(monkeypatch):
         assert b["activation_change"] == 0.0 and b["activation_verdict"] == "about the same"
         assert fake.calls[2:] == [("acts", 13), ("acts", 13)]  # after both generations
         assert all(s.max_activation == max_act for s in fake.calls[1:2])
+
+
+def test_real_mode_sweep_activations(monkeypatch):
+    fake = FakeMlRuntime()
+    with _real_client(monkeypatch, fake) as c:
+        body = {"prompt": "Up we go", "feature_id": 13, "strengths": [0, 1.5]}
+        c.post(f"{API}/steer/sweep", json=body)
+        assert not any(isinstance(x, tuple) for x in fake.calls)  # off: no activation reads
+        fake.calls.clear()
+        b = c.post(f"{API}/steer/sweep", json={**body, "with_activations": True}).json()
+        assert [r["target_activation_steered"] for r in b["results"]] == [3.0, 3.0]
+        assert all(r["target_activation_baseline"] == 3.0 for r in b["results"])
+        gens = [x for x in fake.calls if not isinstance(x, tuple)]
+        assert len(gens) == 3  # no extra generations, only activation reads (under the lock)
 
 
 def test_real_mode_maps_ml_errors(monkeypatch):

@@ -121,7 +121,7 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
                 {t("button.steerFeature")}
               </Link>
             )}
-            <Link href={`/?neuron=${f.feature_id}`} className="btn btn-ghost">
+            <Link href={`/microscope?neuron=${f.feature_id}`} className="btn btn-ghost">
               Microscope
             </Link>
             <button className="btn btn-ghost" onClick={randomFeature} disabled={rolling}>

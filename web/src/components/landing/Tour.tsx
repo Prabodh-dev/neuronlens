@@ -8,7 +8,7 @@ import { API_BASE, api } from "@/lib/api/client";
 import type { FeatureDetail, FeatureListItem, Health, InspectResponse, SteeringExample } from "@/lib/api/types";
 import { t as copy } from "@/lib/copy";
 import { diffWords } from "@/lib/diff";
-import { fmtInt, showToken } from "@/lib/format";
+import { fmtInt, readable, showToken } from "@/lib/format";
 import s from "./tour.module.css";
 
 /** The landing hero: a guided tour that plays by itself and loops. It shows every feature, reads a
@@ -649,7 +649,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
           E.focus = { x: fx, y: fy, r: size + 6, id: sc.f.feature_id };
 
           if (sc.kind === "focus") {
-            const next = sc.f.logits.promoted.slice(0, 5);
+            const next = sc.f.logits.promoted.filter((l) => readable(l.token)).slice(0, 5);
             const orbit = Math.max(narrow ? 92 : 104, size + (narrow ? 64 : 78));
             next.forEach((entry, j) => {
               const fade = Math.max(0, Math.min(1, (E.sceneT - E.fly.dur * 0.9 - j * 160) / 450));
@@ -807,7 +807,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
               </p>
               <span className={s.cardLabel}>Pushes up next</span>
               <div className={s.chips}>
-                {sc.f.logits.promoted.slice(0, 5).map((l, i) => (
+                {sc.f.logits.promoted.filter((l) => readable(l.token)).slice(0, 5).map((l, i) => (
                   <span key={i}>{showToken(l.token)}</span>
                 ))}
               </div>

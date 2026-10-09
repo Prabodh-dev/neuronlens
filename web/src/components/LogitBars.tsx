@@ -1,11 +1,14 @@
 import type { LogitEntry } from "@/lib/api/types";
-import { fmtNum, showToken } from "@/lib/format";
+import { fmtNum, readable, showToken } from "@/lib/format";
 import s from "./LogitBars.module.css";
 
 const shown = (t: string) => showToken(t);
 
 /** One diverging chart: tokens the feature pushes toward grow right, tokens it pushes away grow left. */
-export function LogitBars({ promoted, suppressed }: { promoted: LogitEntry[]; suppressed: LogitEntry[] }) {
+export function LogitBars(props: { promoted: LogitEntry[]; suppressed: LogitEntry[] }) {
+  // rows with "�" are byte pieces of a character, not readable words
+  const promoted = props.promoted.filter((e) => readable(e.token));
+  const suppressed = props.suppressed.filter((e) => readable(e.token));
   if (!promoted.length && !suppressed.length) return <p className="muted small">None recorded.</p>;
   const max = Math.max(...promoted.map((e) => Math.abs(e.score)), ...suppressed.map((e) => Math.abs(e.score)), 1e-9);
   const rows = Math.max(promoted.length, suppressed.length);

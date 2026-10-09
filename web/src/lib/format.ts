@@ -43,6 +43,11 @@ export function showToken(t: string): string {
 }
 
 export const EMPTY_TOKEN = "·";
+
+/** False for a token holding "�": a piece of a character's bytes that cannot be shown on its own. */
+export function readable(t: string): boolean {
+  return !t.includes("\uFFFD");
+}
 export const EMPTY_TOKEN_TIP = "Empty token: part of a character that the next token completes";
 
 /** A feature's label, or "Unlabelled feature #id" where no number is shown next to it. */

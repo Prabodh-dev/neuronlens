@@ -243,11 +243,12 @@ export default function Microscope() {
         {/* top left: how many fire, and find one by number or name */}
         <div className={s.hud} data-away={open !== null ? "1" : "0"}>
           <div className={s.count}>
+            <span>top</span>
             <b className="mono">{fmtInt(activity.size)}</b>
             <span>firing</span>
           </div>
           <div className={s.countSub}>
-            of {fmtInt(neurons?.length ?? h?.d_sae ?? 0)} · {sim ? "simulated" : "live"}
+            of {fmtInt(neurons?.length ?? h?.d_sae ?? 0)} features · {sim ? "simulated" : "real data"}
           </div>
           <div className={s.find}>
             <input

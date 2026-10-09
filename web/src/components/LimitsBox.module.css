@@ -1,0 +1,65 @@
+/* The honest limits, as numbered cards: short title, one plain sentence. */
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 28px;
+  border-radius: var(--r-lg);
+  border: 1px dashed var(--line-3);
+  background: #050505;
+}
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.title {
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 0.45fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.n {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+.item b {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.item p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .box {
+    padding: 20px 16px;
+  }
+  .item {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 4px 10px;
+  }
+  .item p {
+    grid-column: 2;
+  }
+}

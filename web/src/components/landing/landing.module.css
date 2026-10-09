@@ -918,3 +918,10 @@
     display: none;
   }
 }
+
+/* ---------- limits ---------- */
+.limits {
+  max-width: var(--col);
+  margin-inline: auto;
+  padding: 110px var(--gutter) 0;
+}

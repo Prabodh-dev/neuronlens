@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CountUp } from "@/components/CountUp";
 import { isSampleData, useHealth } from "@/components/HealthProvider";
+import { LimitsBox } from "@/components/LimitsBox";
 import { DEMO_TEXT, LiveDemo } from "@/components/landing/LiveDemo";
 import { NeuronArt } from "@/components/landing/NeuronArt";
 import { Tour } from "@/components/landing/Tour";
@@ -288,6 +289,11 @@ export default function Landing() {
           </Link>
         </div>
       </section>
+
+      {/* what it does not do */}
+      <div className={s.limits}>
+        <LimitsBox />
+      </div>
 
       {/* end */}
       <section className={s.end} ref={end}>

@@ -427,10 +427,11 @@ def test_fewer_than_3_left_is_no_good_match_and_runs_no_sweeps(monkeypatch):
     call, paths = _fake_server(_feats(1375, 5023, 3356, 8559, 7, 9), lambda fid: None)
     monkeypatch.setattr(al, "call", call)
     res = al.run_chain("http://t", "music", PROMPT, filler_ids={1375, 5023, 3356, 8559})
-    assert res["recommendation"] == {"status": al.NO_MATCH}
+    assert res["recommendation"]["status"] == al.NO_MATCH
+    assert "fewer than 3 features left" in res["recommendation"]["reason"]
     assert res["dropped_fillers"] == [1375, 5023, 3356, 8559]
     assert not any("sweep" in p for p in paths)
-    assert al.STATUS_TEXT[al.NO_MATCH].startswith("No good match")
+    assert al.STATUS_TEXT[al.NO_MATCH] == "No good match"
 
 
 def test_chain_sweeps_only_the_kept_candidates(monkeypatch):
@@ -455,7 +456,7 @@ def test_replay_applies_the_same_selection():
     _, results = al.replay(str(mock.AUTOLAB_PATH), fillers)
     music = {(r["goal"], r["prompt"]): r for r in results}[("music",
                                                             "The band walked on stage and")]
-    assert music["recommendation"] == {"status": al.NO_MATCH}
+    assert music["recommendation"]["status"] == al.NO_MATCH
 
 
 def test_mock_replays_the_new_chain(client, monkeypatch):
@@ -509,3 +510,57 @@ def test_find_fillers_refuses_a_mock_server(client, monkeypatch, tmp_path):
 
 def test_missing_filler_list_drops_nothing(tmp_path):
     assert al.load_fillers(tmp_path / "none.json") == set()
+
+
+# ---------- guard: more than 2 query tokens a word is "no good match" ----------
+
+# token pieces as GPT-2 splits these queries (with the leading space), from Prabodh's check
+PIECES = {"asdgf": [" as", "d", "g", "f"],                   # 4 pieces for 1 word
+          "mnbvc kjh": [" mn", "b", "vc", " k", "j", "h"],   # 6 pieces for 2 words
+          "cooking food": [" cook", "ing", " food"]}          # 3 pieces for 2 words
+
+
+@pytest.mark.parametrize("goal, rejected", [("asdgf", True), ("mnbvc kjh", True),
+                                            ("cooking food", False)])
+def test_pieces_per_word_guard(goal, rejected):
+    reason = al.no_match_reason(goal, PIECES[goal], _feats(1, 2, 3, 4, 5))
+    assert (reason is not None) == rejected
+    if rejected:
+        assert f"{len(PIECES[goal])} pieces for {len(goal.split())} word" in reason
+
+
+@pytest.mark.parametrize("goal, rejected", [("asdgf", True), ("mnbvc kjh", True),
+                                            ("cooking food", False)])
+def test_guard_runs_before_any_sweep(goal, rejected, monkeypatch):
+    paths = []
+
+    def call(base, path, body=None, timeout=10):
+        paths.append(path)
+        if path.endswith("/features/search"):
+            return {"simulated": False, "tokens": PIECES[goal],
+                    "features": _feats(1, 2, 3, 4, 5, 6, 7, 8)}, 0.01
+        return _sweep_response([0, 0, 4, 5, 0, 0, 0]), 0.01
+    monkeypatch.setattr(al, "call", call)
+    res = al.run_chain("http://t", goal, PROMPT)
+    sweeps = sum("sweep" in p for p in paths)
+    if rejected:
+        assert res["recommendation"]["status"] == al.NO_MATCH and sweeps == 0
+        assert "pieces" in res["recommendation"]["reason"]
+    else:
+        assert res["recommendation"]["status"] == al.RECOMMENDED and sweeps == 5
+
+
+def test_guard_in_replay(tmp_path):
+    goal = json.loads(json.dumps(GOAL))
+    goal["goal"], goal["search"]["tokens"] = "asdgf", PIECES["asdgf"]
+    path = tmp_path / "rec.json"
+    path.write_text(json.dumps({"goals": [goal]}), encoding="utf-8")
+    rec = al.replay(str(path))[1][0]["recommendation"]
+    assert rec["status"] == al.NO_MATCH and "4 pieces for 1 word" in rec["reason"]
+
+
+def test_recorded_goals_pass_the_guard():
+    """None of the 6 shipped goals is caught by the guard."""
+    data = json.loads(mock.AUTOLAB_PATH.read_text(encoding="utf-8"))
+    for g in data["goals"]:
+        assert len(g["search"]["tokens"]) / len(g["goal"].split()) <= 2, g["goal"]

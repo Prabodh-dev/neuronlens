@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FeatureTitle } from "@/components/FeatureBits";
 import { HeatText } from "@/components/HeatText";
-import { isSimulated, useHealth } from "@/components/HealthProvider";
+import { isMockModel, useHealth } from "@/components/HealthProvider";
 import { NeuronField, type FieldPin } from "@/components/NeuronField";
 import { ErrorState, Skeleton } from "@/components/States";
 import { ApiError, api } from "@/lib/api/client";
 import type { FeatureListItem, InspectResponse, SteerMode, SteerRequest, SteerResponse } from "@/lib/api/types";
 import { diffWords } from "@/lib/diff";
-import { featureName, fmtDensity, fmtInt, fmtNum, showToken } from "@/lib/format";
+import { EMPTY_TOKEN_TIP, featureName, fmtDensity, fmtInt, fmtNum, showToken } from "@/lib/format";
+import { t } from "@/lib/copy";
 import { useAction, useApi } from "@/lib/useApi";
 import s from "./microscope.module.css";
 
@@ -20,7 +21,7 @@ const PAGE = 200;
 
 export default function Microscope() {
   const { data: h } = useHealth();
-  const sim = isSimulated(h);
+  const sim = isMockModel(h);
 
   /* every neuron, most frequent first so they sit in the centre */
   const [neurons, setNeurons] = useState<FeatureListItem[] | null>(null);
@@ -191,8 +192,9 @@ export default function Microscope() {
           <button
             key={i}
             role="listitem"
-            className={`${s.tok} ${i === ti ? s.tokOn : ""} ${i < ti ? s.tokPast : ""}`}
+            className={`${s.tok} ${i === ti ? s.tokOn : ""} ${i < ti ? s.tokPast : ""} ${t.text === "" ? s.tokEmpty : ""}`}
             onClick={() => (setPlaying(false), setTi(i))}
+            title={t.text === "" ? EMPTY_TOKEN_TIP : undefined}
           >
             {showToken(t.text)}
           </button>
@@ -296,7 +298,7 @@ function FiringNow({ token, byId, onPick }: { token: InspectResponse["tokens"][n
     <div className={s.card}>
       <span className="eyebrow">Now reading</span>
       <div className={s.bigTok} key={token?.index ?? -1}>
-        {token ? showToken(token.text).trim() || "·" : "—"}
+        {token ? showToken(token.text) : "—"}
       </div>
       {list.length ? (
         <ol className={s.fireList}>
@@ -317,7 +319,7 @@ function FiringNow({ token, byId, onPick }: { token: InspectResponse["tokens"][n
           })}
         </ol>
       ) : (
-        <p className="muted small">{token?.is_outlier_position ? "First token is skipped." : "Nothing firing."}</p>
+        <p className="muted small">{token?.is_outlier_position ? t("inspect.outlier") : "Nothing firing."}</p>
       )}
     </div>
   );

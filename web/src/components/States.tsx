@@ -1,4 +1,5 @@
-import type { ApiError } from "@/lib/api/client";
+import { errorMessage, type ApiError } from "@/lib/api/client";
+import { t } from "@/lib/copy";
 import s from "./States.module.css";
 
 export function Skeleton({ w = "100%", h = 14, r }: { w?: number | string; h?: number; r?: number }) {
@@ -53,29 +54,8 @@ export function EmptyState({
   );
 }
 
-const FRIENDLY: Partial<Record<string, { title: string; body: string }>> = {
-  UNREACHABLE: {
-    title: "Can't reach the API",
-    body: "The server isn't running or the address is wrong. Start it from server/ and try again.",
-  },
-  MODEL_NOT_LOADED: {
-    title: "The model isn't loaded",
-    body: "Live runs need the server in real mode with a checkpoint. In mock mode, saved runs are shown instead.",
-  },
-  TEXT_TOO_LONG: { title: "That text is too long", body: "Shorten it and run again." },
-  FEATURE_NOT_FOUND: { title: "No feature with that number", body: "Check the number, or go back to the list." },
-  NOT_FOUND: {
-    title: "This isn't on the server yet",
-    body: "The endpoint behind this view hasn't been added to the API. It will work once the server ships it.",
-  },
-  SCHEMA_MISMATCH: {
-    title: "The database doesn't match the app",
-    body: "The server's database uses a schema version this app doesn't support.",
-  },
-};
-
 export function ErrorState({ error, onRetry, compact }: { error: ApiError; onRetry?: () => void; compact?: boolean }) {
-  const f = FRIENDLY[error.code];
+  const msg = errorMessage(error);
   return (
     <div className={compact ? `${s.error} ${s.compact}` : s.error} role="alert">
       <div className={s.errIcon} aria-hidden="true">
@@ -85,13 +65,13 @@ export function ErrorState({ error, onRetry, compact }: { error: ApiError; onRet
         </svg>
       </div>
       <div className={s.errBody}>
-        <strong>{f?.title ?? "Something went wrong"}</strong>
-        <p>{f?.body ?? error.message}</p>
-        {f && error.message && <p className={s.detail}>{error.code}: {error.message}</p>}
+        <strong>{t("error.title")}</strong>
+        <p>{msg}</p>
+        {error.message && !msg.includes(error.message) && <p className={s.detail}>{error.message}</p>}
       </div>
       {onRetry && error.code !== "FEATURE_NOT_FOUND" && (
         <button className="btn btn-ghost btn-sm" onClick={onRetry}>
-          Try again
+          {t("button.tryAgain")}
         </button>
       )}
     </div>

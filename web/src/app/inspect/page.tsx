@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { HeatText } from "@/components/HeatText";
-import { isSimulated, useHealth } from "@/components/HealthProvider";
+import { isMockModel, useHealth } from "@/components/HealthProvider";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
 import type { InspectResponse, InspectToken } from "@/lib/api/types";
 import { featureName, fmtNum, showToken } from "@/lib/format";
+import { t as tr } from "@/lib/copy";
 import { useAction } from "@/lib/useApi";
 import s from "./inspect.module.css";
 
@@ -108,7 +109,7 @@ function Inspector() {
         <textarea
           id="ins-text"
           className={s.textarea}
-          placeholder="Type or paste text…"
+          placeholder={tr("inspect.placeholder")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -163,7 +164,7 @@ function Inspector() {
       {!data && !loading && !error && (
         <div className="card" style={{ marginTop: 16 }}>
           <EmptyState title="Nothing yet" icon="spark">
-            Type a sentence or pick an example.
+            {tr("inspect.hint")}
           </EmptyState>
         </div>
       )}
@@ -193,7 +194,7 @@ function Inspector() {
         <section className="card" aria-labelledby="doc-h">
           <div className="card-head">
             <h2 id="doc-h">
-              {res.tokens.length} tokens{h && isSimulated(h) ? " · simulated" : ""}
+              {res.tokens.length} tokens{isMockModel(h) ? " · simulated" : ""}
             </h2>
             {pin ? (
               <span className={s.pin}>
@@ -221,7 +222,7 @@ function Inspector() {
                   heat: heat(t),
                   skip: t.is_outlier_position,
                   tip: t.is_outlier_position ? (
-                    "Position 0 is skipped"
+                    tr("inspect.outlier")
                   ) : top ? (
                     <>
                       <b>{featureName(top.label, top.feature_id)}</b>
@@ -246,10 +247,10 @@ function Inspector() {
             <>
               <div className={s.panelHead}>
                 <span className="eyebrow">Token {selTok.index}</span>
-                <span className={s.tokBig}>{showToken(selTok.text).replace(/^ /, "·")}</span>
+                <span className={s.tokBig}>{showToken(selTok.text)}</span>
               </div>
               {selTok.is_outlier_position ? (
-                <p className={s.skipNote}>The first token is skipped.</p>
+                <p className={s.skipNote}>{tr("inspect.outlier")}</p>
               ) : selTok.features.length === 0 ? (
                 <p className={s.skipNote}>No features were active on this token.</p>
               ) : (

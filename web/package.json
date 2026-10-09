@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "gen:types": "openapi-typescript ../contracts/openapi.json -o src/lib/api/schema.d.ts && openapi-typescript src/lib/api/pending.openapi.json -o src/lib/api/pending.d.ts",
-    "gen:pending": "python3 scripts/gen_pending_types.py"
+    "gen:types": "openapi-typescript ../contracts/openapi.json -o src/lib/api/schema.d.ts"
   },
   "dependencies": {
     "next": "16.4.0",

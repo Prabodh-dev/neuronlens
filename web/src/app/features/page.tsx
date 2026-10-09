@@ -5,7 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { DensityBar, FeatureTitle, StatusPill } from "@/components/FeatureBits";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
-import { api, type FeatureQuery } from "@/lib/api/client";
+import { ApiError, api, errorMessage, type FeatureQuery } from "@/lib/api/client";
+import { t } from "@/lib/copy";
 import type { LabelStatus } from "@/lib/api/types";
 import { fmtDensity, fmtInt, fmtNum } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
@@ -84,6 +85,7 @@ function Explorer() {
           <h1>Features</h1>
           <p className="lede">Every concept the model learned.</p>
         </div>
+        <RandomButton />
       </div>
 
       <div className={`card ${s.toolbar}`}>
@@ -171,7 +173,7 @@ function Explorer() {
 
         {!error && data && !data.items.length && (
           <EmptyState
-            title="No features match"
+            title={t("empty.features")}
             action={
               <button className="btn btn-ghost" onClick={() => router.replace(pathname, { scroll: false })}>
                 Clear filters
@@ -222,6 +224,34 @@ function Explorer() {
           </button>
         </nav>
       )}
+    </div>
+  );
+}
+
+function RandomButton() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <div className="row" style={{ gap: 8 }}>
+      {err && <span className="small muted">{err}</span>}
+      <button
+        className="btn btn-ghost"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setErr(null);
+          try {
+            const f = await api.randomFeature();
+            router.push(`/features/${f.feature_id}`);
+          } catch (e) {
+            setErr(e instanceof ApiError ? errorMessage(e) : t("error.generic"));
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? t("loading.default") : t("button.random")}
+      </button>
     </div>
   );
 }

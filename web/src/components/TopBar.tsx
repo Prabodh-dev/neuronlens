@@ -22,6 +22,10 @@ export function TopBar() {
   const { data: h, error } = useHealth();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  // on the landing page the bar steps aside while the tour plays, and slides in once you scroll,
+  // point at the top edge, or tab into it
+  const immersive = path === "/";
+  const [nearTop, setNearTop] = useState(false);
   const [glide, setGlide] = useState<{ x: number; w: number; on: boolean }>({ x: 0, w: 0, on: false });
   const headRef = useRef<HTMLElement>(null);
   const progRef = useRef<HTMLSpanElement>(null);
@@ -30,7 +34,7 @@ export function TopBar() {
   useEffect(() => {
     const on = () => {
       const y = window.scrollY;
-      setScrolled(y > 4);
+      setScrolled(y > 24);
       const max = document.documentElement.scrollHeight - window.innerHeight;
       progRef.current?.style.setProperty("--p", max > 0 ? Math.min(1, y / max).toFixed(4) : "0");
     };
@@ -54,6 +58,16 @@ export function TopBar() {
 
   useEffect(() => setOpen(false), [path]);
 
+  useEffect(() => {
+    if (!immersive) return;
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return;
+      setNearTop((was) => (was ? e.clientY < 140 : e.clientY < 56));
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [immersive]);
+
   function hover(e: React.PointerEvent<HTMLAnchorElement>) {
     const a = e.currentTarget;
     setGlide({ x: a.offsetLeft, w: a.offsetWidth, on: true });
@@ -62,7 +76,10 @@ export function TopBar() {
   const sim = h ? isSampleData(h) || isMockModel(h) : false;
 
   return (
-    <header ref={headRef} className={`${s.bar} ${scrolled ? s.scrolled : ""}`}>
+    <header
+      ref={headRef}
+      className={`${s.bar} ${scrolled ? s.scrolled : ""} ${immersive ? s.immersive : ""} ${immersive && !scrolled && !nearTop && !open ? s.away : ""}`}
+    >
       <a href="#main" className={s.skip}>
         Skip to content
       </a>
@@ -87,20 +104,23 @@ export function TopBar() {
         </nav>
 
         <div className={s.right}>
-          {h && (
-            <span className={s.chip} title={`Run ${h.run_id}`}>
-              {h.model_name} · layer {h.hook_layer} · {fmtInt(h.d_sae)} features · k={h.k}
-            </span>
-          )}
+          {/* one pill: server status, then the model it serves */}
           {(h || error) && (
-            <span className={s.status} data-kind={error ? "off" : sim ? "sim" : "live"}>
+            <span
+              className={s.status}
+              data-kind={error ? "off" : sim ? "sim" : "live"}
+              tabIndex={h ? 0 : undefined}
+              aria-label={h ? `${isSampleData(h) ? "Sample data" : isMockModel(h) ? "Mock" : "Live"}: ${h.model_name}, layer ${h.hook_layer}, ${fmtInt(h.d_sae)} features, k ${h.k}` : undefined}
+            >
               <i aria-hidden="true" />
-              {error ? "Offline" : isSampleData(h!) ? "Sample data" : isMockModel(h!) ? "Mock" : "Live"}
+              <b>{error ? "Offline" : isSampleData(h!) ? "Sample data" : isMockModel(h!) ? "Mock" : "Live"}</b>
+              {h && (
+                <span className={s.chip} aria-hidden="true">
+                  {h.model_name} · L{h.hook_layer} · {fmtInt(h.d_sae)} · k={h.k}
+                </span>
+              )}
             </span>
           )}
-          <Link href="/microscope" className={`btn btn-sm ${s.cta}`}>
-            Open microscope <span aria-hidden="true">→</span>
-          </Link>
           <button className={s.menu} aria-label="Menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
             <span />
             <span />

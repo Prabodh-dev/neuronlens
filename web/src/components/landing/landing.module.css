@@ -24,150 +24,10 @@
 }
 
 /* ---------- hero: the lens ---------- */
+/* the first screen is the tour alone */
 .hero {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100svh - var(--head-h, 60px));
 }
-.stage {
-  position: relative;
-  flex: 1;
-  min-height: 560px;
-  display: flex;
-  align-items: center;
-  isolation: isolate;
-}
-.field {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  z-index: 0;
-}
-/* keeps the headline readable over the field */
-.stage::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    linear-gradient(90deg, #000 0%, rgb(0 0 0 / 0.88) 28%, rgb(0 0 0 / 0.35) 50%, transparent 64%),
-    linear-gradient(0deg, #000 0%, transparent 14%);
-}
-.heroCopy {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  max-width: var(--col);
-  margin-inline: auto;
-  padding: 56px var(--gutter);
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  pointer-events: none; /* the lens keeps following the cursor over the text */
-}
-.heroCopy > * {
-  max-width: 620px;
-}
-.heroCopy a {
-  pointer-events: auto;
-}
-.kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  align-self: flex-start;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line-3);
-  background: #000;
-  font-size: 13px;
-  color: var(--ink-2);
-}
-.kicker i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 10px #fff;
-  animation: pulse 2s ease-in-out infinite;
-}
-.title {
-  font-size: clamp(50px, 7.6vw, 108px);
-  font-weight: 600;
-  line-height: 0.94;
-  letter-spacing: -0.058em;
-}
-.dim {
-  background: linear-gradient(90deg, #fff 0%, #7a7a7a 85%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.sub {
-  font-size: clamp(17px, 1.6vw, 20px);
-  color: var(--muted);
-  max-width: 34ch !important;
-  line-height: 1.5;
-}
-.ctas {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-}
-.hint {
-  position: absolute;
-  z-index: 2;
-  right: var(--gutter);
-  bottom: 18px;
-  font-family: var(--f-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--faint);
-}
-/* which real token is lighting the field right now */
-.firing {
-  position: absolute;
-  z-index: 2;
-  left: max(var(--gutter), calc((100% - var(--col)) / 2 + var(--gutter)));
-  bottom: 18px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--f-mono);
-  font-size: 11.5px;
-  color: var(--muted);
-}
-.firing i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 8px #fff;
-}
-.firing b {
-  font-weight: 500;
-  color: var(--ink);
-  white-space: pre;
-}
-.forTouch {
-  display: none;
-}
-@media (hover: none) {
-  .forMouse,
-  .hint {
-    display: none;
-  }
-  .forTouch {
-    display: inline;
-  }
-}
-
 /* numbers under the hero */
 .statBar {
   display: grid;
@@ -1031,23 +891,6 @@
   .stat:nth-child(3) {
     border-left: 0;
     padding-left: 0;
-  }
-}
-@media (max-width: 760px) {
-  .stage {
-    align-items: flex-start;
-    min-height: 660px;
-  }
-  .stage::after {
-    background:
-      linear-gradient(180deg, #000 0%, rgb(0 0 0 / 0.86) 40%, transparent 58%),
-      linear-gradient(0deg, #000 0%, transparent 12%);
-  }
-  .heroCopy {
-    padding-top: 36px;
-  }
-  .hint {
-    display: none;
   }
 }
 @media (max-width: 600px) {

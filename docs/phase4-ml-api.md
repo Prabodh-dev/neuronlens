@@ -4,7 +4,7 @@ For Mirdul. These are the ML-side functions behind the Phase 4 steering endpoint
 
 Steering is a test of what a feature does, not a fix. A steered output is never presented as an improvement. The steering maths is unchanged: amplify adds `strength x max_activation x decoder direction` at every position except position 0; ablate subtracts the feature's own activation.
 
-All example JSON below is illustrative text, not real model output.
+The example JSON below is real model output from one GPU run on GPT-2 small: feature 13 (label "upside – upside down", `max_activation` 21.4249), `seed` 42, `max_new_tokens` 60. Long texts are shortened with "..." for readability. The texts, strengths, the divergence index and the degenerate flag shown are from that run. Fields that were not recorded in the run are left out of the examples and each example says which. A real response contains every field listed in the tables. The only text in the examples that did not come from the model is the `reason` wording in X2 and the fixed `percent_changed_raw_note` string.
 
 ## Common rules
 
@@ -61,15 +61,32 @@ Baseline and steered text for one feature, plus a flag for whether they differ.
 
 Amplify at strength 0 adds nothing, so `differs` should be `false` (a control).
 
+The call was `steering_check(rt, "The acrobat hung", 13, "amplify", 0.5, 21.4249, 60, 42)`:
+
 ```json
 {
-  "feature_id": 7,
+  "feature_id": 13,
   "mode": "amplify",
-  "strength": 3.0,
+  "strength": 0.5,
   "seed": 42,
   "max_new_tokens": 60,
-  "baseline_text": "The old house stood at the end of the road, and nobody had lived there for years.",
-  "steered_text": "The old house stood at the end of the road, honing honk honing ...",
+  "baseline_text": "The acrobat hung his head and walked toward the door, but had no idea where he was going.\n\n\"Well, it's all fine,\" he said.\n\n\"Let's go,\" ...",
+  "steered_text": "The acrobat hung his head and walked up to the roof and closed the window, only to have it fall down on him. The roof was flipped down, ...",
+  "differs": true
+}
+```
+
+A second real example, same feature, strength and seed, prompt `He turned the picture`:
+
+```json
+{
+  "feature_id": 13,
+  "mode": "amplify",
+  "strength": 0.5,
+  "seed": 42,
+  "max_new_tokens": 60,
+  "baseline_text": "He turned the picture over to me and said, \"You are a good guy, sir.\"...",
+  "steered_text": "He turned the picture down to 10 seconds, but the camera still had the image in it...",
   "differs": true
 }
 ```
@@ -106,31 +123,23 @@ A character split across tokens at the divergence point can appear whole in one 
 
 ```json
 {
-  "feature_id": 7,
+  "feature_id": 13,
   "mode": "amplify",
-  "strength": 3.0,
+  "strength": 0.5,
   "seed": 42,
   "max_new_tokens": 60,
-  "baseline_text": "The old house stood at the end of the road.",
-  "steered_text": "The old house stood at honing honk honing.",
-  "prompt_tokens": 1,
-  "baseline_new_tokens": 10,
-  "steered_new_tokens": 9,
+  "baseline_text": "The acrobat hung his head and walked toward the door, but had no idea where he was going.\n\n\"Well, it's all fine,\" he said.\n\n\"Let's go,\" ...",
+  "steered_text": "The acrobat hung his head and walked up to the roof and closed the window, only to have it fall down on him. The roof was flipped down, ...",
   "diverges": true,
   "first_divergence_index": 4,
-  "identical_prefix_tokens": [" old", " house", " stood", " at"],
-  "identical_prefix_text": " old house stood at",
-  "baseline_from_divergence": [" the", " end", " of", " the", " road", "."],
-  "steered_from_divergence": [" hon", "ing", " hon", "k", " hon", "ing"],
-  "baseline_from_divergence_text": " the end of the road.",
-  "steered_from_divergence_text": " honing honk honing",
-  "tokens_changed": 6,
-  "tokens_compared_from_divergence": 6,
-  "percent_changed_from_divergence": 100.0,
-  "percent_changed_raw": 60.0,
+  "identical_prefix_text": " his head and walked",
+  "baseline_from_divergence_text": " toward the door, but had no idea where he was going.\n\n\"Well, it's all fine,\" he said.\n\n\"Let's go,\" ...",
+  "steered_from_divergence_text": " up to the roof and closed the window, only to have it fall down on him. The roof was flipped down, ...",
   "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead."
 }
 ```
+
+The call was `seed_matched_compare(rt, "The acrobat hung", 13, "amplify", 0.5, 21.4249, 60, 42)`. Left out of this example because they were not recorded in the run: `prompt_tokens`, `baseline_new_tokens`, `steered_new_tokens`, the two token lists (`identical_prefix_tokens`, `baseline_from_divergence`, `steered_from_divergence`), `tokens_changed`, `tokens_compared_from_divergence` and the two percent fields. A real response has all of them. The `percent_changed_raw_note` text is the fixed text returned by the code.
 
 No divergence (for example amplify at strength 0): `diverges` is `false`, `first_divergence_index` is `null`, `identical_prefix_*` hold the whole output, the `*_from_divergence*` fields are empty, `tokens_changed` and `tokens_compared_from_divergence` are `0`, `percent_changed_from_divergence` is `null`, `percent_changed_raw` is `0.0`.
 
@@ -173,23 +182,30 @@ Each `results` entry:
 
 ```json
 {
-  "feature_id": 7,
+  "feature_id": 13,
   "mode": "amplify",
   "seed": 42,
   "max_new_tokens": 60,
-  "baseline_text": "The old house stood at the end of the road.",
-  "baseline_degenerate": false,
-  "baseline_reason": null,
+  "baseline_text": "The acrobat hung his head and walked toward the door, but had no idea where he was going.\n\n\"Well, it's all fine,\" he said.\n\n\"Let's go,\" ...",
   "results": [
-    {"strength": 0.0, "text": "The old house stood at the end of the road.", "differs_from_baseline": false,
-     "first_divergence_index": null, "degenerate": false, "reason": null,
-     "metrics": {"new_tokens": 10, "repeated_token_fraction": 0.1, "repeated_trigram_fraction": 0.0, "non_word_fraction": 0.0, "replacement_chars": 0}},
-    {"strength": 5.0, "text": "The old house honk honk honk honk honk honk honk honk honk honk", "differs_from_baseline": true,
-     "first_divergence_index": 2, "degenerate": true, "reason": "mostly repeated tokens (90% repeats, limit 60%); repeating loop (100% of token trigrams repeat, limit 30%)",
-     "metrics": {"new_tokens": 12, "repeated_token_fraction": 0.9, "repeated_trigram_fraction": 1.0, "non_word_fraction": 0.0, "replacement_chars": 0}}
+    {
+      "strength": 0.5,
+      "text": "The acrobat hung his head and walked up to the roof and closed the window, only to have it fall down on him. The roof was flipped down, ...",
+      "differs_from_baseline": true,
+      "first_divergence_index": 4
+    },
+    {
+      "strength": 1.0,
+      "text": "The acrobat hung his head down and fell down the aisle. \"It's down, man,\" she said, \"but down, up!\"\n\nThe fall landed him in his arse-dow...",
+      "differs_from_baseline": true,
+      "degenerate": true,
+      "reason": "repeating loop (measured values not recorded)"
+    }
   ]
 }
 ```
+
+The call was `strength_sweep(rt, "The acrobat hung", 13, 21.4249, ...)`. Only two results are shown. Left out because they were not recorded in the run: `baseline_degenerate`, `baseline_reason`, `metrics`, and the other strengths of the sweep. The `reason` string is shortened here; a real one includes the measured percentages. A strength-0 result is expected to match the baseline, but none was recorded, so none is shown.
 
 ### Degeneration rule
 
@@ -228,14 +244,15 @@ With the same prompt, seed and `max_new_tokens`, `text` equals the `baseline_tex
 
 ```json
 {
-  "prompt": "The old house",
+  "prompt": "He turned the picture",
   "seed": 42,
   "max_new_tokens": 60,
-  "text": "The old house stood at the end of the road.",
-  "continuation": " stood at the end of the road.",
-  "new_tokens": 8
+  "text": "He turned the picture over to me and said, \"You are a good guy, sir.\"...",
+  "continuation": " over to me and said, \"You are a good guy, sir.\"..."
 }
 ```
+
+Left out because it was not recorded in the run: `new_tokens`.
 
 ---
 

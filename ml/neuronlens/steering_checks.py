@@ -36,6 +36,13 @@ class SteeringSpec:
 
 
 @dataclass(frozen=True)
+class MultiSteeringSpec:
+    """Several amplify steers applied together in one hook (W5). steers is a tuple of
+    (feature_id, strength, max_activation)."""
+    steers: tuple
+
+
+@dataclass(frozen=True)
 class Generation:
     """One seeded generation. token_ids and pieces cover prompt + new tokens, in order."""
     text: str              # full decoded text, prompt included (what /steer returns)
@@ -368,3 +375,92 @@ def prompt_only_baseline(rt, prompt, max_new_tokens=60, seed=42):
     g = rt.generate(prompt, max_new_tokens, seed, None)
     return {"prompt": prompt, "seed": seed, "max_new_tokens": max_new_tokens,
             "text": g.text, "continuation": g.continuation, "new_tokens": len(g.new_ids)}
+
+
+# ----------------------------------------------- W5: several features steered together
+
+MULTI_MIN_STEERS, MULTI_MAX_STEERS = 2, 3
+
+
+def validate_multi(rt, prompt, steers, max_new_tokens, seed):
+    """Check a W5 request. Same error type and codes as the other functions. Returns the
+    steers as a list of (feature_id, strength, max_activation) with floats."""
+    validate(rt, prompt, max_new_tokens, seed)
+    if not isinstance(steers, (list, tuple)) or not \
+            MULTI_MIN_STEERS <= len(steers) <= MULTI_MAX_STEERS:
+        raise SteeringCheckError(
+            f"steers must hold {MULTI_MIN_STEERS} to {MULTI_MAX_STEERS} entries")
+    out = []
+    for st in steers:
+        if not isinstance(st, dict) or not {"feature_id", "strength", "max_activation"} <= set(st):
+            raise SteeringCheckError("each steer needs feature_id, strength and max_activation")
+        out.append((st["feature_id"], st["strength"], st["max_activation"]))
+    if len({f for f, _, _ in out}) != len(out):
+        raise SteeringCheckError("feature ids in steers must be different")
+    for f, strength, max_act in out:   # amplify only: dead feature (max_activation 0) is refused
+        validate(rt, prompt, max_new_tokens, seed, f, "amplify", strength, max_act)
+    return [(f, float(s), float(m)) for f, s, m in out]
+
+
+def multi_steering_check(rt, prompt, steers, max_new_tokens=60, seed=42, with_single_controls=False):
+    """W5. Steer 2 or 3 features together (amplify only) and compare with the baseline.
+
+    steers: [{feature_id, strength, max_activation}, ...]. The directions are added together
+    in one hook: for each steer, strength x max_activation x decoder direction at every
+    position except position 0. Baseline and steered runs use the same seed.
+
+    Returns {prompt, seed, max_new_tokens, steers (echoed), baseline_text, steered_text, differs,
+    first_divergence_index, degenerate, reason, activations}. `degenerate` and `reason` come
+    from assess_degeneration on the steered text. `activations` has one entry per steered
+    feature, {feature_id, target_activation_baseline, target_activation_steered,
+    activation_verdict}, measured as in X1: the finished texts are re-encoded without any
+    steering hook and the feature is read over the new tokens (the maximum is compared).
+
+    with_single_controls=True also runs every feature alone at its own strength (same prompt and
+    seed) and adds `single_feature_runs`: [{feature_id, strength, steered_text, differs,
+    first_divergence_index, degenerate, reason, target_activation_baseline,
+    target_activation_steered, activation_verdict}], so the combination can be set beside each
+    single-feature result. Without it, compare with X1 on the same prompt, seed, feature and
+    strength. Each control is one more generation.
+    """
+    items = validate_multi(rt, prompt, steers, max_new_tokens, seed)
+    base = rt.generate(prompt, max_new_tokens, seed, None)
+    steered = rt.generate(prompt, max_new_tokens, seed, MultiSteeringSpec(tuple(items)))
+    singles = []
+    if with_single_controls:
+        for f, strength, m in items:
+            singles.append((f, strength, m, rt.generate(prompt, max_new_tokens, seed,
+                                                        SteeringSpec(f, "amplify", strength, m))))
+    same = base.text == steered.text
+    activations = []
+    for f, _, m in items:   # generations are done; the texts are re-encoded without any hook
+        b = _activation_stats(rt, base, f)
+        st = b if same else _activation_stats(rt, steered, f)
+        fields = _activation_fields(b, st, m)
+        activations.append({"feature_id": f,
+                            "target_activation_baseline": fields["target_activation_baseline"],
+                            "target_activation_steered": fields["target_activation_steered"],
+                            "activation_verdict": fields["activation_verdict"]})
+    assess = _assess(steered)
+    out = {"prompt": prompt, "seed": seed, "max_new_tokens": max_new_tokens,
+           "steers": [{"feature_id": f, "strength": s, "max_activation": m} for f, s, m in items],
+           "baseline_text": base.text, "steered_text": steered.text, "differs": not same,
+           "first_divergence_index": compare_generations(base, steered)["first_divergence_index"],
+           "degenerate": assess["degenerate"], "reason": assess["reason"],
+           "activations": activations}
+    if with_single_controls:
+        runs = []
+        for f, strength, m, g in singles:
+            a = _assess(g)
+            b = _activation_stats(rt, base, f)
+            st = b if g.text == base.text else _activation_stats(rt, g, f)
+            fields = _activation_fields(b, st, m)
+            runs.append({"feature_id": f, "strength": strength, "steered_text": g.text,
+                         "differs": g.text != base.text,
+                         "first_divergence_index": compare_generations(base, g)["first_divergence_index"],
+                         "degenerate": a["degenerate"], "reason": a["reason"],
+                         "target_activation_baseline": fields["target_activation_baseline"],
+                         "target_activation_steered": fields["target_activation_steered"],
+                         "activation_verdict": fields["activation_verdict"]})
+        out["single_feature_runs"] = runs
+    return out

@@ -4,8 +4,8 @@ import torch
 
 from .activations import Collector, load_model
 from .interpret import load_sae
-from .steering import generate, generate_ids, make_hook
-from .steering_checks import Generation
+from .steering import generate, generate_ids, make_hook, make_multi_hook
+from .steering_checks import Generation, MultiSteeringSpec
 from .textdecode import token_pieces
 
 
@@ -75,10 +75,14 @@ class Runtime:
         return out
 
     def generate(self, prompt, max_new_tokens, seed, steering=None):
-        """One seeded generation, optionally steered (a steering_checks.SteeringSpec).
+        """One seeded generation, optionally steered (a steering_checks.SteeringSpec, or a
+        MultiSteeringSpec for several amplify steers at once).
         Used by the Phase 4 checks; the steering hook is the same as in steer()."""
         hook = None
-        if steering is not None:
+        if isinstance(steering, MultiSteeringSpec):   # several amplify steers in one hook
+            hook = make_multi_hook(self.sae, [(f, s, m) for f, s, m in steering.steers],
+                                   self.mu, self.scale)
+        elif steering is not None:
             hook = make_hook(self.sae, steering.feature_id, steering.mode, steering.strength,
                              steering.max_activation, self.mu, self.scale)
         ids, prompt_len = generate_ids(self.model, self.tok, prompt, max_new_tokens, seed,

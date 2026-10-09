@@ -35,3 +35,53 @@ export type SteerSweepResponse = C["SteerSweepResponse"];
 export type SweepResult = C["SweepResult"];
 export type PromptOnlyRequest = C["PromptOnlyRequest"];
 export type PromptOnlyResponse = C["PromptOnlyResponse"];
+
+// Phase 4: X6 sentence report, X7 two-text compare, W4 co-fire partners
+export type ReportRequest = C["ReportRequest"];
+export type ReportResponse = C["ReportResponse"];
+export type ReportSentence = C["ReportSentence"];
+export type ReportFeature = C["ReportFeature"];
+export type TextCompareRequest = C["TextCompareRequest"];
+export type TextCompareResponse = C["TextCompareResponse"];
+export type TextCompareFeature = C["TextCompareFeature"];
+export type CofireResponse = C["CofireResponse"];
+export type CofirePartner = C["CofirePartner"];
+
+// W8: the features that fired most on the words typed in the search box
+export type SearchRequest = C["SearchRequest"];
+export type SearchResponse = C["SearchResponse"];
+export type SearchFeature = C["SearchFeature"];
+
+// W5 multi-feature steering (POST /steer/combine). Provisional: the endpoint is not in
+// contracts/openapi.json yet (Mirdul proposes the shape, Prabodh signs off). The fields mirror
+// multi_steering_check in ml/neuronlens/steering_checks.py; switch to C["..."] once it lands.
+export type CombineSteer = { feature_id: number; strength: number };
+export type CombineRequest = {
+  prompt: string;
+  seed: number;
+  max_new_tokens: number;
+  steers: CombineSteer[];
+  with_single_controls?: boolean;
+};
+export type CombineActivation = {
+  feature_id: number;
+  target_activation_baseline: number;
+  target_activation_steered: number;
+  activation_verdict: string;
+};
+export type CombineSingleRun = CombineActivation & { strength: number; degenerate: boolean; reason: string | null };
+export type CombineResponse = {
+  prompt: string;
+  seed: number;
+  max_new_tokens: number;
+  steers: CombineSteer[];
+  baseline_text: string;
+  steered_text: string;
+  differs: boolean;
+  first_divergence_index: number | null;
+  degenerate: boolean;
+  reason: string | null;
+  activations: CombineActivation[];
+  single_feature_runs?: CombineSingleRun[];
+  simulated: boolean;
+};

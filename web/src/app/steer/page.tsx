@@ -6,13 +6,14 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { FeaturePicker, type PickedFeature } from "@/components/FeaturePicker";
 import { isMockModel, useHealth } from "@/components/HealthProvider";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
-import { api, type ApiError } from "@/lib/api/client";
+import { api, serverHas, type ApiError } from "@/lib/api/client";
 import type { SteerCheckResponse, SteerCompareResponse, SteerMode, SteerRequest, SteeringExample } from "@/lib/api/types";
 import { diffWords } from "@/lib/diff";
 import { featureName, fmtNum } from "@/lib/format";
 import { t } from "@/lib/copy";
 import { useAction, useApi } from "@/lib/useApi";
 import { ActivationCheck, PromptOnlyPanel, SplitView, SweepPanel } from "./checks";
+import { CombinePanel } from "./combine";
 import s from "./steer.module.css";
 
 type Shown = {
@@ -28,7 +29,7 @@ type Shown = {
   cmp?: SteerCompareResponse;
   chk?: SteerCheckResponse | null;
 };
-type Tab = "compare" | "sweep" | "prompt";
+type Tab = "compare" | "sweep" | "prompt" | "combine";
 
 // the demo runs checked on the GPU (demo/phase4_examples.json, seed 42); a click reruns them live.
 // #1863 stays a recorded example only: it depends on the prompt and touches a hot-button topic.
@@ -61,6 +62,8 @@ function Steer() {
   const [maxTokens, setMaxTokens] = useState(60);
   const [shown, setShown] = useState<Shown | null>(null);
   const [tab, setTab] = useState<Tab>("compare");
+  // W5: the Combine tab shows only on a server that has the endpoint
+  const hasCombine = useApi((sig) => serverHas("/steer/combine", sig), "has:steer-combine").data === true;
 
   // Load the feature named in the URL so the picker shows its name.
   const urlFeature = useApi((sig) => api.feature(urlId as number, sig), urlId !== null && feature?.feature_id !== urlId ? `sf:${urlId}` : null);
@@ -270,6 +273,11 @@ function Steer() {
               <button type="button" aria-pressed={tab === "prompt"} onClick={() => setTab("prompt")}>
                 Prompt only
               </button>
+              {hasCombine && (
+                <button type="button" aria-pressed={tab === "combine"} onClick={() => setTab("combine")}>
+                  Combine
+                </button>
+              )}
             </div>
           </div>
 
@@ -301,6 +309,20 @@ function Steer() {
             />
           </div>
 
+          {hasCombine && (
+            <div hidden={tab !== "combine"}>
+              <CombinePanel
+                prompt={prompt}
+                seed={seed}
+                maxTokens={maxTokens}
+                onSetup={(v) => {
+                  setPrompt(v.prompt);
+                  setSeed(v.seed);
+                  setMaxTokens(v.maxTokens);
+                }}
+              />
+            </div>
+          )}
           <div hidden={tab !== "compare"} className="stack">
           {steer.error && (
             <ErrorState

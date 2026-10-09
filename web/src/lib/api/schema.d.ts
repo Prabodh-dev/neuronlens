@@ -38,6 +38,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/features/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search
+         * @description W8. The features that fired most on the words of the query. A fixed prefix is scored
+         *     as token 0 (an outlier position with no features) so every query word is scored; it is
+         *     never returned. Shows which features fired on the query, not what the query means.
+         */
+        post: operations["search_api_v1_features_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/features/{feature_id}": {
         parameters: {
             query?: never;
@@ -47,6 +69,27 @@ export interface paths {
         };
         /** Get Feature */
         get: operations["get_feature_api_v1_features__feature_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/features/{feature_id}/cofire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cofire
+         * @description W4. Features that fired on the same tokens as this one in a token sample, with counts.
+         *     It shows shared tokens only, not shared meaning.
+         */
+        get: operations["cofire_api_v1_features__feature_id__cofire_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -83,6 +126,46 @@ export interface paths {
         put?: never;
         /** Inspect */
         post: operations["inspect_api_v1_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inspect/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare Texts
+         * @description X7. Features whose max activation differs most between two texts.
+         */
+        post: operations["compare_texts_api_v1_inspect_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inspect/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report
+         * @description X6. For each sentence, the features with the highest activation on its tokens.
+         */
+        post: operations["report_api_v1_inspect_report_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -244,6 +327,58 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CofirePartner */
+        CofirePartner: {
+            /**
+             * Co Count
+             * @description tokens in the sample on which both features were active
+             */
+            co_count: number;
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * In Dictionary
+             * @description the partner exists in this server's database; the UI links a partner only when true
+             */
+            in_dictionary: boolean;
+            /**
+             * Jaccard
+             * @description co_count / (count_a + count_b - co_count), 4 decimals
+             */
+            jaccard: number;
+            /** Label */
+            label: string | null;
+        };
+        /**
+         * CofireResponse
+         * @description W4: the features that fired on the same tokens as this one in a token sample, best
+         *     (highest Jaccard) first, up to 10. Shared tokens only; not a statement about meaning.
+         */
+        CofireResponse: {
+            /**
+             * Available
+             * @description false when the co-fire file is missing, belongs to another run, or has no entry for this feature
+             */
+            available: boolean;
+            /** Feature Id */
+            feature_id: number;
+            /**
+             * Min Count
+             * @description a pair needs at least this many shared tokens
+             */
+            min_count: number | null;
+            /** Partners */
+            partners: components["schemas"]["CofirePartner"][];
+            /** Seed */
+            seed: number | null;
+            /** Simulated */
+            simulated: boolean;
+            /**
+             * Tokens Scanned
+             * @description sample size; null when not available
+             */
+            tokens_scanned: number | null;
+        };
         /** CurvePoint */
         CurvePoint: {
             /**
@@ -491,6 +626,88 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** ReportFeature */
+        ReportFeature: {
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /**
+             * Max Activation
+             * @description highest activation on this sentence's tokens
+             */
+            max_activation: number;
+            /**
+             * Peak Token
+             * @description index (as in /inspect) of the token with the highest activation
+             */
+            peak_token: number;
+            /**
+             * Relative To Max
+             * @description max_activation / the feature's max_activation in the dictionary
+             */
+            relative_to_max: number | null;
+            /**
+             * Tokens Active
+             * @description tokens in the sentence where the feature was active
+             */
+            tokens_active: number;
+        };
+        /** ReportRequest */
+        ReportRequest: {
+            /**
+             * Max Density
+             * @description hide features whose density (share of tokens they fire on) is above this; off by default
+             */
+            max_density?: number | null;
+            /**
+             * Sort
+             * @description activation: rank by raw max activation (default). relative: rank by relative_to_max, how strongly each feature fired for that feature
+             * @default activation
+             * @enum {string}
+             */
+            sort: "activation" | "relative";
+            /** Text */
+            text: string;
+            /**
+             * Top N
+             * @description features per sentence
+             * @default 5
+             */
+            top_n: number;
+        };
+        /**
+         * ReportResponse
+         * @description X6: the features active in each sentence, ranked by max activation (token 0 skipped,
+         *     as in /inspect). Shows which features were active, not what the sentence means.
+         */
+        ReportResponse: {
+            /** Model Name */
+            model_name: string;
+            /** Sentences */
+            sentences: components["schemas"]["ReportSentence"][];
+            /** Simulated */
+            simulated: boolean;
+        };
+        /** ReportSentence */
+        ReportSentence: {
+            /**
+             * End Token
+             * @description one past the last token index
+             */
+            end_token: number;
+            /** Features */
+            features: components["schemas"]["ReportFeature"][];
+            /** Index */
+            index: number;
+            /**
+             * Start Token
+             * @description first token index, as in /inspect
+             */
+            start_token: number;
+            /** Text */
+            text: string;
+        };
         /** Run */
         Run: {
             /** Checkpoint Name */
@@ -520,6 +737,77 @@ export interface components {
         RunList: {
             /** Items */
             items: components["schemas"]["Run"][];
+        };
+        /** SearchFeature */
+        SearchFeature: {
+            /**
+             * Density
+             * @description share of tokens this feature fires on in the dictionary
+             */
+            density: number;
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /**
+             * Max Activation
+             * @description highest activation on the query's tokens
+             */
+            max_activation: number;
+            /**
+             * Peak Token
+             * @description index into `tokens` of the strongest token
+             */
+            peak_token: number;
+            /** Relative To Max */
+            relative_to_max: number | null;
+            /** Tokens Active */
+            tokens_active: number;
+        };
+        /** SearchRequest */
+        SearchRequest: {
+            /**
+             * Max Density
+             * @description hide features whose density (share of tokens they fire on) is above this; off by default
+             */
+            max_density?: number | null;
+            /**
+             * Query
+             * @description 1 to 32 tokens of the query itself
+             */
+            query: string;
+            /**
+             * Sort
+             * @description activation: rank by raw max activation (default). relative: rank by relative_to_max
+             * @default activation
+             * @enum {string}
+             */
+            sort: "activation" | "relative";
+            /**
+             * Top N
+             * @default 10
+             */
+            top_n: number;
+        };
+        /**
+         * SearchResponse
+         * @description W8: the features that fired most on the words of the query. It shows which features
+         *     fired on the query, not what the query means.
+         */
+        SearchResponse: {
+            /** Features */
+            features: components["schemas"]["SearchFeature"][];
+            /** Model Name */
+            model_name: string;
+            /** Query */
+            query: string;
+            /** Simulated */
+            simulated: boolean;
+            /**
+             * Tokens
+             * @description the query's own tokens, as the model split them
+             */
+            tokens: string[];
         };
         /**
          * SteerCheckResponse
@@ -780,6 +1068,76 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** TextCompareFeature */
+        TextCompareFeature: {
+            /**
+             * Difference
+             * @description max_activation_b - max_activation_a
+             */
+            difference: number;
+            /** Feature Id */
+            feature_id: number;
+            /** Label */
+            label: string | null;
+            /**
+             * Max Activation A
+             * @description 0 when not active in text_a
+             */
+            max_activation_a: number;
+            /** Max Activation B */
+            max_activation_b: number;
+            /** Relative To Max A */
+            relative_to_max_a: number | null;
+            /** Relative To Max B */
+            relative_to_max_b: number | null;
+            /** Tokens Active A */
+            tokens_active_a: number;
+            /** Tokens Active B */
+            tokens_active_b: number;
+        };
+        /** TextCompareRequest */
+        TextCompareRequest: {
+            /**
+             * Max Density
+             * @description hide features whose density (share of tokens they fire on) is above this; off by default
+             */
+            max_density?: number | null;
+            /**
+             * Sort
+             * @description activation: rank by raw max activation (default). relative: rank by relative_to_max, how strongly each feature fired for that feature
+             * @default activation
+             * @enum {string}
+             */
+            sort: "activation" | "relative";
+            /** Text A */
+            text_a: string;
+            /** Text B */
+            text_b: string;
+            /**
+             * Top N
+             * @default 10
+             */
+            top_n: number;
+        };
+        /**
+         * TextCompareResponse
+         * @description X7: features whose max activation differs most between two texts (|difference|).
+         */
+        TextCompareResponse: {
+            /** Features */
+            features: components["schemas"]["TextCompareFeature"][];
+            /** Model Name */
+            model_name: string;
+            /** Simulated */
+            simulated: boolean;
+            /**
+             * Tokens A
+             * @description number of tokens in text_a
+             */
+            tokens_a: number;
+            /** Tokens B */
+            tokens_b: number;
+        };
         /** TokenFeature */
         TokenFeature: {
             /** Activation */
@@ -892,6 +1250,66 @@ export interface operations {
             };
         };
     };
+    search_api_v1_features_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_feature_api_v1_features__feature_id__get: {
         parameters: {
             query?: never;
@@ -910,6 +1328,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeatureDetail"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cofire_api_v1_features__feature_id__cofire_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feature_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CofireResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unprocessable Content */
@@ -990,6 +1457,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    compare_texts_api_v1_inspect_compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextCompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextCompareResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    report_api_v1_inspect_report_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportResponse"];
                 };
             };
             /** @description Content Too Large */

@@ -19,9 +19,9 @@ export function after(full: string, prompt: string) {
   return full.startsWith(prompt) ? full.slice(prompt.length) : full;
 }
 
-const strengthLabel = (v: number) => `${+v.toFixed(2)}×`;
+export const strengthLabel = (v: number) => `${+v.toFixed(2)}×`;
 
-function LiveTag({ simulated }: { simulated: boolean }) {
+export function LiveTag({ simulated }: { simulated: boolean }) {
   return <span className={`pill ${simulated ? "pill-sim" : "pill-live"} pill-dot`}>{simulated ? "Simulated" : t("badge.live")}</span>;
 }
 

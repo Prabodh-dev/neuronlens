@@ -65,6 +65,12 @@ To try other features without editing code, use explore mode. It runs each `--fe
 
     PYTHONPATH=. python scripts/phase4_demo.py --feature 7 --feature 13 --prompt "He turned the picture" --strengths 0,0.5,0.75,1,1.5,2 [--mode ablate] [--explore-out PATH]
 
+## Phase 4 data files
+Two scripts build data files for the app (they run on the GPU machine, write to the git-ignored `data/` folder, and do not touch the database). Details, fields and limits are in `docs/phase4-data-files.md`.
+
+- `scripts/build_cofire.py`: how often two features fire on the same tokens in a sample (default 500,000 tokens); top 10 partners per feature by Jaccard.
+- `scripts/build_map.py`: a 2D map of the decoder directions (PCA, then UMAP if umap-learn is installed).
+
 ## Layout
 
 - neuronlens/activations.py: model loading, activation hook and streaming buffer

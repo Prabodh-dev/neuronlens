@@ -45,6 +45,22 @@ Compares our SAE with OpenAI's TopK SAE for GPT-2 small, `resid_post_mlp` layer 
 
 Results: Result (256 sequences, seed 999): ours FVU 0.1626, CE recovered 0.9858; OpenAI v5_32k L8 FVU 0.4307, CE recovered 0.9454. Not equal capacity or data: 12,288 vs 32,768 latents, different training data. The published SAE's registry metadata lists variance explained 0.74 on its own data, so the gap partly reflects data shift; the adapter was not cross-checked against OpenAI's own code.
 
+## Phase 4: steering checks
+`neuronlens/steering_checks.py` holds the functions behind the Phase 4 steering endpoints. Steering is a test of what a feature does, not a fix; every function runs the baseline and the steered text with the same seed, and the steering maths is unchanged.
+
+- X1 `steering_check`: baseline text, steered text and whether they differ.
+- X3 `seed_matched_compare`: token-by-token comparison; reports `first_divergence_index`, the tokens before it, the tokens from it onward, and `tokens_changed` counted from there. The raw percent is also returned, with a note that it overstates the direct effect because later tokens drift.
+- X2 `strength_sweep`: one feature at several strengths (default 0, 0.5, 1, 2, 3, 5), with a `degenerate` flag and `reason` per strength. The thresholds are named constants in the module and are not calibrated on real outputs yet.
+- X4 `prompt_only_baseline`: what the model writes from the prompt alone.
+
+Exact inputs, outputs, error cases and example JSON are in `docs/phase4-ml-api.md`. To produce demo examples on the GPU machine (reads the database read-only, writes `demo/phase4_examples.json`):
+
+    cd ml
+    export NEURONLENS_DB=../data/neuronlens.db NEURONLENS_CKPT=../data/gpt2-l8-k32.pt
+    PYTHONPATH=. python scripts/phase4_demo.py
+
+The prompts in `scripts/phase4_demo.py` are starting points and have not been tried on the real model.
+
 ## Layout
 
 - neuronlens/activations.py: model loading, activation hook and streaming buffer

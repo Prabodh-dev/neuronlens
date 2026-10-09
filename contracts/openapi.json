@@ -1,6 +1,120 @@
 {
   "components": {
     "schemas": {
+      "CofirePartner": {
+        "properties": {
+          "co_count": {
+            "description": "tokens in the sample on which both features were active",
+            "title": "Co Count",
+            "type": "integer"
+          },
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "in_dictionary": {
+            "description": "the partner exists in this server's database; the UI links a partner only when true",
+            "title": "In Dictionary",
+            "type": "boolean"
+          },
+          "jaccard": {
+            "description": "co_count / (count_a + count_b - co_count), 4 decimals",
+            "title": "Jaccard",
+            "type": "number"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "feature_id",
+          "label",
+          "co_count",
+          "jaccard",
+          "in_dictionary"
+        ],
+        "title": "CofirePartner",
+        "type": "object"
+      },
+      "CofireResponse": {
+        "description": "W4: the features that fired on the same tokens as this one in a token sample, best\n(highest Jaccard) first, up to 10. Shared tokens only; not a statement about meaning.",
+        "properties": {
+          "available": {
+            "description": "false when the co-fire file is missing, belongs to another run, or has no entry for this feature",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "min_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "a pair needs at least this many shared tokens",
+            "title": "Min Count"
+          },
+          "partners": {
+            "items": {
+              "$ref": "#/components/schemas/CofirePartner"
+            },
+            "title": "Partners",
+            "type": "array"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "tokens_scanned": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "sample size; null when not available",
+            "title": "Tokens Scanned"
+          }
+        },
+        "required": [
+          "feature_id",
+          "available",
+          "simulated",
+          "tokens_scanned",
+          "seed",
+          "min_count",
+          "partners"
+        ],
+        "title": "CofireResponse",
+        "type": "object"
+      },
       "CurvePoint": {
         "properties": {
           "dead_pct": {
@@ -1609,6 +1723,69 @@
           }
         },
         "summary": "Get Feature",
+        "tags": [
+          "features"
+        ]
+      }
+    },
+    "/api/v1/features/{feature_id}/cofire": {
+      "get": {
+        "description": "W4. Features that fired on the same tokens as this one in a token sample, with counts.\nIt shows shared tokens only, not shared meaning.",
+        "operationId": "cofire_api_v1_features__feature_id__cofire_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feature_id",
+            "required": true,
+            "schema": {
+              "title": "Feature Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CofireResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Cofire",
         "tags": [
           "features"
         ]

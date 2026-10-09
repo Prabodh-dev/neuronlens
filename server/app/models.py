@@ -130,6 +130,30 @@ class SteerResponse(BaseModel):
     steered_text: str
 
 
+# ---- W4 co-fire counts (fields in docs/phase4-data-files.md) ----
+
+class CofirePartner(BaseModel):
+    feature_id: int
+    label: Optional[str]
+    co_count: int = Field(description="tokens in the sample on which both features were active")
+    jaccard: float = Field(description="co_count / (count_a + count_b - co_count), 4 decimals")
+    in_dictionary: bool = Field(description="the partner exists in this server's database; "
+                                            "the UI links a partner only when true")
+
+
+class CofireResponse(BaseModel):
+    """W4: the features that fired on the same tokens as this one in a token sample, best
+    (highest Jaccard) first, up to 10. Shared tokens only; not a statement about meaning."""
+    feature_id: int
+    available: bool = Field(description="false when the co-fire file is missing, belongs to "
+                                        "another run, or has no entry for this feature")
+    simulated: bool
+    tokens_scanned: Optional[int] = Field(description="sample size; null when not available")
+    seed: Optional[int]
+    min_count: Optional[int] = Field(description="a pair needs at least this many shared tokens")
+    partners: list[CofirePartner]
+
+
 # ---- Phase 4 steering checks (fields as in docs/phase4-ml-api.md) ----
 
 DEFAULT_SWEEP_STRENGTHS = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]

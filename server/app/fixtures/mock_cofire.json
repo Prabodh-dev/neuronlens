@@ -1,0 +1,139 @@
+{
+ "note": "Mock-mode stand-in for data/cofire.json. Real entries for features 7 and 13 copied from the 3,000,000-token co-fire run (run gpt2-l8-k32, seed 999); labels copied from the real database, since sample.db has synthetic labels. Simulated in mock mode.",
+ "run_id": "fixture-001",
+ "source_run_id": "gpt2-l8-k32",
+ "tokens_scanned": 3000000,
+ "seed": 999,
+ "k": 32,
+ "min_count": 5,
+ "labels": {
+  "7": "hon – honing, honking",
+  "13": "upside – upside down",
+  "1578": "drop – out or message",
+  "1712": "win – succeed or prevail",
+  "1945": "click – web link instructions",
+  "2056": "top – of a physical object",
+  "3014": "robert – historical or literary",
+  "3343": "ohms – electrical resistance",
+  "4315": "ipp – in place or animal names",
+  "4718": "scal – scientific contexts",
+  "5393": "ton- – herbal and health",
+  "5603": "anat – anatomical terms",
+  "5923": "ip – international organizations",
+  "6394": "vertical – or horizontal",
+  "6928": "pan – panoramic or panacea",
+  "7836": "tun- – tuning, tuned, tune",
+  "8488": "upward – trajectory or trend",
+  "9179": "side – side of body",
+  "9654": "hon- – honorable and honors",
+  "10896": "win – proper names",
+  "11407": "reverse – reverse engineering",
+  "12052": "hon – honors, honorable"
+ },
+ "partners": {
+  "7": [
+   {
+    "feature_id": 9654,
+    "co_count": 82,
+    "jaccard": 0.0589
+   },
+   {
+    "feature_id": 5393,
+    "co_count": 76,
+    "jaccard": 0.0508
+   },
+   {
+    "feature_id": 12052,
+    "co_count": 93,
+    "jaccard": 0.0457
+   },
+   {
+    "feature_id": 4718,
+    "co_count": 21,
+    "jaccard": 0.0286
+   },
+   {
+    "feature_id": 5603,
+    "co_count": 64,
+    "jaccard": 0.0261
+   },
+   {
+    "feature_id": 3343,
+    "co_count": 29,
+    "jaccard": 0.0241
+   },
+   {
+    "feature_id": 3014,
+    "co_count": 19,
+    "jaccard": 0.023
+   },
+   {
+    "feature_id": 7836,
+    "co_count": 27,
+    "jaccard": 0.0229
+   },
+   {
+    "feature_id": 1712,
+    "co_count": 24,
+    "jaccard": 0.0213
+   },
+   {
+    "feature_id": 10896,
+    "co_count": 20,
+    "jaccard": 0.0208
+   }
+  ],
+  "13": [
+   {
+    "feature_id": 11407,
+    "co_count": 51,
+    "jaccard": 0.0438
+   },
+   {
+    "feature_id": 1945,
+    "co_count": 29,
+    "jaccard": 0.0383
+   },
+   {
+    "feature_id": 4315,
+    "co_count": 30,
+    "jaccard": 0.0268
+   },
+   {
+    "feature_id": 6394,
+    "co_count": 22,
+    "jaccard": 0.025
+   },
+   {
+    "feature_id": 2056,
+    "co_count": 73,
+    "jaccard": 0.023
+   },
+   {
+    "feature_id": 8488,
+    "co_count": 38,
+    "jaccard": 0.0193
+   },
+   {
+    "feature_id": 9179,
+    "co_count": 26,
+    "jaccard": 0.0192
+   },
+   {
+    "feature_id": 6928,
+    "co_count": 13,
+    "jaccard": 0.0175
+   },
+   {
+    "feature_id": 1578,
+    "co_count": 30,
+    "jaccard": 0.0174
+   },
+   {
+    "feature_id": 5923,
+    "co_count": 33,
+    "jaccard": 0.0165
+   }
+  ]
+ }
+}

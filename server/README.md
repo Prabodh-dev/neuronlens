@@ -46,3 +46,4 @@ python server/scripts/export_openapi.py   # writes contracts/openapi.json
 - `NEURONLENS_DB`: default `contracts/fixtures/sample.db`
 - `NEURONLENS_CKPT`: real mode only
 - `NEURONLENS_CORS_ORIGINS`: comma-separated, default `http://localhost:3000`
+- `NEURONLENS_COFIRE`: co-fire file for `GET /features/{id}/cofire` (W4). Default `data/cofire.json` in real mode, `server/app/fixtures/mock_cofire.json` (features 7 and 13 only) in mock mode. If it is missing or built for another run, the server still starts, logs one warning, and the endpoint returns `available: false`.

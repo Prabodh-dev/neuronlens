@@ -115,7 +115,7 @@ How to read this: these are three features from one run. The evidence is thinner
 
 ### Map (PCA to 50, then UMAP to 2D, seed 42)
 
-**Checked, not for display.** On three features (13, 7 and 1863), the five nearest points in the 2D map did not match the feature. The nearest points were: for 13, "ary", "multi", "di", "brother", "little"; for 7, "que", "tom", "inter", "cav", "fast"; for 1863, "pre", "primary", "b", "ipel", "and". So distance in this map should not be shown to users as meaning. If a map is wanted later, it should be built from the co-fire data. The script and its tests stay in the repository, and the file can still be built, but it is not proposed for the app.
+**Checked, not for display.** On three features (13, 7 and 1863), the five nearest points in the 2D map did not match the feature. The nearest points were: for 13, "ary", "multi", "di", "brother", "little"; for 7, "que", "tom", "inter", "cav", "fast"; for 1863, "pre", "primary", "b", "ipel", "and". So distance in this map should not be shown to users as meaning. W7 is dropped from the demo, and a map built from co-fire data is out of scope for this project. A map could be reconsidered if a method passes the same neighbour check. The script and its tests stay in the repository, and the file can still be built, but it is not proposed for the app.
 
 ## What they can and cannot say
 

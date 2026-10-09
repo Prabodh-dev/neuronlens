@@ -144,6 +144,10 @@ class ReportRequest(BaseModel):
         default=None, gt=0, le=1,
         description="hide features whose density (share of tokens they fire on) is above this; "
                     "off by default")
+    sort: Literal["activation", "relative"] = Field(
+        default="activation",
+        description="activation: rank by raw max activation (default). relative: rank by "
+                    "relative_to_max, how strongly each feature fired for that feature")
 
     @field_validator("text")
     @classmethod
@@ -186,6 +190,10 @@ class TextCompareRequest(BaseModel):
         default=None, gt=0, le=1,
         description="hide features whose density (share of tokens they fire on) is above this; "
                     "off by default")
+    sort: Literal["activation", "relative"] = Field(
+        default="activation",
+        description="activation: rank by raw max activation (default). relative: rank by "
+                    "relative_to_max, how strongly each feature fired for that feature")
 
     @field_validator("text_a", "text_b")
     @classmethod
@@ -212,6 +220,46 @@ class TextCompareResponse(BaseModel):
     tokens_a: int = Field(description="number of tokens in text_a")
     tokens_b: int
     features: list[TextCompareFeature]
+
+
+# ---- W8 search: features that fired most on the query ----
+
+class SearchRequest(BaseModel):
+    query: str = Field(description="1 to 32 tokens of the query itself")
+    top_n: int = Field(default=10, ge=1, le=50)
+    max_density: Optional[float] = Field(
+        default=None, gt=0, le=1,
+        description="hide features whose density (share of tokens they fire on) is above this; "
+                    "off by default")
+    sort: Literal["activation", "relative"] = Field(
+        default="activation",
+        description="activation: rank by raw max activation (default). relative: rank by "
+                    "relative_to_max")
+
+    @field_validator("query")
+    @classmethod
+    def _query_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("query must not be empty")
+        return v
+
+
+class SearchFeature(_AnalysisFeature):
+    max_activation: float = Field(description="highest activation on the query's tokens")
+    relative_to_max: Optional[float]
+    tokens_active: int
+    peak_token: int = Field(description="index into `tokens` of the strongest token")
+    density: float = Field(description="share of tokens this feature fires on in the dictionary")
+
+
+class SearchResponse(BaseModel):
+    """W8: the features that fired most on the words of the query. It shows which features
+    fired on the query, not what the query means."""
+    query: str
+    model_name: str
+    simulated: bool
+    tokens: list[str] = Field(description="the query's own tokens, as the model split them")
+    features: list[SearchFeature]
 
 
 # ---- W4 co-fire counts (fields in docs/phase4-data-files.md) ----

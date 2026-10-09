@@ -1,0 +1,404 @@
+{
+  "note": "Steering is a test of what a feature does, not a fix. These outputs shift the text; they are not an improvement.",
+  "run_id": "gpt2-l8-k32",
+  "examples": [
+    {
+      "feature_id": 13,
+      "label": "upside – upside down",
+      "label_status": "named",
+      "label_matches_expected": true,
+      "max_activation": 21.424884796142578,
+      "prompt": "The acrobat hung",
+      "seed": 42,
+      "mode": "amplify",
+      "strength": 0.5,
+      "max_new_tokens": 60,
+      "baseline": "The acrobat hung his head and walked toward the door, but had no idea where he was going.\n\n\"Well, it's all fine,\" he said.\n\n\"Let's go,\" Karr said.\n\n\"Yes, of course,\" Karr said. \"I need to see him.",
+      "steered": "The acrobat hung his head and walked up to the roof and closed the window, only to have it fall down on him. The roof was flipped down, and the acrobat could not lift his head from the roof.\n\n\"Ahem,\" the man yelled, and the man was out.\n\n\"",
+      "differs": true,
+      "first_divergence_index": 4,
+      "tokens_changed": 52,
+      "tokens_compared_from_divergence": 56,
+      "percent_changed_from_divergence": 92.9,
+      "percent_changed_raw": 86.7,
+      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "sweep": {
+        "baseline_degenerate": false,
+        "baseline_reason": null,
+        "results": [
+          {
+            "strength": 0.0,
+            "text": "The acrobat hung his head and walked toward the door, but had no idea where he was going.\n\n\"Well, it's all fine,\" he said.\n\n\"Let's go,\" Karr said.\n\n\"Yes, of course,\" Karr said. \"I need to see him.",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": null,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.35,
+              "repeated_trigram_fraction": 0.138,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.25,
+            "text": "The acrobat hung his head and walked toward the door, but had no idea where he was going.\n\n\"Well, it's all right, I'll go for a ride, I guess,\" he said.\n\nThe man looked around at the clock and saw he had about 50 minutes to live. He",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 25,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.233,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.5,
+            "text": "The acrobat hung his head and walked up to the roof and closed the window, only to have it fall down on him. The roof was flipped down, and the acrobat could not lift his head from the roof.\n\n\"Ahem,\" the man yelled, and the man was out.\n\n\"",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 4,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.4,
+              "repeated_trigram_fraction": 0.052,
+              "non_word_fraction": 0.022,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.75,
+            "text": "The acrobat hung his head and walked up to the roof and closed the window, where the roof-down window was facing down.\n\nThe man looked at the door, then, down at the other side.\n\n\"Now, Mr. Wilson! There is no one to rescue me now, and I",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 4,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.333,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.0,
+            "text": "The acrobat hung his head down and fell down the aisle. \"It's down, man,\" she said, \"but down, up!\"\n\nThe fall landed him in his arse-down-down-down-down-down-down-down-down-down-down-down-down-",
+            "degenerate": true,
+            "reason": "repeating loop (36% of token trigrams repeat, limit 30%)",
+            "first_divergence_index": 2,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.517,
+              "repeated_trigram_fraction": 0.362,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.5,
+            "text": "The acrobat hung down the down--down-down-down--down-down-down-down-down down- down- down down down- down down down down down down down- down down- down down down- down down down down down down- down down down down down down down down-",
+            "degenerate": true,
+            "reason": "mostly repeated tokens (93% repeats, limit 60%); repeating loop (76% of token trigrams repeat, limit 30%)",
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.933,
+              "repeated_trigram_fraction": 0.759,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 2.0,
+            "text": "The acrobat hung down the down--down-down-down-- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down- down-",
+            "degenerate": true,
+            "reason": "mostly repeated tokens (93% repeats, limit 60%); repeating loop (83% of token trigrams repeat, limit 30%)",
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.933,
+              "repeated_trigram_fraction": 0.828,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "feature_id": 13,
+      "label": "upside – upside down",
+      "label_status": "named",
+      "label_matches_expected": true,
+      "max_activation": 21.424884796142578,
+      "prompt": "He turned the picture",
+      "seed": 42,
+      "mode": "amplify",
+      "strength": 0.5,
+      "max_new_tokens": 60,
+      "baseline": "He turned the picture over to me and said, \"You are a good guy, sir.\"\n\nI looked at him and he was smiling at me, and he said, \"You know, you've got a great job. I want to help you out.\" I said, \"What?\" He said, \"",
+      "steered": "He turned the picture down to 10 seconds, but the camera still had the image in it.\n\nThe image on the wall was a picture of a face. The one in the picture was also a woman in a long, dark-haired blonde wig.\n\nThe man who had shown the image was a man",
+      "differs": true,
+      "first_divergence_index": 0,
+      "tokens_changed": 56,
+      "tokens_compared_from_divergence": 60,
+      "percent_changed_from_divergence": 93.3,
+      "percent_changed_raw": 93.3,
+      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "sweep": {
+        "baseline_degenerate": false,
+        "baseline_reason": null,
+        "results": [
+          {
+            "strength": 0.0,
+            "text": "He turned the picture over to me and said, \"You are a good guy, sir.\"\n\nI looked at him and he was smiling at me, and he said, \"You know, you've got a great job. I want to help you out.\" I said, \"What?\" He said, \"",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": null,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.4,
+              "repeated_trigram_fraction": 0.069,
+              "non_word_fraction": 0.023,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.25,
+            "text": "He turned the picture over to me and said, \"This isn't the first time I've seen this.\" It's not like it's all going to go well.\n\n\"When I first saw this, it was so dark and black and it looked like I was looking at a movie,\" he continued. \"",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 7,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.267,
+              "repeated_trigram_fraction": 0.0,
+              "non_word_fraction": 0.022,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.5,
+            "text": "He turned the picture down to 10 seconds, but the camera still had the image in it.\n\nThe image on the wall was a picture of a face. The one in the picture was also a woman in a long, dark-haired blonde wig.\n\nThe man who had shown the image was a man",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.4,
+              "repeated_trigram_fraction": 0.034,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.75,
+            "text": "He turned the picture down to 10-10 down the aisle and had it on his head to have it on his head to see it up the aisle,\" Kood told the court.\n\nKood also had a phone down on his head and he told a police officer he had no idea what was going down.",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.417,
+              "repeated_trigram_fraction": 0.069,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.0,
+            "text": "He turned the picture down to 10-20-50-50-50-50, and it turned down down to ten-20-50-50-50.\n\nIn the face down-down down-down, down-down-down, down-down-down, up-down-down-",
+            "degenerate": true,
+            "reason": "mostly repeated tokens (70% repeats, limit 60%); repeating loop (38% of token trigrams repeat, limit 30%)",
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.7,
+              "repeated_trigram_fraction": 0.379,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.5,
+            "text": "He turned the picture down to down--down-down-down--down-down-down-down-down down- down- down down down- down down down down down down down- down down- down down down- down down down down down down- down down down- down down down down-",
+            "degenerate": true,
+            "reason": "mostly repeated tokens (93% repeats, limit 60%); repeating loop (76% of token trigrams repeat, limit 30%)",
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.933,
+              "repeated_trigram_fraction": 0.759,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 2.0,
+            "text": "He turned the picture down down down------------------ down- down- down down down- down down down down down down down- down down- down down down- down down down down down down- down down down down down down down down-",
+            "degenerate": true,
+            "reason": "mostly repeated tokens (97% repeats, limit 60%); repeating loop (86% of token trigrams repeat, limit 30%)",
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.967,
+              "repeated_trigram_fraction": 0.862,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "feature_id": 7,
+      "label": "hon – honing, honking",
+      "label_status": "named",
+      "label_matches_expected": true,
+      "max_activation": 17.825227737426758,
+      "prompt": "She looked out of the window and saw",
+      "seed": 42,
+      "mode": "amplify",
+      "strength": 1.0,
+      "max_new_tokens": 60,
+      "baseline": "She looked out of the window and saw someone standing on the corner of the street. \"It's me, Mr. Mather.\"\n\n\"What's the matter?\"\n\n\"You don't know what's going on in there. I guess you don't want to see me.\" She grabbed his arm, and he pulled out",
+      "steered": "She looked out of the window and saw her parents' back yard as she walked along a hill. It was the end of May, and she was just about to be the first to meet her parents. She was also a member of the New York City Police Department.\n\nIn the weeks that followed, her parents and her best friend",
+      "differs": true,
+      "first_divergence_index": 0,
+      "tokens_changed": 59,
+      "tokens_compared_from_divergence": 60,
+      "percent_changed_from_divergence": 98.3,
+      "percent_changed_raw": 98.3,
+      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "sweep": {
+        "baseline_degenerate": false,
+        "baseline_reason": null,
+        "results": [
+          {
+            "strength": 0.0,
+            "text": "She looked out of the window and saw someone standing on the corner of the street. \"It's me, Mr. Mather.\"\n\n\"What's the matter?\"\n\n\"You don't know what's going on in there. I guess you don't want to see me.\" She grabbed his arm, and he pulled out",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": null,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.267,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.25,
+            "text": "She looked out of the window and saw someone leaning over the side of the road. \"It's me, Mr. Mather.\"\n\n\"What's the matter?\"\n\n\"You don't know what's going on with me. I guess I'll just stick to my plan.\" She grinned, her smile now looking a bit",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 1,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.233,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.5,
+            "text": "She looked out of the window and saw someone leaning over the side of the road. \"It's me, Mr. Mather.\"\n\n\"What's the matter?\"\n\n\"You don't know what's going on with me. I guess I'll just stick to my plan.\"\n\n\"What?\"\n\n\"Well",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 1,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.35,
+              "repeated_trigram_fraction": 0.103,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.75,
+            "text": "She looked out of the window and saw a white-tailed blue-tailed, white-tailed, blue-tailed, she could see the back of her hand (which she looked at as she was about to lift it off its hinges) and was on her feet.\n\nThe back of her hand had a red and white sign.",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.383,
+              "repeated_trigram_fraction": 0.103,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.0,
+            "text": "She looked out of the window and saw her parents' back yard as she walked along a hill. It was the end of May, and she was just about to be the first to meet her parents. She was also a member of the New York City Police Department.\n\nIn the weeks that followed, her parents and her best friend",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.317,
+              "repeated_trigram_fraction": 0.0,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.5,
+            "text": "She looked out of the window and saw her own blue-eyed, big, and aching-in-toursing, at the back of the police car.\n\n\"I'm in my white-chapkin-stedig. I want to do my best. I'm coming from the side. I'm out",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.283,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 2.0,
+            "text": "She looked out of the window and saw her own blue-sky alk.\n\nIt was in a big blue box. It was a blue-eyed, blue-headed.\n\nShe wanted to be in a different world.\n\n…\n\n.\n\n.\n\n.\n\n.\n\n.\n\n",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.567,
+              "repeated_trigram_fraction": 0.259,
+              "non_word_fraction": 0.2,
+              "replacement_chars": 0
+            }
+          }
+        ]
+      },
+      "note": "Kept as an example of a limit. In real runs this feature, amplified, shifted the text toward word fragments (for example \"ing\", \"ours\") rather than toward honking, the concept in its label, and produced repetition loops from strength 3. One feature, one prompt, one seed."
+    },
+    {
+      "feature_id": 7,
+      "label": "hon – honing, honking",
+      "label_status": "named",
+      "label_matches_expected": true,
+      "max_activation": 17.825227737426758,
+      "prompt": "Drivers began to honk their horns while the traffic",
+      "seed": 42,
+      "mode": "ablate",
+      "strength": 0.0,
+      "max_new_tokens": 60,
+      "baseline": "Drivers began to honk their horns while the traffic lights flashed blue and blue as the SUV was being driven through the streets of London.\n\nThe car was travelling on the A4, the speed limit for London, was also at 40mph.\n\nThe driver of the truck, a 28-year-old woman from London, was arrested",
+      "steered": "Drivers began to honk their horns while the traffic lights flashed red and blue as the SUV was being driven through the streets of London.\n\nThe car was travelling on the A4, the speed limit for London, was also at 40mph.\n\nThe driver of the truck, a 28-year-old woman from London, and another",
+      "differs": true,
+      "first_divergence_index": 2,
+      "tokens_changed": 3,
+      "tokens_compared_from_divergence": 58,
+      "percent_changed_from_divergence": 5.2,
+      "percent_changed_raw": 5.0,
+      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "sweep": null
+    }
+  ]
+}

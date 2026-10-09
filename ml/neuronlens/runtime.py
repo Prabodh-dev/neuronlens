@@ -4,7 +4,8 @@ import torch
 
 from .activations import Collector, load_model
 from .interpret import load_sae
-from .steering import generate, make_hook
+from .steering import generate, generate_ids, make_hook
+from .steering_checks import Generation
 from .textdecode import token_pieces
 
 
@@ -48,6 +49,18 @@ class Runtime:
             out.append({"index": t, "text": pieces[t],
                         "features": feats})
         return out
+
+    def generate(self, prompt, max_new_tokens, seed, steering=None):
+        """One seeded generation, optionally steered (a steering_checks.SteeringSpec).
+        Used by the Phase 4 checks; the steering hook is the same as in steer()."""
+        hook = None
+        if steering is not None:
+            hook = make_hook(self.sae, steering.feature_id, steering.mode, steering.strength,
+                             steering.max_activation, self.mu, self.scale)
+        ids, prompt_len = generate_ids(self.model, self.tok, prompt, max_new_tokens, seed,
+                                       hook, self.hook_layer, self.device)
+        return Generation(self.tok.decode(ids, skip_special_tokens=True), ids, prompt_len,
+                          token_pieces(self.tok, ids))
 
     def steer(self, prompt, feature_id, mode, strength, max_activation,
               max_new_tokens, seed):

@@ -9,10 +9,12 @@ import type { FeatureDetail, FeatureListItem, Health, InspectResponse, SteeringE
 import { t as copy } from "@/lib/copy";
 import { diffWords } from "@/lib/diff";
 import { fmtInt, readable, showToken } from "@/lib/format";
+import { growCell, neuronSprites, pulse } from "./neuronShape";
 import s from "./tour.module.css";
 
 /** The landing hero: a guided tour that plays by itself and loops. It shows every feature, reads a
- *  sentence, flies into a few named features, steers one of them, then pulls back out.
+ *  sentence, flies into a few named features, steers one of them, then pulls back out. From afar each
+ *  feature is a point of light; up close each one is drawn as a neuron (the shape is an illustration).
  *  Everything on screen comes from the server: features, /inspect, /steer, examples, metrics. */
 
 // stops the tour visits when the database has them; otherwise the strongest named features
@@ -231,6 +233,15 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       focus: null as null | { x: number; y: number; r: number; id: number },
       px: new Float32Array(0),
       py: new Float32Array(0),
+      al: new Float32Array(0),
+      ps: new Float32Array(0),
+      ox: new Float32Array(0),
+      oy: new Float32Array(0),
+      vx: new Float32Array(0),
+      vy: new Float32Array(0),
+      hasPrev: false,
+      grow: null as null | { node: number; t0: number },
+      leave: null as null | { node: number; t0: number },
     };
 
     // perfect concentric rings, most frequent features in the middle (as in the Microscope)
@@ -245,6 +256,13 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       E.tgt = new Float32Array(n);
       E.px = new Float32Array(n);
       E.py = new Float32Array(n);
+      E.al = new Float32Array(n);
+      E.ps = new Float32Array(n);
+      E.ox = new Float32Array(n);
+      E.oy = new Float32Array(n);
+      E.vx = new Float32Array(n);
+      E.vy = new Float32Array(n);
+      E.hasPrev = false;
       const sizes = [1];
       let placed = 1;
       for (let k = 1; placed < n; k++) {
@@ -296,6 +314,15 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       g.fillRect(0, 0, 128, 128);
     }
 
+    // a handful of neuron pictures; every feature reuses one of them
+    const cells = neuronSprites(14, 2718);
+    // the visited feature is drawn large, so it gets its own detailed cells
+    const bigCells = neuronSprites(4, 9151, 520);
+    const IN_MS = 380;
+    const AXON_MS = 950;
+    const GROW_MS = reduce ? 1 : 1300; // the visited cell grows out once the camera is on it
+    const SHRINK_MS = reduce ? 1 : 520; // and pulls back in before the camera leaves
+
     const ease = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
     const easeOut = (u: number) => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 3);
     const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
@@ -306,7 +333,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
     };
 
     function target(sc: Scene | undefined) {
-      const close = Math.log(Math.max(3, Math.min(9, E.rings / 9)));
+      const close = Math.log(Math.max(3, Math.min(12, E.rings / 6.5)));
       if (sc && (sc.kind === "focus" || sc.kind === "steer")) {
         const node = E.index.get(sc.f.feature_id) ?? -1;
         if (node >= 0) return { node, logZ: sc.kind === "steer" ? close + 0.2 : close, tilt: 0.34 };
@@ -323,12 +350,18 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       const [nx, ny] = tg.node >= 0 ? rot(tg.node) : [0, 0];
       const dist = Math.hypot(nx - E.camX, ny - E.camY);
       const bothClose = tg.logZ > 0.6 && E.logZ > 0.6;
+      let hold = 0;
+      if (E.grow && E.grow.node !== tg.node) {
+        E.leave = { node: E.grow.node, t0: t };
+        E.grow = null;
+        hold = SHRINK_MS * 0.85;
+      }
       E.fly = {
         x0: E.camX,
         y0: E.camY,
         z0: E.logZ,
         tilt0: E.tilt,
-        t0: t,
+        t0: t + hold,
         dur: reduce ? 1 : 1700 + Math.min(1300, dist * 2400),
         arc: reduce ? 0 : Math.min(1.5, dist * 2.4) * (bothClose ? 1 : 0.3),
       };
@@ -338,7 +371,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       E.tgt.fill(0);
       if (tg.node >= 0) {
         E.tgt[tg.node] = 1;
-        E.waves.push({ i: tg.node, t0: t + E.fly.dur * 0.8, big: true });
+        E.waves.push({ i: tg.node, t0: E.fly.t0 + E.fly.dur, big: true });
       }
       setAt(idx);
       setTok(-1);
@@ -450,11 +483,12 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       // camera: fly along an arc (pull back, then dive), then track the target as the field turns
       E.spin += reduce ? 0 : dt * (tg.node >= 0 ? 0.000018 : 0.00006);
       const [nx, ny] = tg.node >= 0 ? rot(tg.node) : [0, 0];
-      const u = E.fly.dur <= 1 ? 1 : Math.min(1, (t - E.fly.t0) / E.fly.dur);
+      const u = E.fly.dur <= 1 ? 1 : Math.max(0, Math.min(1, (t - E.fly.t0) / E.fly.dur));
       const e = ease(u);
+      const ez = tg.logZ >= E.fly.z0 ? (u < 0.5 ? 8 * u ** 4 : 1 - (-2 * u + 2) ** 4 / 2) : 1 - (1 - u) ** 3;
       E.camX = lerp(E.fly.x0, nx, e);
       E.camY = lerp(E.fly.y0, ny, e);
-      E.logZ = lerp(E.fly.z0, tg.logZ, e) - E.fly.arc * Math.sin(Math.PI * u);
+      E.logZ = lerp(E.fly.z0, tg.logZ, ez) - E.fly.arc * Math.sin(Math.PI * u);
       E.tilt = lerp(E.fly.tilt0, tg.tilt, e);
       if (!reduce) {
         const k = 1 - Math.exp(-dt / 400);
@@ -515,9 +549,26 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
-      // dots, grouped by brightness so each group is one fill
+      // dots, grouped by brightness so each group is one fill; as the camera comes close each dot
+      // turns into a neuron whose branches reach in among its neighbours
+      const cellMix = Math.max(0, Math.min(1, (pitch - 10) / 6));
+      const D0 = pitch * 4;
+      const focusNode = tg.node >= 0 && (sc?.kind === "focus" || sc?.kind === "steer") ? tg.node : -1;
+      // the visited cell starts growing only once the camera has landed on it
+      if (focusNode >= 0 && u >= 1 && E.grow?.node !== focusNode) E.grow = { node: focusNode, t0: t };
+      if (E.leave && t - E.leave.t0 > SHRINK_MS) E.leave = null;
+      const bigNode = E.grow?.node === focusNode ? focusNode : -1;
+      const leaveNode = E.leave ? E.leave.node : -1;
+      // the small picture hands over to the large one as it grows, and takes back over as it shrinks
+      const bigG = bigNode >= 0 && E.grow ? Math.min(1, (t - E.grow.t0) / GROW_MS) : 0;
+      const leaveG = E.leave ? 1 - Math.min(1, (t - E.leave.t0) / SHRINK_MS) : 0;
+      const handover = (i: number) => (i === bigNode ? Math.max(0, 1 - bigG / 0.3) : i === leaveNode ? Math.max(0, 1 - leaveG / 0.3) : 1);
+      // motion blur while the camera travels: dots streak along their path across the screen
+      const blur = E.hasPrev && E.fly.dur > 1 && u > 0 && u < 1 ? Math.sin(Math.PI * u) * 1.3 * (16.7 / Math.max(8, dt)) : 0;
       for (const b of buckets) b.length = 0;
       const lit: number[] = [];
+      const near: number[] = [];
+      const margin = cellMix > 0 ? D0 * 0.75 : 40;
       const RZ = K.R * K.Z;
       for (let i = 0; i < E.n; i++) {
         // turn the field, tilt it away from the viewer, and give near dots a little perspective
@@ -529,7 +580,11 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
         const qy = K.ay + dy * K.ct * RZ * persp;
         E.px[i] = qx;
         E.py[i] = qy;
-        if (qx < -40 || qx > W + 40 || qy < -40 || qy > H + 40) continue;
+        E.vx[i] = qx - E.ox[i];
+        E.vy[i] = qy - E.oy[i];
+        E.ox[i] = qx;
+        E.oy[i] = qy;
+        if (qx < -margin || qx > W + margin || qy < -margin || qy > H + margin) continue;
         const born = reduce ? 1 : Math.max(0, Math.min(1, (age - (E.ring[i] / E.rings) * 1500) / 350));
         if (born <= 0) continue;
         let a = (0.36 + 0.55 * E.peak[i]) * (0.62 + 0.38 * ((depth + 1) / 2));
@@ -543,12 +598,39 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
         }
         a = Math.min(1, a * born + E.act[i] * 0.9);
         const lvl = Math.min(15, Math.floor(a * 16));
-        buckets[lvl].push(i);
+        if (cellMix < 1) buckets[lvl].push(i);
+        if (cellMix > 0 && handover(i) > 0) {
+          E.al[i] = a;
+          E.ps[i] = persp;
+          near.push(i);
+        }
         if (E.act[i] > 0.04) lit.push(i);
       }
+      E.hasPrev = true;
+      ctx.globalAlpha = 1 - cellMix;
       for (let lvl = 0; lvl < 16; lvl++) {
         const b = buckets[lvl];
         if (!b.length) continue;
+        if (blur > 0) {
+          // streaks: a short round-capped line back along each dot's motion
+          ctx.strokeStyle = `rgba(255,255,255,${((lvl + 0.6) / 16).toFixed(3)})`;
+          ctx.lineWidth = Math.max(1, Math.min(2.4, baseR * 1.5));
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          for (const i of b) {
+            let sx = E.vx[i] * blur;
+            let sy = E.vy[i] * blur;
+            const l = Math.hypot(sx, sy);
+            if (l > 42) {
+              sx *= 42 / l;
+              sy *= 42 / l;
+            }
+            ctx.moveTo(E.px[i] - sx - 0.01, E.py[i] - sy);
+            ctx.lineTo(E.px[i], E.py[i]);
+          }
+          ctx.stroke();
+          continue;
+        }
         ctx.fillStyle = `rgba(255,255,255,${((lvl + 0.6) / 16).toFixed(3)})`;
         ctx.beginPath();
         for (const i of b) {
@@ -561,10 +643,24 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
         }
         ctx.fill();
       }
+      for (const i of near) {
+        const D = D0 * E.ps[i] * (1 + E.act[i] * 0.2);
+        ctx.globalAlpha = Math.min(1, E.al[i]) * 0.85 * cellMix * handover(i);
+        ctx.drawImage(cells[i % cells.length].img, E.px[i] - D / 2, E.py[i] - D / 2, D, D);
+      }
+      ctx.globalAlpha = 1;
 
-      // glow on firing features
+      // glow on firing features (and, up close, the whole cell brightens)
       ctx.globalCompositeOperation = "lighter";
+      if (cellMix > 0)
+        for (const i of lit) {
+          if (i === bigNode || i === leaveNode) continue;
+          const D = D0 * E.ps[i] * (1 + E.act[i] * 0.2);
+          ctx.globalAlpha = Math.min(1, E.act[i]) * 0.7 * cellMix;
+          ctx.drawImage(cells[i % cells.length].img, E.px[i] - D / 2, E.py[i] - D / 2, D, D);
+        }
       for (const i of lit) {
+        if ((i === bigNode || i === leaveNode) && cellMix > 0) continue;
         const gs = Math.max(18, baseR * 12) * (0.5 + E.act[i]);
         ctx.globalAlpha = Math.min(1, E.act[i] * 0.9);
         ctx.drawImage(sprite, E.px[i] - gs / 2, E.py[i] - gs / 2, gs, gs);
@@ -611,11 +707,16 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       }
       ctx.globalAlpha = 1;
 
-      // the feature being visited: a reticle that closes in, its number, and the next words it pushes up
+      // a cell left behind shrinks back into its body
+      if (E.leave) drawBig(E.leave.node, 1 - Math.min(1, (t - E.leave.t0) / SHRINK_MS), true, -1);
+
+      // the feature being visited: a large neuron, a reticle that closes in, its number, and the next
+      // words it pushes up
       E.focus = null;
       if (tg.node >= 0 && (sc?.kind === "focus" || sc?.kind === "steer")) {
         const fx = E.px[tg.node];
         const fy = E.py[tg.node];
+        if (bigNode >= 0 && E.grow) drawBig(bigNode, Math.min(1, (t - E.grow.t0) / GROW_MS), false, t - E.grow.t0 - GROW_MS);
         const k = easeOut((u - 0.72) / 0.28);
         if (k > 0) {
           const size = 22 + (1 - k) * 46;
@@ -652,7 +753,8 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
             const next = sc.f.logits.promoted.filter((l) => readable(l.token)).slice(0, 5);
             const orbit = Math.max(narrow ? 92 : 104, size + (narrow ? 64 : 78));
             next.forEach((entry, j) => {
-              const fade = Math.max(0, Math.min(1, (E.sceneT - E.fly.dur * 0.9 - j * 160) / 450));
+              const since = E.grow?.node === tg.node ? t - E.grow.t0 : -1;
+              const fade = since < 0 ? 0 : Math.max(0, Math.min(1, (since - GROW_MS * 0.55 - j * 140) / 420));
               if (fade <= 0) return;
               const ang = -Math.PI / 2 + (j / next.length) * TAU + (reduce ? 0 : t * 0.00012);
               const ox = fx + Math.cos(ang) * orbit;
@@ -672,6 +774,62 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
         }
       }
     };
+
+    /** The visited cell, drawn large at its place on the field. g is how far it has grown (0 to 1);
+     *  `since` is the time since it finished growing, which drives its signals (negative: none yet). */
+    function drawBig(node: number, g: number, shrinking: boolean, since: number) {
+      if (g <= 0) return;
+      const L = live.current;
+      const sc = L.scenes[E.scene];
+      const fx = E.px[node];
+      const fy = E.py[node];
+      const nv = bigCells[node % bigCells.length];
+      const narrow = E.w < 760;
+      const R = narrow ? Math.min(E.w * 0.46, E.h * 0.28) : Math.min(E.w * 0.34, E.h * 0.4);
+      const pitch = (R * Math.exp(E.logZ)) / Math.max(1, E.rings);
+      const Df = Math.max(pitch * 8.8, narrow ? 320 : 460);
+      const kf = Df / nv.size;
+      const ge = shrinking ? g * g : 1 - (1 - g) ** 3;
+      // the tissue around it falls back
+      const clear = ctx.createRadialGradient(fx, fy, 0, fx, fy, Df * 0.55);
+      clear.addColorStop(0, "rgba(0,0,0,0.85)");
+      clear.addColorStop(0.7, "rgba(0,0,0,0.55)");
+      clear.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.globalAlpha = ge;
+      ctx.fillStyle = clear;
+      ctx.fillRect(fx - Df * 0.55, fy - Df * 0.55, Df * 1.1, Df * 1.1);
+      // while growing it is drawn line by line; once grown, the detailed picture takes over
+      const pic = shrinking ? 0 : Math.max(0, Math.min(1, (g - 0.8) / 0.2));
+      ctx.setTransform(E.dpr * kf, 0, 0, E.dpr * kf, E.dpr * (fx - (nv.size / 2) * kf), E.dpr * (fy - (nv.size / 2) * kf));
+      if (pic < 1) {
+        ctx.globalAlpha = (1 - pic) * 0.95;
+        growCell(ctx, sprite, nv.cell, nv.reach, ge, !shrinking);
+      }
+      ctx.setTransform(E.dpr, 0, 0, E.dpr, 0, 0);
+      if (pic > 0) {
+        ctx.globalAlpha = pic;
+        ctx.drawImage(nv.img, fx - Df / 2, fy - Df / 2, Df, Df);
+      }
+      if (since >= 0 && sc && (sc.kind === "focus" || sc.kind === "steer")) {
+        // a signal every so often (faster while it is forced on): in along the dendrites, out along the axon
+        const period = sc.kind === "steer" ? 1100 : 1700;
+        const ph = since % period;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.15 + 0.4 * Math.exp(-Math.max(0, ph - IN_MS) / 420);
+        ctx.drawImage(nv.img, fx - Df / 2, fy - Df / 2, Df, Df);
+        const gs = Df * 0.1 * (0.7 + 0.8 * Math.exp(-Math.max(0, ph - IN_MS) / 380));
+        ctx.globalAlpha = 0.85;
+        ctx.drawImage(sprite, fx - gs / 2, fy - gs / 2, gs, gs);
+        ctx.setTransform(E.dpr * kf, 0, 0, E.dpr * kf, E.dpr * (fx - (nv.size / 2) * kf), E.dpr * (fy - (nv.size / 2) * kf));
+        ctx.strokeStyle = "#fff";
+        ctx.lineCap = "round";
+        if (ph < IN_MS) for (const p of nv.cell.paths) pulse(ctx, sprite, p, 1 - ph / IN_MS, true, 1, nv.cell.size);
+        else if (ph < IN_MS + AXON_MS && nv.cell.axon[0]) pulse(ctx, sprite, nv.cell.axon[0], (ph - IN_MS) / AXON_MS, false, 1, nv.cell.size);
+        ctx.setTransform(E.dpr, 0, 0, E.dpr, 0, 0);
+        ctx.globalCompositeOperation = "source-over";
+      }
+      ctx.globalAlpha = 1;
+    }
 
     function chip(text: string, x: number, y: number, strong: boolean, alpha: number) {
       ctx.globalAlpha = alpha;

@@ -52,6 +52,7 @@ Results: Result (256 sequences, seed 999): ours FVU 0.1626, CE recovered 0.9858;
 - X3 `seed_matched_compare`: token-by-token comparison; reports `first_divergence_index`, the tokens before it, the tokens from it onward, and `tokens_changed` counted from there. The raw percent is also returned, with a note that it overstates the direct effect because later tokens drift.
 - X2 `strength_sweep`: one feature at several strengths (default 0, 0.25, 0.5, 0.75, 1, 1.5, 2), with a `degenerate` flag and `reason` per strength. The thresholds are named constants in the module and are not calibrated on real outputs yet.
 - X4 `prompt_only_baseline`: what the model writes from the prompt alone.
+- W5 `multi_steering_check`: 2 or 3 features steered together (amplify only, directions summed in one hook), compared with the baseline; one activation reading per feature on the finished text. `scripts/phase4_demo.py --combine` runs it from the command line.
 
 Exact inputs, outputs, error cases and example JSON are in `docs/phase4-ml-api.md`. To produce demo examples on the GPU machine (reads the database read-only, writes `demo/phase4_examples.json`):
 
@@ -64,6 +65,17 @@ The prompts in `scripts/phase4_demo.py` are starting points and have not been tr
 To try other features without editing code, use explore mode. It runs each `--feature` on each `--prompt`, prints one line per strength (start of the text, the degenerate flag, the index where it differs from the baseline) and writes `demo/explore.json`, never `demo/phase4_examples.json`:
 
     PYTHONPATH=. python scripts/phase4_demo.py --feature 7 --feature 13 --prompt "He turned the picture" --strengths 0,0.5,0.75,1,1.5,2 [--mode ablate] [--explore-out PATH]
+
+## Search for a W5 demo example
+`scripts/find_pairs.py` looks for two features that both read "higher" when steered together on the same prompt, with no loop warning. It runs on the GPU machine in real mode and only reads the database.
+
+    cd ml
+    export NEURONLENS_DB=../data/neuronlens.db NEURONLENS_CKPT=../data/gpt2-l8-k32.pt
+    PYTHONPATH=. python scripts/find_pairs.py --candidates 150 --max-pairs 60 --seed 42
+
+- Stage 1 steers each candidate alone (amplify 0.5, seed 42, 60 new tokens) on three neutral prompts. The candidates are the known features 3446, 1863, 13 and 3587 plus a random sample of named, live features with a density between 0.0005 and 0.02. A candidate qualifies when it reads "higher" without a loop warning, and the text differs from the baseline, on at least 2 of the 3 prompts.
+- Stage 2 steers pairs of qualifying candidates together at 0.25 and 0.5 (the same strength on both) on the prompts where both singles worked. A pair works when both read "higher", there is no loop warning and the text differs from the baseline. Working pairs are ranked by the smaller of the two activation changes.
+- Output: a summary on screen and `demo/pairs_search.json` (scratch, ignored by git). It prints a progress line every 10 generations. The rules are in `neuronlens/pair_search.py`. In the manual runs before the search no pair worked, so a search can end with no working pair; the pair recorded in `docs/phase4-ml-api.md` (W5) came from a larger search of this kind.
 
 ## Phase 4 data files
 Two scripts build data files for the app (they run on the GPU machine, write to the git-ignored `data/` folder, and do not touch the database). Details, fields and limits are in `docs/phase4-data-files.md`.

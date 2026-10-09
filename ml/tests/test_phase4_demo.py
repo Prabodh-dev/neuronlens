@@ -28,7 +28,9 @@ def db(tmp_path):
     for fid, label, dead, mx in [(7, "hon- – honing, honk", 0, 12.0), (13, "upside – upside down", 0, 9.0),
                                  (3446, "music – music, bands", 0, 15.0),
                                  (1863, "supreme – supreme court", 0, 19.7),
-                                 (3587, "alzheimer – disease", 0, 11.0)]:
+                                 (3587, "alzheimer – disease", 0, 11.0),
+                                 (4280, "that – support that claim", 0, 14.0),
+                                 (9530, "sin – moral wrongdoing", 0, 12.0)]:
         con.execute("INSERT INTO features (feature_id, label, label_status, density, "
                     "max_activation, is_dead) VALUES (?,?,?,?,?,?)",
                     (fid, label, "named", 0.01, mx, dead))
@@ -297,3 +299,201 @@ def test_main_explore_json_has_activation_fields(db, tmp_path, monkeypatch):
                "--explore-out", str(out)])
     r = json.loads(out.read_text(encoding="utf-8"))["runs"][0]["results"][0]
     assert all(k in r for k in demo.ACTIVATION_KEYS)
+
+
+# ------------------------------------------------------------------------- --combine
+
+def test_explore_combined_prints_text_flag_and_one_activation_line_per_feature(db):
+    lines = []
+    runs = demo.explore_combined(FakeRuntime(baseline_len=20, act_fn=_up(8.0, 1.0)), demo.open_readonly(db),
+                                 [7, 13, 7], ["Hi "], [0.0, 0.5, 1.0], max_new_tokens=20, log=lines.append)
+    assert len(runs) == 1 and [f["feature_id"] for f in runs[0]["features"]] == [7, 13]   # deduped, 2 features
+    assert [r["strength"] for r in runs[0]["results"]] == [0.0, 0.5, 1.0]
+    for r in runs[0]["results"]:
+        assert [a["feature_id"] for a in r["activations"]] == [7, 13]
+        assert all(set(a) == {"feature_id", "target_activation_baseline", "target_activation_steered",
+                              "activation_verdict"} for a in r["activations"])
+    assert runs[0]["results"][0]["differs"] is False and runs[0]["results"][1]["differs"] is True
+    assert runs[0]["results"][1]["first_divergence_index"] == 5
+    act = [l for l in lines if "activation: baseline" in l]
+    assert len(act) == 6 and all(l.startswith("    feature ") for l in act)       # 3 strengths x 2 features
+    assert any(l.startswith("    feature 13 (upside – upside down): activation: baseline") for l in act)
+    assert sum(l.startswith("  baseline") for l in lines) == 1                    # shown once per prompt
+    rows = [l for l in lines if l.startswith("  x")]
+    assert len(rows) == 3 and rows[0].count("ok") == 1 and "div=-" in rows[0] and "div=5" in rows[1]
+    assert lines[0].startswith("combine 7 (hon- – honing, honk) + 13 (upside – upside down) | prompt: 'Hi '")
+    json.dumps(runs)
+
+
+def test_explore_combined_marks_a_loop_and_skips_dead_features(db):
+    base = [ord(c) for c in "abcdefghij" * 3]
+    lines = []
+    runs = demo.explore_combined(FakeRuntime(base_ids=base, steered_ids=[ord("z")] * 30),
+                                 demo.open_readonly(db), [7, 13], ["Hi "], [2.0], max_new_tokens=60,
+                                 log=lines.append)
+    assert runs[0]["results"][0]["degenerate"] is True
+    assert any("DEGENERATE: mostly repeated tokens" in l for l in lines)
+    con = sqlite3.connect(db)
+    con.execute("UPDATE features SET is_dead=1 WHERE feature_id=13")
+    con.commit()
+    con.close()
+    msgs = []
+    with pytest.raises(demo.sc.SteeringCheckError, match="needs 2 to 3 usable features, got 1"):
+        demo.explore_combined(FakeRuntime(), demo.open_readonly(db), [7, 13], ["Hi "], [1.0], log=msgs.append)
+    assert any("skip feature 13" in m and "dead feature" in m for m in msgs)
+    with pytest.raises(demo.sc.SteeringCheckError):
+        demo.explore_combined(FakeRuntime(), demo.open_readonly(db), [7, 99], ["Hi "], [1.0], log=lambda *_: None)
+
+
+def test_main_combine_writes_the_explore_file_only(db, tmp_path, monkeypatch, capsys):
+    _env(monkeypatch, db, tmp_path)
+    out = tmp_path / "explore.json"
+    examples = tmp_path / "phase4_examples.json"
+    examples.write_text('{"keep": true}')
+    before = open(db, "rb").read()
+    demo.main(["--combine", "--feature", "7", "--feature", "13", "--prompt", "A ", "--strengths", "0,0.5",
+               "--max-new-tokens", "20", "--out", str(examples), "--explore-out", str(out)])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["mode"] == "combine" and data["strengths"] == [0, 0.5] and data["run_id"] == "test-run"
+    assert [f["feature_id"] for f in data["runs"][0]["features"]] == [7, 13]
+    assert all(len(r["activations"]) == 2 for r in data["runs"][0]["results"])
+    assert examples.read_text() == '{"keep": true}' and open(db, "rb").read() == before
+    assert capsys.readouterr().out.count("activation: baseline") == 4            # 2 strengths x 2 features
+
+
+@pytest.mark.parametrize("argv", [
+    ["--combine", "--feature", "7", "--prompt", "x"],                            # one feature
+    ["--combine", "--feature", "7", "--feature", "7", "--prompt", "x"],          # the same feature twice
+    ["--combine", "--feature", "1", "--feature", "2", "--feature", "3", "--feature", "4", "--prompt", "x"],
+    ["--combine", "--mode", "ablate", "--feature", "7", "--feature", "13", "--prompt", "x"],
+    ["--combine"],                                                               # no explore arguments
+])
+def test_main_combine_argument_errors(db, tmp_path, monkeypatch, argv):
+    _env(monkeypatch, db, tmp_path)
+    with pytest.raises(SystemExit) as e:
+        demo.main(argv)
+    assert e.value.code == 2
+
+
+def test_combine_does_not_change_the_default_examples(db, tmp_path, monkeypatch):
+    _env(monkeypatch, db, tmp_path)
+    out = tmp_path / "phase4_examples.json"
+    demo.main(["--out", str(out), "--max-new-tokens", "20"])
+    ids = [e["feature_id"] for e in json.loads(out.read_text(encoding="utf-8"))["examples"]]
+    assert ids == [3446, 3446, 1863, 13, 1863, 3587, 7]
+
+
+# ------------------------------------------------------------- W5 "multi" entry
+
+MULTI_KEYS = {"prompt", "seed", "mode", "strength", "max_new_tokens", "features", "steers", "baseline",
+              "steered", "differs", "first_divergence_index", "degenerate", "reason", "activations",
+              "single_feature_runs", "note"}
+
+
+def test_the_default_multi_example_is_the_found_pair():
+    assert len(demo.MULTI_EXAMPLES) == 1
+    ex = demo.MULTI_EXAMPLES[0]
+    assert ex["steers"] == [(4280, "that"), (9530, "sin")] and ex["strength"] == 0.5
+    assert ex["prompt"] == "The man walked into the room and"
+    note = ex["note"].lower()
+    for part in ("selected", "only one of the two features moved", "narrow strength window",
+                 "which concepts were active", "a test, not a fix"):
+        assert part in note
+    for word in ("proves", "detects", "fixes", "explains why", "improves", "related", "similar",
+                 "first", "novel"):
+        assert word not in note.split() and f" {word} " not in f" {note} "
+
+
+def test_build_multi_examples_shape(db):
+    def acts(ids, fid):
+        return [(8.0 if fid == 4280 else 5.0) if 65 <= i <= 90 else 1.0 for i in ids]
+    rt = BigRuntime(baseline_len=20, act_fn=acts)
+    msgs = []
+    before = open(db, "rb").read()
+    out = demo.build_multi_examples(rt, demo.open_readonly(db), max_new_tokens=20, log=msgs.append)
+    assert open(db, "rb").read() == before and msgs == []
+    assert len(out) == 1
+    e = out[0]
+    assert set(e) == MULTI_KEYS
+    assert (e["prompt"], e["seed"], e["mode"], e["strength"], e["max_new_tokens"]) == (
+        "The man walked into the room and", 42, "amplify", 0.5, 20)
+    assert [f["feature_id"] for f in e["features"]] == [4280, 9530]
+    assert [f["label"] for f in e["features"]] == ["that – support that claim", "sin – moral wrongdoing"]
+    assert all(f["label_matches_expected"] for f in e["features"])
+    assert e["steers"] == [{"feature_id": 4280, "strength": 0.5, "max_activation": 14.0},
+                           {"feature_id": 9530, "strength": 0.5, "max_activation": 12.0}]
+    assert e["differs"] is True and e["first_divergence_index"] == 5 and e["degenerate"] is False
+    assert e["baseline"].startswith(e["prompt"]) and e["steered"].startswith(e["prompt"])
+    # per-feature activations for the combination
+    assert [a["feature_id"] for a in e["activations"]] == [4280, 9530]
+    assert all(set(a) == {"feature_id", "target_activation_baseline", "target_activation_steered",
+                          "activation_verdict"} for a in e["activations"])
+    assert [a["activation_verdict"] for a in e["activations"]] == ["higher", "higher"]
+    assert [(a["target_activation_baseline"], a["target_activation_steered"]) for a in e["activations"]] == [
+        (1.0, 8.0), (1.0, 5.0)]
+    # the single-feature controls
+    runs = e["single_feature_runs"]
+    assert [(c["feature_id"], c["strength"]) for c in runs] == [(4280, 0.5), (9530, 0.5)]
+    assert all({"steered_text", "differs", "first_divergence_index", "degenerate", "reason",
+                "target_activation_baseline", "target_activation_steered",
+                "activation_verdict"} <= set(c) for c in runs)
+    assert "selected" in e["note"]
+    json.dumps(out)
+
+
+def test_multi_example_is_skipped_when_a_feature_is_dead_or_missing(db):
+    con = sqlite3.connect(db)
+    con.execute("UPDATE features SET is_dead=1 WHERE feature_id=9530")
+    con.commit()
+    con.close()
+    msgs = []
+    assert demo.build_multi_examples(BigRuntime(), demo.open_readonly(db), max_new_tokens=20,
+                                     log=msgs.append) == []
+    assert any("skip multi example: feature 9530" in m for m in msgs)
+    con = sqlite3.connect(db)
+    con.execute("DELETE FROM features WHERE feature_id=4280")
+    con.commit()
+    con.close()
+    msgs.clear()
+    assert demo.build_multi_examples(BigRuntime(), demo.open_readonly(db), max_new_tokens=20,
+                                     log=msgs.append) == []
+    assert any("feature 4280" in m for m in msgs)
+
+
+def test_multi_label_mismatch_warns(db):
+    con = sqlite3.connect(db)
+    con.execute("UPDATE features SET label='something else' WHERE feature_id=9530")
+    con.commit()
+    con.close()
+    msgs = []
+    out = demo.build_multi_examples(BigRuntime(baseline_len=20), demo.open_readonly(db),
+                                    max_new_tokens=20, log=msgs.append)
+    assert any("WARNING feature 9530" in m for m in msgs)
+    assert [f["label_matches_expected"] for f in out[0]["features"]] == [True, False]
+
+
+def test_summary_multi_lines(db):
+    rt = BigRuntime(baseline_len=20, act_fn=lambda ids, f: [(8.0 if f == 4280 else 5.0) if 65 <= i <= 90 else 1.0
+                                                           for i in ids])
+    out = demo.build_multi_examples(rt, demo.open_readonly(db), max_new_tokens=20)
+    text = demo.summary_multi(out)
+    assert "together: 4280 (that – support that claim) + 9530 (sin – moral wrongdoing) amplify x0.5" in text
+    assert "feature 4280: activation: baseline 1.00 -> steered 8.00 (higher)" in text
+    assert "feature 9530: activation: baseline 1.00 -> steered 5.00 (higher)" in text
+    assert "alone, feature 4280: activation:" in text and "alone, feature 9530: activation:" in text
+
+
+def test_default_run_writes_the_multi_entry_and_keeps_the_examples(db, tmp_path, monkeypatch, capsys):
+    _env(monkeypatch, db, tmp_path)
+    out = tmp_path / "phase4_examples.json"
+    demo.main(["--out", str(out), "--max-new-tokens", "20"])
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert [e["feature_id"] for e in data["examples"]] == [3446, 3446, 1863, 13, 1863, 3587, 7]
+    assert len(data["multi"]) == 1 and set(data["multi"][0]) == MULTI_KEYS
+    assert [f["feature_id"] for f in data["multi"][0]["features"]] == [4280, 9530]
+    assert "together: 4280" in capsys.readouterr().out
+    # explore runs do not write a multi entry
+    explore = tmp_path / "explore.json"
+    demo.main(["--feature", "7", "--prompt", "A ", "--strengths", "0.5", "--max-new-tokens", "20",
+               "--explore-out", str(explore)])
+    assert "multi" not in json.loads(explore.read_text(encoding="utf-8"))

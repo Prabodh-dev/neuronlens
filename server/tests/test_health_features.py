@@ -76,3 +76,36 @@ def test_detail_not_found_and_unknown_route(client):
     assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_INPUT"
     r = client.get(f"{API}/nope")
     assert r.status_code == 404 and r.json()["error"]["code"] == "NOT_FOUND"
+
+
+def _meta_with_version(tmp_path, version):
+    import shutil
+    import sqlite3
+    from pathlib import Path
+
+    from app.db import Database, load_meta
+    path = tmp_path / "v.db"
+    shutil.copyfile(Path(__file__).resolve().parents[2] / "contracts" / "fixtures" / "sample.db",
+                    path)
+    con = sqlite3.connect(path)
+    with con:
+        con.execute("UPDATE meta SET value = ? WHERE key = 'schema_version'", (version,))
+    con.close()
+    db = Database(path)
+    try:
+        return load_meta(db)
+    finally:
+        db.close()
+
+
+def test_schema_version_is_major_minor(tmp_path):
+    import pytest
+
+    from app.errors import ApiError
+    # the real DB says "1", the fixture "1.0": both must report "1.0"
+    assert _meta_with_version(tmp_path, "1")["schema_version"] == "1.0"
+    assert _meta_with_version(tmp_path, " 1 ")["schema_version"] == "1.0"
+    assert _meta_with_version(tmp_path, "1.2")["schema_version"] == "1.2"
+    for bad in ("2", "2.0", "0.9"):
+        with pytest.raises(ApiError):
+            _meta_with_version(tmp_path, bad)

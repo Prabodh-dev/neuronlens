@@ -174,3 +174,110 @@ def seed_matched_compare(rt, prompt, feature_id, mode, strength, max_activation,
            "steered_text": steered.text}
     out.update(compare_generations(base, steered))
     return out
+
+
+# ------------------------------------------------- X2: strength sweep + degeneration
+
+DEFAULT_SWEEP_STRENGTHS = (0.0, 0.5, 1.0, 2.0, 3.0, 5.0)
+MAX_SWEEP_POINTS = 12     # most strengths per sweep (each one is a full generation)
+
+# Degeneration rule. An output is marked degenerate when ANY of these holds, judged on the
+# newly generated text only (never the prompt). The limits are heuristics chosen by reading
+# the failure modes of over-steered output; they have NOT been calibrated on real GPT-2
+# outputs yet. phase4_demo.py prints the measured values so they can be adjusted.
+MIN_TOKENS_FOR_RULES = 8             # fewer new tokens: the repeat and word rules are skipped
+REPEAT_UNIGRAM_FRACTION = 0.6        # share of new tokens that repeat an earlier token (1 - distinct/total)
+REPEAT_TRIGRAM_FRACTION = 0.3        # share of token trigrams that repeat an earlier trigram (loops)
+MIN_TRIGRAMS_FOR_RULE = 6            # trigram rule needs at least this many trigrams
+NON_WORD_FRACTION = 0.5              # share of whitespace-separated chunks that are not words
+MIN_CHUNKS_FOR_RULE = 5              # word rule needs at least this many chunks
+NON_WORD_LETTER_RATIO = 0.5          # a chunk is a non-word if fewer than this share of its characters are letters or digits
+REPLACEMENT_CHAR_FRACTION = 0.02     # U+FFFD share of characters above this: degenerate
+REPLACEMENT_CHAR_MIN_COUNT = 3       # ... or this many U+FFFD characters in total
+# A single U+FFFD at the very end is ignored: cutting generation at max_new_tokens can end
+# in the middle of a multi-byte character.
+
+REPLACEMENT_CHAR = "�"
+
+
+def _is_word(chunk):
+    stripped = chunk.strip("\"'`.,;:!?()[]{}<>-–—…*_/\\|")
+    if not stripped or REPLACEMENT_CHAR in stripped:
+        return False
+    good = sum(1 for c in stripped if c.isalnum() or c in "'’-")
+    return good / len(stripped) >= NON_WORD_LETTER_RATIO and any(c.isalnum() for c in stripped)
+
+
+def assess_degeneration(token_ids, text):
+    """Is this generated continuation degenerate? Returns
+    {degenerate: bool, reason: str|None, metrics: {...}}.
+
+    token_ids: the newly generated token ids; text: their decoded text. Rules (constants
+    above): empty output; mostly repeated tokens (unigram or trigram); mostly non-words;
+    U+FFFD above a threshold. `reason` joins every rule that fired, with the measured value.
+    """
+    n = len(token_ids)
+    body = text[:-1] if text.endswith(REPLACEMENT_CHAR) else text  # ignore one trailing U+FFFD
+    fffd = body.count(REPLACEMENT_CHAR)
+    chunks = text.split()
+    words = sum(1 for c in chunks if _is_word(c))
+    trigrams = [tuple(token_ids[i:i + 3]) for i in range(n - 2)]
+    metrics = {
+        "new_tokens": n,
+        "repeated_token_fraction": round(1 - len(set(token_ids)) / n, 3) if n else 0.0,
+        "repeated_trigram_fraction": round(1 - len(set(trigrams)) / len(trigrams), 3) if trigrams else 0.0,
+        "non_word_fraction": round(1 - words / len(chunks), 3) if chunks else 0.0,
+        "replacement_chars": fffd,
+    }
+    reasons = []
+    if n == 0 or not text.strip():
+        reasons.append("no new text generated")
+    if n >= MIN_TOKENS_FOR_RULES:
+        if metrics["repeated_token_fraction"] >= REPEAT_UNIGRAM_FRACTION:
+            reasons.append(f"mostly repeated tokens ({metrics['repeated_token_fraction']:.0%} "
+                           f"repeats, limit {REPEAT_UNIGRAM_FRACTION:.0%})")
+        if len(trigrams) >= MIN_TRIGRAMS_FOR_RULE and \
+                metrics["repeated_trigram_fraction"] >= REPEAT_TRIGRAM_FRACTION:
+            reasons.append(f"repeating loop ({metrics['repeated_trigram_fraction']:.0%} of token "
+                           f"trigrams repeat, limit {REPEAT_TRIGRAM_FRACTION:.0%})")
+        if len(chunks) >= MIN_CHUNKS_FOR_RULE and metrics["non_word_fraction"] >= NON_WORD_FRACTION:
+            reasons.append(f"mostly non-words ({metrics['non_word_fraction']:.0%} of chunks, "
+                           f"limit {NON_WORD_FRACTION:.0%})")
+    if fffd and (fffd >= REPLACEMENT_CHAR_MIN_COUNT or fffd / max(len(body), 1) > REPLACEMENT_CHAR_FRACTION):
+        reasons.append(f"{fffd} replacement characters (U+FFFD)")
+    return {"degenerate": bool(reasons), "reason": "; ".join(reasons) or None, "metrics": metrics}
+
+
+def _assess(gen):
+    return assess_degeneration(gen.new_ids, gen.continuation)
+
+
+def strength_sweep(rt, prompt, feature_id, max_activation, strengths=DEFAULT_SWEEP_STRENGTHS,
+                   max_new_tokens=60, seed=42):
+    """X2. Amplify one feature at several strengths with the same seed.
+
+    The baseline is generated once. Returns {feature_id, mode: "amplify", seed,
+    max_new_tokens, baseline_text, baseline_degenerate, baseline_reason, results: [...]}
+    with one result per strength, in the order given:
+    {strength, text, differs_from_baseline, first_divergence_index, degenerate, reason, metrics}.
+    Strength 0 adds nothing, so it should match the baseline (a control).
+    """
+    strengths = [float(s) for s in strengths]
+    if not strengths or len(strengths) > MAX_SWEEP_POINTS:
+        raise SteeringCheckError(f"strengths must hold 1 to {MAX_SWEEP_POINTS} values")
+    for s in strengths:
+        validate(rt, prompt, max_new_tokens, seed, feature_id, "amplify", s, max_activation)
+    base = rt.generate(prompt, max_new_tokens, seed, None)
+    base_assess = _assess(base)
+    results = []
+    for s in strengths:
+        g = rt.generate(prompt, max_new_tokens, seed, _spec(feature_id, "amplify", s, max_activation))
+        cmp = compare_generations(base, g)
+        a = _assess(g)
+        results.append({"strength": s, "text": g.text, "differs_from_baseline": g.text != base.text,
+                        "first_divergence_index": cmp["first_divergence_index"],
+                        "degenerate": a["degenerate"], "reason": a["reason"], "metrics": a["metrics"]})
+    return {"feature_id": feature_id, "mode": "amplify", "seed": seed,
+            "max_new_tokens": max_new_tokens, "baseline_text": base.text,
+            "baseline_degenerate": base_assess["degenerate"], "baseline_reason": base_assess["reason"],
+            "results": results}

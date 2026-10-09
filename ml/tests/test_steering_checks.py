@@ -184,3 +184,92 @@ def test_x3_seed_matched_compare_end_to_end():
     assert r["baseline_text"].startswith("Hello ") and r["strength"] == 3.0
     same = sc.seed_matched_compare(rt, "Hello ", 7, "amplify", 0, 10.0, max_new_tokens=20, seed=1)
     assert same["diverges"] is False
+
+
+# ----------------------------------------------------------------------------- X2
+
+def ids_of(text):
+    """Word-level stand-in tokenizer: one id per whitespace-separated chunk."""
+    vocab = {}
+    return [vocab.setdefault(w, len(vocab)) for w in text.split()], text
+
+
+NORMAL = ("The council met on Tuesday to discuss the new bridge, and several residents spoke "
+          "about traffic, noise and the cost of building it. After a long debate the members "
+          "agreed to ask engineers for another report before voting, which pleased most of "
+          "those who had come to listen.")
+
+
+def test_x2_normal_text_is_not_degenerate():
+    a = sc.assess_degeneration(*ids_of(NORMAL))
+    assert a["degenerate"] is False and a["reason"] is None
+    assert a["metrics"]["new_tokens"] == len(NORMAL.split())
+
+
+def test_x2_repeated_tokens():
+    a = sc.assess_degeneration(*ids_of("the " * 30))
+    assert a["degenerate"] and "repeated tokens" in a["reason"]
+
+
+def test_x2_phrase_loop_is_flagged():
+    loop = "he went to the shop and bought bread " * 6   # 8 distinct words, 48 tokens
+    a = sc.assess_degeneration(*ids_of(loop))
+    assert a["degenerate"] and "loop" in a["reason"]
+
+
+def test_x2_mostly_non_words():
+    junk = "#$%^ &*() ;;;; ---- ~~~~ ==== +++ @@@ xq#z 12@@ !!?? ,,,, ...."
+    a = sc.assess_degeneration(*ids_of(junk))
+    assert a["degenerate"] and "non-words" in a["reason"]
+
+
+def test_x2_replacement_characters():
+    ids = list(range(20))
+    text = "a fine sentence " + "�" * 3 + " with some bad bytes in the middle of it"
+    a = sc.assess_degeneration(ids, text)
+    assert a["degenerate"] and "U+FFFD" in a["reason"]
+    # one trailing U+FFFD (generation cut mid-character) is ignored
+    cut = NORMAL + "�"
+    assert sc.assess_degeneration(*ids_of(cut))["degenerate"] is False
+
+
+def test_x2_short_and_empty_outputs():
+    assert sc.assess_degeneration([1, 1, 1], "the the the")["degenerate"] is False  # below MIN_TOKENS
+    e = sc.assess_degeneration([], "")
+    assert e["degenerate"] and e["reason"] == "no new text generated"
+
+
+def test_x2_thresholds_are_named_constants():
+    for name in ("MIN_TOKENS_FOR_RULES", "REPEAT_UNIGRAM_FRACTION", "REPEAT_TRIGRAM_FRACTION",
+                 "NON_WORD_FRACTION", "REPLACEMENT_CHAR_FRACTION", "REPLACEMENT_CHAR_MIN_COUNT"):
+        assert hasattr(sc, name)
+
+
+def test_x2_sweep_default_strengths_order_and_baseline_once():
+    rt = FakeRuntime(baseline_len=20)
+    r = sc.strength_sweep(rt, "Hello ", 7, 10.0, max_new_tokens=20, seed=3)
+    assert [x["strength"] for x in r["results"]] == list(sc.DEFAULT_SWEEP_STRENGTHS)
+    assert sum(1 for c in rt.calls if c[3] is None) == 1          # one baseline
+    assert {c[2] for c in rt.calls} == {3}                          # same seed everywhere
+    zero = r["results"][0]
+    assert zero["strength"] == 0.0 and zero["differs_from_baseline"] is False
+    assert zero["first_divergence_index"] is None
+    assert all(x["differs_from_baseline"] and x["first_divergence_index"] == 5 for x in r["results"][1:])
+    assert set(r["results"][0]) == {"strength", "text", "differs_from_baseline",
+                                    "first_divergence_index", "degenerate", "reason", "metrics"}
+    assert r["mode"] == "amplify" and r["baseline_text"].startswith("Hello ")
+
+
+def test_x2_sweep_marks_degenerate_strengths():
+    base = [ord(c) for c in "abcdefghijklmnopqrst"]
+    rt = FakeRuntime(base_ids=base, steered_ids=[ord("z")] * 20)
+    r = sc.strength_sweep(rt, "Hi ", 7, 10.0, strengths=[0, 3], max_new_tokens=20)
+    assert r["results"][0]["degenerate"] is False
+    assert r["results"][1]["degenerate"] is True and "repeated tokens" in r["results"][1]["reason"]
+
+
+@pytest.mark.parametrize("strengths", [[], [1.0] * (sc.MAX_SWEEP_POINTS + 1), [1.0, -1.0],
+                                       [sc.STRENGTH_MAX + 1]])
+def test_x2_sweep_errors(strengths):
+    with pytest.raises(SteeringCheckError):
+        sc.strength_sweep(FakeRuntime(), "Hi", 7, 10.0, strengths=strengths)

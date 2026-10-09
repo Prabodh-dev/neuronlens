@@ -369,7 +369,7 @@ Same error type as the other functions (`SteeringCheckError`, with a `code`). No
 
 ### Example (format only; all values are example values)
 
-This example shows the format only. Every value in it is an example value, not output of a real run, and the feature ids and the text are placeholders. The real demo example is in "Real demo example" below; the manual runs that came before it are in "Real runs so far".
+This example shows the format only. Every value in it is an example value, not output of a real run, and the feature ids and the text are placeholders. The real demo example is in "Real demo example" below; the manual runs that came before it are in "Real runs before the search".
 
 ```json
 {
@@ -456,7 +456,7 @@ The recorded readings and steered text (shortened with "..."; fields that were n
 - It depends on the prompt: on `The woman looked at him and` only one of the two features moved.
 - The strength window is narrow. The example was recorded at 0.5 only, and in the earlier manual runs the readings were lost at higher strengths (both 0.00 at 0.75 for another pair).
 - The activation readings show which concepts were active in the finished text. The steered text is shown as a test of what the features do together, not as a fix and not as better text.
-- A combination can break the text at strengths where each feature alone is fine, so a combination should be set beside the single-feature runs. In the manual runs before the search (see "Real runs so far"), the combinations did not show both features higher at once; whether a combination breaks the text where each feature alone is fine has not been measured.
+- A combination can break the text at strengths where each feature alone is fine, so a combination should be set beside the single-feature runs. In the manual runs before the search (see "Real runs before the search"), the combinations did not show both features higher at once; whether a combination breaks the text where each feature alone is fine has not been measured.
 - The activation fields are measured on the finished text, re-encoded without steering. They say whether each feature appears in the output text, not whether the output is better, and the limits listed for X1 apply to each feature.
 - The `degenerate` flag has the limits of the X2 rule: it catches repetition loops and non-word runs, not all low-quality text, and a result marked ok can still be poor.
 - Cost: two generations (three or four with `with_single_controls`) plus two forward passes per feature. It has not been timed.

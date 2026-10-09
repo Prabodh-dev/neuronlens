@@ -3,6 +3,400 @@
   "run_id": "gpt2-l8-k32",
   "examples": [
     {
+      "feature_id": 3446,
+      "label": "music – the word music",
+      "label_status": "named",
+      "label_matches_expected": true,
+      "max_activation": 15.674814224243164,
+      "prompt": "The band walked on stage and",
+      "seed": 42,
+      "mode": "amplify",
+      "strength": 0.5,
+      "max_new_tokens": 60,
+      "baseline": "The band walked on stage and played the title track to the crowd, and had the crowd booing and yelling and screaming at them.\n\n\"This is the first time this year there's a time in our career where we've walked on stage and performed at the top of our game and had the audience booing and screaming",
+      "steered": "The band walked on stage and played the title track to the crowd, and had the crowd cheering for the song.\n\nThe band was nominated for the Grammy for Best New Musical for \"My Morning Jacket,\" and also received a Grammy Award for Best Album.\n\nIn 2006, he announced his retirement from the music industry.",
+      "differs": true,
+      "first_divergence_index": 12,
+      "tokens_changed": 48,
+      "tokens_compared_from_divergence": 48,
+      "percent_changed_from_divergence": 100.0,
+      "percent_changed_raw": 80.0,
+      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "target_activation_baseline": 0.0,
+      "target_activation_steered": 12.44322395324707,
+      "target_activation_baseline_mean": 0.0,
+      "target_activation_steered_mean": 0.2544253905614217,
+      "activation_change": 0.793835497839712,
+      "activation_verdict": "higher",
+      "sweep": {
+        "baseline_degenerate": false,
+        "baseline_reason": null,
+        "results": [
+          {
+            "strength": 0.0,
+            "text": "The band walked on stage and played the title track to the crowd, and had the crowd booing and yelling and screaming at them.\n\n\"This is the first time this year there's a time in our career where we've walked on stage and performed at the top of our game and had the audience booing and screaming",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": null,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.317,
+              "repeated_trigram_fraction": 0.034,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.25,
+            "text": "The band walked on stage and played the title track to the crowd, and had the crowd cheering for them. There were some good moments from the band, as well, but this one was probably not a big one.\n\nI was playing a few songs of the \"All I Wanna Do\" from the upcoming album.",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 12,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.25,
+              "repeated_trigram_fraction": 0.0,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.5,
+            "text": "The band walked on stage and played the title track to the crowd, and had the crowd cheering for the song.\n\nThe band was nominated for the Grammy for Best New Musical for \"My Morning Jacket,\" and also received a Grammy Award for Best Album.\n\nIn 2006, he announced his retirement from the music industry.",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 12,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.317,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.75,
+            "text": "The band walked on stage and played the video that had been released, and had the effect of getting people to watch it at the time. The video was not made, but this video was taken, and it's not only a great video, it has an awesome soundtrack!\n\nI'm very proud of our fans and our",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 2,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.3,
+              "repeated_trigram_fraction": 0.0,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.0,
+            "text": "The band walked on stage and played the video that had been released, and had the effect of, \"This is not going to happen.\" The band said, \"It's not for the people, it's for the artists. It's not for the money. It's for the people who love it.\"\n\nWe got",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 2,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.4,
+              "repeated_trigram_fraction": 0.086,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.5,
+            "text": "The band walked on stage and played the video that had been released, and had the video in video stores. There were videos on the internet that people said were about the video and the video itself, and also a video that was about the video from the video of the video. I came to this video from the video that I",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 2,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.5,
+              "repeated_trigram_fraction": 0.069,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 2.0,
+            "text": "The band walked on stage and, to be that as it happens, they had to do some video video from the video at the start to help make the video. That came to video video.\"\n\nThat video video video.\n\nI appreciate the video of the video. I like to write videos. I like to tell",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.467,
+              "repeated_trigram_fraction": 0.052,
+              "non_word_fraction": 0.02,
+              "replacement_chars": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "feature_id": 3446,
+      "label": "music – the word music",
+      "label_status": "named",
+      "label_matches_expected": true,
+      "max_activation": 15.674814224243164,
+      "prompt": "She sat down at the piano and",
+      "seed": 42,
+      "mode": "amplify",
+      "strength": 0.5,
+      "max_new_tokens": 60,
+      "baseline": "She sat down at the piano and played the piano that had been in my head for so long, and then it all felt like a dream. The piano was playing the same rhythm over and over, and I felt like I had lost everything. It was like I had been reborn. I'd seen my own body and I'd felt",
+      "steered": "She sat down at the piano and played the piano that had been in my room for the past week, and it was not at all pleasant to listen to the music. I knew this was a good night, and that I would like to finish it. I felt as if I was playing some kind of video game. It seemed like",
+      "differs": true,
+      "first_divergence_index": 8,
+      "tokens_changed": 49,
+      "tokens_compared_from_divergence": 52,
+      "percent_changed_from_divergence": 94.2,
+      "percent_changed_raw": 81.7,
+      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "target_activation_baseline": 0.0,
+      "target_activation_steered": 11.834012985229492,
+      "target_activation_baseline_mean": 0.0,
+      "target_activation_steered_mean": 0.19723354975382487,
+      "activation_change": 0.7549699036896165,
+      "activation_verdict": "higher",
+      "sweep": {
+        "baseline_degenerate": false,
+        "baseline_reason": null,
+        "results": [
+          {
+            "strength": 0.0,
+            "text": "She sat down at the piano and played the piano that had been in my head for so long, and then it all felt like a dream. The piano was playing the same rhythm over and over, and I felt like I had lost everything. It was like I had been reborn. I'd seen my own body and I'd felt",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": null,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.383,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.25,
+            "text": "She sat down at the piano and played the piano that had been in my head for so long, and then it came back, \"Oh my God, the music will come back. Let's go, I'm gonna go!\" He started to sing it again and he sang it back into my head, \"Yeah, I'm gonna",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 16,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.317,
+              "repeated_trigram_fraction": 0.034,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.5,
+            "text": "She sat down at the piano and played the piano that had been in my room for the past week, and it was not at all pleasant to listen to the music. I knew this was a good night, and that I would like to finish it. I felt as if I was playing some kind of video game. It seemed like",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 8,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.267,
+              "repeated_trigram_fraction": 0.0,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.75,
+            "text": "She sat down at the piano and played the piano that had been in my room for the past week, and it was not at all pleasant to listen to the music. I knew this was a good night, and that I would like to finish this. I felt as if I was playing some kind of video game. It seemed like",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 8,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.267,
+              "repeated_trigram_fraction": 0.0,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.0,
+            "text": "She sat down at the piano and played the score that had been released, and I heard the voice from the original.\n\n\"Oh my God!\" said her husband, as he sat in his studio. \"I've never heard a single video from your father before. I can't believe it's coming out now, and I",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 2,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.2,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.5,
+            "text": "She sat down at the piano and played the video that had been released, and had it on the video streaming service.\n\n\"I was just like, 'Do you know this video? It is a video that you see in the video video from the video of the video. I'm watching it.' It wasn't that I",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 2,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.35,
+              "repeated_trigram_fraction": 0.0,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 2.0,
+            "text": "She sat down at the piano and played the video that had been released, and had it on in video stores. She was going to start to video on the video, and the video video was about, I think, how you see the video. I don't know if it was related to the video video, but I heard it",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 2,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.467,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.0,
+              "replacement_chars": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "feature_id": 1863,
+      "label": "supreme – supreme court",
+      "label_status": "named",
+      "label_matches_expected": true,
+      "max_activation": 19.658849716186523,
+      "prompt": "She opened the letter and read",
+      "seed": 42,
+      "mode": "amplify",
+      "strength": 0.5,
+      "max_new_tokens": 60,
+      "baseline": "She opened the letter and read, \"I am a professional boxer, and I have a hard time making it work for you.\"\n\nWhat she said to me, as I read her statement, was, \"This letter is for your own good and I hope you will be able to deal with it.\"\n\nI wrote",
+      "steered": "She opened the letter and read, \"I am a Christian, and I believe that the Supreme Court's decision legalizing same-sex marriage will help people all across the country. My hope is that, as Supreme Court justices, we will help the gay and lesbian community to realize their rights and be more accepting of our history and our",
+      "differs": true,
+      "first_divergence_index": 5,
+      "tokens_changed": 53,
+      "tokens_compared_from_divergence": 55,
+      "percent_changed_from_divergence": 96.4,
+      "percent_changed_raw": 88.3,
+      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "target_activation_baseline": 0.0,
+      "target_activation_steered": 17.27037811279297,
+      "target_activation_baseline_mean": 0.0,
+      "target_activation_steered_mean": 0.639263641834259,
+      "activation_change": 0.8785040000877082,
+      "activation_verdict": "higher",
+      "sweep": {
+        "baseline_degenerate": false,
+        "baseline_reason": null,
+        "results": [
+          {
+            "strength": 0.0,
+            "text": "She opened the letter and read, \"I am a professional boxer, and I have a hard time making it work for you.\"\n\nWhat she said to me, as I read her statement, was, \"This letter is for your own good and I hope you will be able to deal with it.\"\n\nI wrote",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": null,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.3,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.021,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.25,
+            "text": "She opened the letter and read, \"I am a Christian, and I believe that the Supreme Court's decision in Hobby Lobby should not be overturned on the basis of religious freedom.\n\n\"When I first heard this case, I was so sad and angry at the Supreme Court for allowing so many religious liberty cases to proceed.",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 5,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.217,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.02,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.5,
+            "text": "She opened the letter and read, \"I am a Christian, and I believe that the Supreme Court's decision legalizing same-sex marriage will help people all across the country. My hope is that, as Supreme Court justices, we will help the gay and lesbian community to realize their rights and be more accepting of our history and our",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 5,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.233,
+              "repeated_trigram_fraction": 0.0,
+              "non_word_fraction": 0.019,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 0.75,
+            "text": "She opened the letter and read, \"I am a Republican, and I believe that the Supreme Court should have been spared the same fate as it was all those years ago. The Court is too liberal and too conservative to be a great majority on the Court.\n\n\"But I hope the Supreme Court picks up the right court",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 5,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.25,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.019,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.0,
+            "text": "She opened the letter and read, \"I have a son-in-law and a friend, and it seems that you have no sense of what the real consequences of your actions are. The government wants to hear how you've lived your life and how you've been a good citizen.\"\n\nAdvertisement\n\nThe right-",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 3,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.283,
+              "repeated_trigram_fraction": 0.017,
+              "non_word_fraction": 0.022,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 1.5,
+            "text": "She opened the letter and read, \"I have been told by the court that the Court of Court of Champs\n\nBar\n\nComtraires\n\nBoisairees\n\nBarristown\n\nBaron-Comtraire-Applach\n\nCharles-Arman Court Court Court\n\nC",
+            "degenerate": false,
+            "reason": null,
+            "first_divergence_index": 3,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.433,
+              "repeated_trigram_fraction": 0.034,
+              "non_word_fraction": 0.04,
+              "replacement_chars": 0
+            }
+          },
+          {
+            "strength": 2.0,
+            "text": "She opened the letter and read for the court that it was the court court court Court Court Court Court Court Court Court\n\nApplaw Court Court Court Court Court Court Court Court Court\n\n* Court Court Court Court Court Court Court Court\n\n* Court Court Court Court Court Court Court Court Court\n\n* Court Court Court Court",
+            "degenerate": true,
+            "reason": "mostly repeated tokens (82% repeats, limit 60%); repeating loop (66% of token trigrams repeat, limit 30%)",
+            "first_divergence_index": 0,
+            "metrics": {
+              "new_tokens": 60,
+              "repeated_token_fraction": 0.817,
+              "repeated_trigram_fraction": 0.655,
+              "non_word_fraction": 0.059,
+              "replacement_chars": 0
+            }
+          }
+        ]
+      },
+      "note": "Results depend on the prompt and the strength. At 1.0 on the same prompt, and on a second neutral prompt (\"The man walked into the room and\"), the feature did not appear in the text."
+    },
+    {
       "feature_id": 13,
       "label": "upside – upside down",
       "label_status": "named",
@@ -134,24 +528,53 @@
       }
     },
     {
-      "feature_id": 13,
-      "label": "upside – upside down",
+      "feature_id": 1863,
+      "label": "supreme – supreme court",
       "label_status": "named",
       "label_matches_expected": true,
-      "max_activation": 21.424884796142578,
-      "prompt": "He turned the picture",
+      "max_activation": 19.658849716186523,
+      "prompt": "The lawyers argued before the",
+      "seed": 42,
+      "mode": "ablate",
+      "strength": 0.0,
+      "max_new_tokens": 60,
+      "baseline": "The lawyers argued before the Supreme Court that the district court did not have a statutory duty to consider the issue of whether a \"law enforcement officer\" (also called a \"special prosecutor\") could be charged with a crime under the New York Criminal Code if there is no evidence to support a finding that the officer acted in a criminal",
+      "steered": "The lawyers argued before the Supreme Court that the district court did not have a statutory duty to consider the issue of whether the \"law enforcement officer's conduct constituted a violation of this Code or of any other provision of this Code\" because of the \"deficient or deficient knowledge or training.\" The judge was unable to agree that the",
+      "differs": true,
+      "first_divergence_index": 18,
+      "tokens_changed": 38,
+      "tokens_compared_from_divergence": 42,
+      "percent_changed_from_divergence": 90.5,
+      "percent_changed_raw": 63.3,
+      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "target_activation_baseline": 18.57489776611328,
+      "target_activation_steered": 18.57489776611328,
+      "target_activation_baseline_mean": 0.30958162943522133,
+      "target_activation_steered_mean": 0.30958162943522133,
+      "activation_change": 0.0,
+      "activation_verdict": "about the same",
+      "sweep": null,
+      "note": "Limit example. The activation read \"about the same\" (18.57 to 18.57) because the check re-encodes the finished text and the feature fires on the word \"Supreme\", which is still there. One feature rarely carries a whole concept."
+    },
+    {
+      "feature_id": 3587,
+      "label": "alzheimer – disease mentions",
+      "label_status": "named",
+      "label_matches_expected": true,
+      "max_activation": 18.12055015563965,
+      "prompt": "My grandmother was diagnosed with",
       "seed": 42,
       "mode": "amplify",
-      "strength": 0.5,
+      "strength": 1.0,
       "max_new_tokens": 60,
-      "baseline": "He turned the picture over to me and said, \"You are a good guy, sir.\"\n\nI looked at him and he was smiling at me, and he said, \"You know, you've got a great job. I want to help you out.\" I said, \"What?\" He said, \"",
-      "steered": "He turned the picture down to 10 seconds, but the camera still had the image in it.\n\nThe image on the wall was a picture of a face. The one in the picture was also a woman in a long, dark-haired blonde wig.\n\nThe man who had shown the image was a man",
+      "baseline": "My grandmother was diagnosed with breast cancer five years ago. My mother was a nurse who helped me get my MSc in psychology from the University of California at San Diego. My father was a scientist who helped me with my graduate studies. My sister-in-law's husband is a pediatrician who helped me with my studies",
+      "steered": "My grandmother was diagnosed with breast cancer's disease's disease's disease's disease's disease's disease's disease's\n\n(c) The absence of her cell's cell's cell's cell's cell's cell's cell's cell's cell's cell's cell's\n\n(d) The absence of her cell's cell",
       "differs": true,
-      "first_divergence_index": 0,
-      "tokens_changed": 56,
-      "tokens_compared_from_divergence": 60,
-      "percent_changed_from_divergence": 93.3,
-      "percent_changed_raw": 93.3,
+      "first_divergence_index": 2,
+      "tokens_changed": 58,
+      "tokens_compared_from_divergence": 58,
+      "percent_changed_from_divergence": 100.0,
+      "percent_changed_raw": 96.7,
       "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
       "target_activation_baseline": 0.0,
       "target_activation_steered": 0.0,
@@ -165,104 +588,105 @@
         "results": [
           {
             "strength": 0.0,
-            "text": "He turned the picture over to me and said, \"You are a good guy, sir.\"\n\nI looked at him and he was smiling at me, and he said, \"You know, you've got a great job. I want to help you out.\" I said, \"What?\" He said, \"",
+            "text": "My grandmother was diagnosed with breast cancer five years ago. My mother was a nurse who helped me get my MSc in psychology from the University of California at San Diego. My father was a scientist who helped me with my graduate studies. My sister-in-law's husband is a pediatrician who helped me with my studies",
             "degenerate": false,
             "reason": null,
             "first_divergence_index": null,
             "metrics": {
               "new_tokens": 60,
-              "repeated_token_fraction": 0.4,
+              "repeated_token_fraction": 0.3,
               "repeated_trigram_fraction": 0.069,
-              "non_word_fraction": 0.023,
+              "non_word_fraction": 0.0,
               "replacement_chars": 0
             }
           },
           {
             "strength": 0.25,
-            "text": "He turned the picture over to me and said, \"This isn't the first time I've seen this.\" It's not like it's all going to go well.\n\n\"When I first saw this, it was so dark and black and it looked like I was looking at a movie,\" he continued. \"",
+            "text": "My grandmother was diagnosed with breast cancer five years ago. I was told that it would cost me $20,000, but I could do it myself. That's where my family is now, and my friends are all doing the same. I want to help others too. I'm thinking about how to raise my family.",
             "degenerate": false,
             "reason": null,
-            "first_divergence_index": 7,
+            "first_divergence_index": 6,
             "metrics": {
               "new_tokens": 60,
-              "repeated_token_fraction": 0.267,
+              "repeated_token_fraction": 0.233,
               "repeated_trigram_fraction": 0.0,
-              "non_word_fraction": 0.022,
+              "non_word_fraction": 0.0,
               "replacement_chars": 0
             }
           },
           {
             "strength": 0.5,
-            "text": "He turned the picture down to 10 seconds, but the camera still had the image in it.\n\nThe image on the wall was a picture of a face. The one in the picture was also a woman in a long, dark-haired blonde wig.\n\nThe man who had shown the image was a man",
+            "text": "My grandmother was diagnosed with breast cancer five years ago. I was told that it would cost me $20,000, but I was told it would be worth it. My grandmother was always so excited about my career, she wanted to be a doctor. She told me she was looking for a job. I had no idea",
             "degenerate": false,
             "reason": null,
-            "first_divergence_index": 0,
+            "first_divergence_index": 6,
             "metrics": {
               "new_tokens": 60,
-              "repeated_token_fraction": 0.4,
-              "repeated_trigram_fraction": 0.034,
+              "repeated_token_fraction": 0.317,
+              "repeated_trigram_fraction": 0.017,
               "non_word_fraction": 0.0,
               "replacement_chars": 0
             }
           },
           {
             "strength": 0.75,
-            "text": "He turned the picture down to 10-10 down the aisle and had it on his head to have it on his head to see it up the aisle,\" Kood told the court.\n\nKood also had a phone down on his head and he told a police officer he had no idea what was going down.",
+            "text": "My grandmother was diagnosed with breast cancer five years ago. I was told that it would be too late to take her away from us.\"\n\nTheresa said she had tried for years to be a mother's woman but it was impossible. \"I felt ashamed to have done so.\" She had tried to hide her depression.",
             "degenerate": false,
             "reason": null,
-            "first_divergence_index": 0,
+            "first_divergence_index": 6,
             "metrics": {
               "new_tokens": 60,
-              "repeated_token_fraction": 0.417,
-              "repeated_trigram_fraction": 0.069,
+              "repeated_token_fraction": 0.233,
+              "repeated_trigram_fraction": 0.0,
               "non_word_fraction": 0.0,
               "replacement_chars": 0
             }
           },
           {
             "strength": 1.0,
-            "text": "He turned the picture down to 10-20-50-50-50-50, and it turned down down to ten-20-50-50-50.\n\nIn the face down-down down-down, down-down-down, down-down-down, up-down-down-",
+            "text": "My grandmother was diagnosed with breast cancer's disease's disease's disease's disease's disease's disease's disease's\n\n(c) The absence of her cell's cell's cell's cell's cell's cell's cell's cell's cell's cell's cell's\n\n(d) The absence of her cell's cell",
             "degenerate": true,
-            "reason": "mostly repeated tokens (70% repeats, limit 60%); repeating loop (38% of token trigrams repeat, limit 30%)",
-            "first_divergence_index": 0,
+            "reason": "mostly repeated tokens (77% repeats, limit 60%); repeating loop (64% of token trigrams repeat, limit 30%)",
+            "first_divergence_index": 2,
             "metrics": {
               "new_tokens": 60,
-              "repeated_token_fraction": 0.7,
-              "repeated_trigram_fraction": 0.379,
+              "repeated_token_fraction": 0.767,
+              "repeated_trigram_fraction": 0.638,
               "non_word_fraction": 0.0,
               "replacement_chars": 0
             }
           },
           {
             "strength": 1.5,
-            "text": "He turned the picture down to down--down-down-down--down-down-down-down-down down- down- down down down- down down down down down down down- down down- down down down- down down down down down down- down down down- down down down down-",
+            "text": "My grandmother was diagnosed with dementia's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's",
             "degenerate": true,
-            "reason": "mostly repeated tokens (93% repeats, limit 60%); repeating loop (76% of token trigrams repeat, limit 30%)",
+            "reason": "mostly repeated tokens (97% repeats, limit 60%); repeating loop (97% of token trigrams repeat, limit 30%)",
             "first_divergence_index": 0,
             "metrics": {
               "new_tokens": 60,
-              "repeated_token_fraction": 0.933,
-              "repeated_trigram_fraction": 0.759,
+              "repeated_token_fraction": 0.967,
+              "repeated_trigram_fraction": 0.966,
               "non_word_fraction": 0.0,
               "replacement_chars": 0
             }
           },
           {
             "strength": 2.0,
-            "text": "He turned the picture down down down------------------ down- down- down down down- down down down down down down down- down down- down down down- down down down down down down- down down down down down down down down-",
+            "text": "My grandmother was diagnosed with's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's's",
             "degenerate": true,
-            "reason": "mostly repeated tokens (97% repeats, limit 60%); repeating loop (86% of token trigrams repeat, limit 30%)",
+            "reason": "mostly repeated tokens (98% repeats, limit 60%); repeating loop (98% of token trigrams repeat, limit 30%)",
             "first_divergence_index": 0,
             "metrics": {
               "new_tokens": 60,
-              "repeated_token_fraction": 0.967,
-              "repeated_trigram_fraction": 0.862,
+              "repeated_token_fraction": 0.983,
+              "repeated_trigram_fraction": 0.983,
               "non_word_fraction": 0.0,
               "replacement_chars": 0
             }
           }
         ]
-      }
+      },
+      "note": "Limit example. At higher strengths the text loops and breaks into repeated \"'s\"; at 0.5 there was little effect."
     },
     {
       "feature_id": 7,
@@ -395,34 +819,6 @@
         ]
       },
       "note": "Kept as an example of a limit. In real runs this feature, amplified, shifted the text toward word fragments (for example \"ing\", \"ours\") rather than toward honking, the concept in its label, and produced repetition loops from strength 3. One feature, one prompt, one seed."
-    },
-    {
-      "feature_id": 7,
-      "label": "hon – honing, honking",
-      "label_status": "named",
-      "label_matches_expected": true,
-      "max_activation": 17.825227737426758,
-      "prompt": "Drivers began to honk their horns while the traffic",
-      "seed": 42,
-      "mode": "ablate",
-      "strength": 0.0,
-      "max_new_tokens": 60,
-      "baseline": "Drivers began to honk their horns while the traffic lights flashed blue and blue as the SUV was being driven through the streets of London.\n\nThe car was travelling on the A4, the speed limit for London, was also at 40mph.\n\nThe driver of the truck, a 28-year-old woman from London, was arrested",
-      "steered": "Drivers began to honk their horns while the traffic lights flashed red and blue as the SUV was being driven through the streets of London.\n\nThe car was travelling on the A4, the speed limit for London, was also at 40mph.\n\nThe driver of the truck, a 28-year-old woman from London, and another",
-      "differs": true,
-      "first_divergence_index": 2,
-      "tokens_changed": 3,
-      "tokens_compared_from_divergence": 58,
-      "percent_changed_from_divergence": 5.2,
-      "percent_changed_raw": 5.0,
-      "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
-      "target_activation_baseline": 0.0,
-      "target_activation_steered": 0.0,
-      "target_activation_baseline_mean": 0.0,
-      "target_activation_steered_mean": 0.0,
-      "activation_change": 0.0,
-      "activation_verdict": "about the same",
-      "sweep": null
     }
   ]
 }

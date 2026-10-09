@@ -1,4 +1,5 @@
-"""Phase 4 steering checks: /steer/compare (X3), /steer/sweep (X2), /steer/prompt-only (X4).
+"""Phase 4 steering checks: /steer/check (X1), /steer/compare (X3), /steer/sweep (X2),
+/steer/prompt-only (X4).
 Mock mode answers from demo/phase4_examples.json for the recorded inputs; real mode is
 tested with a stand-in ml Runtime."""
 from fastapi.testclient import TestClient
@@ -17,6 +18,57 @@ ACROBAT = {"prompt": "The acrobat hung", "feature_id": 13}
 def _dead_feature(client):
     items = client.get(f"{API}/features?include_dead=true&limit=200").json()["items"]
     return next(i["feature_id"] for i in items if i["is_dead"])
+
+
+# ---------- X1 check ----------
+
+ACT_FIELDS = {"target_activation_baseline", "target_activation_steered",
+              "target_activation_baseline_mean", "target_activation_steered_mean",
+              "activation_change", "activation_verdict"}
+
+
+def test_check_recorded_example(client):
+    r = client.post(f"{API}/steer/check", json={**ACROBAT, "mode": "amplify", "strength": 0.5})
+    assert r.status_code == 200
+    b = r.json()
+    assert b["feature"]["feature_id"] == 13 and b["differs"]
+    assert "[simulated]" in b["baseline_text"] and "[simulated]" in b["steered_text"]
+    assert b["target_activation_baseline"] == 0.0 and b["target_activation_baseline_mean"] == 0.0
+    assert round(b["target_activation_steered"], 2) == 2.87
+    assert 0 < b["target_activation_steered_mean"] <= b["target_activation_steered"]
+    max_act = client.get(f"{API}/features/13").json()["max_activation"]
+    assert abs(b["activation_change"] - b["target_activation_steered"] / max_act) < 1e-9
+    assert b["activation_verdict"] == "higher"
+
+
+def test_check_zero_strength_control(client):
+    b = client.post(f"{API}/steer/check",
+                    json={**ACROBAT, "mode": "amplify", "strength": 0}).json()
+    assert not b["differs"] and b["activation_change"] == 0.0
+    assert b["activation_verdict"] == "about the same"
+
+
+def test_check_stand_in(client):
+    req = {"prompt": "Hello there", "feature_id": 13, "mode": "amplify", "strength": 1.5}
+    a = client.post(f"{API}/steer/check", json=req).json()
+    assert a == client.post(f"{API}/steer/check", json=req).json()  # deterministic
+    assert ACT_FIELDS <= set(a) and a["activation_verdict"] == "higher"
+    abl = client.post(f"{API}/steer/check", json={**req, "mode": "ablate"}).json()
+    assert abl["strength"] == 0.0 and abl["activation_verdict"] in ("lower", "about the same")
+
+
+def test_check_errors(client):
+    dead = _dead_feature(client)
+    for body, status, code in (({"prompt": "Hi", "feature_id": 99999, "mode": "amplify"}, 404,
+                                "FEATURE_NOT_FOUND"),
+                               ({"prompt": "Hi", "feature_id": dead, "mode": "amplify"}, 422,
+                                "INVALID_INPUT"),
+                               ({"prompt": "Hi", "feature_id": 13, "mode": "amplify",
+                                 "strength": 4}, 422, "INVALID_INPUT"),
+                               ({"prompt": "word " * 300, "feature_id": 13, "mode": "amplify"},
+                                413, "TEXT_TOO_LONG")):
+        r = client.post(f"{API}/steer/check", json=body)
+        assert (r.status_code, r.json()["error"]["code"]) == (status, code), body
 
 
 # ---------- X3 compare ----------
@@ -161,6 +213,11 @@ class FakeMlRuntime:
         ids = [hash(p) % 50257 for p in pieces]
         return sc.Generation("".join(pieces), ids, len(prompt.split(" ")), pieces)
 
+    def feature_activations(self, token_ids, feature_id):
+        assert self.wrapper._lock._is_owned()
+        self.calls.append(("acts", feature_id))
+        return [0.0] + [3.0 if i == len(token_ids) - 1 else 0.0 for i in range(1, len(token_ids))]
+
 
 def _real_client(monkeypatch, fake):
     def load(cls, ckpt):
@@ -185,6 +242,19 @@ def test_real_mode_forwards_generate_under_lock(monkeypatch):
         assert p["continuation"] == " a b c" and p["new_tokens"] == 3
 
 
+def test_real_mode_check_reads_activations(monkeypatch):
+    fake = FakeMlRuntime()
+    with _real_client(monkeypatch, fake) as c:
+        max_act = c.get(f"{API}/features/13").json()["max_activation"]
+        b = c.post(f"{API}/steer/check", json={"prompt": "Up we go", "feature_id": 13,
+                                               "mode": "amplify", "strength": 1.5}).json()
+        assert b["differs"] and b["steered_text"] == "Up we go a b s1.5 c"
+        assert b["target_activation_baseline"] == 3.0 == b["target_activation_steered"]
+        assert b["activation_change"] == 0.0 and b["activation_verdict"] == "about the same"
+        assert fake.calls[2:] == [("acts", 13), ("acts", 13)]  # after both generations
+        assert all(s.max_activation == max_act for s in fake.calls[1:2])
+
+
 def test_real_mode_maps_ml_errors(monkeypatch):
     with _real_client(monkeypatch, FakeMlRuntime(d_sae=10)) as c:  # DB has 13, model does not
         r = c.post(f"{API}/steer/compare", json={"prompt": "Hi there", "feature_id": 13,
@@ -195,7 +265,8 @@ def test_real_mode_maps_ml_errors(monkeypatch):
 def test_real_mode_not_loaded(monkeypatch):
     monkeypatch.delenv("NEURONLENS_CKPT", raising=False)
     with TestClient(create_app(Settings(mode="real", ckpt=""))) as c:
-        for path, body in (("steer/compare", {"prompt": "hi", "feature_id": 3, "mode": "amplify"}),
+        for path, body in (("steer/check", {"prompt": "hi", "feature_id": 3, "mode": "amplify"}),
+                           ("steer/compare", {"prompt": "hi", "feature_id": 3, "mode": "amplify"}),
                            ("steer/sweep", {"prompt": "hi", "feature_id": 3}),
                            ("steer/prompt-only", {"prompt": "hi"})):
             r = c.post(f"{API}/{path}", json=body)

@@ -718,6 +718,95 @@
         "title": "RunList",
         "type": "object"
       },
+      "SteerCheckResponse": {
+        "description": "X1: baseline vs steered (same seed) and the target feature's activation on each\nfinished text, re-encoded without steering. It reports whether the feature fires on the\nresulting text; it does not say the output is better.",
+        "properties": {
+          "activation_change": {
+            "description": "(steered max - baseline max) / the feature's max_activation",
+            "title": "Activation Change",
+            "type": "number"
+          },
+          "activation_verdict": {
+            "enum": [
+              "higher",
+              "lower",
+              "about the same"
+            ],
+            "title": "Activation Verdict",
+            "type": "string"
+          },
+          "baseline_text": {
+            "title": "Baseline Text",
+            "type": "string"
+          },
+          "differs": {
+            "title": "Differs",
+            "type": "boolean"
+          },
+          "feature": {
+            "$ref": "#/components/schemas/SteerFeature"
+          },
+          "max_new_tokens": {
+            "title": "Max New Tokens",
+            "type": "integer"
+          },
+          "mode": {
+            "enum": [
+              "amplify",
+              "ablate"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "steered_text": {
+            "title": "Steered Text",
+            "type": "string"
+          },
+          "strength": {
+            "title": "Strength",
+            "type": "number"
+          },
+          "target_activation_baseline": {
+            "description": "max activation of the target feature over the new tokens of the baseline",
+            "title": "Target Activation Baseline",
+            "type": "number"
+          },
+          "target_activation_baseline_mean": {
+            "title": "Target Activation Baseline Mean",
+            "type": "number"
+          },
+          "target_activation_steered": {
+            "title": "Target Activation Steered",
+            "type": "number"
+          },
+          "target_activation_steered_mean": {
+            "title": "Target Activation Steered Mean",
+            "type": "number"
+          }
+        },
+        "required": [
+          "feature",
+          "mode",
+          "strength",
+          "seed",
+          "max_new_tokens",
+          "baseline_text",
+          "steered_text",
+          "differs",
+          "target_activation_baseline",
+          "target_activation_steered",
+          "target_activation_baseline_mean",
+          "target_activation_steered_mean",
+          "activation_change",
+          "activation_verdict"
+        ],
+        "title": "SteerCheckResponse",
+        "type": "object"
+      },
       "SteerCompareResponse": {
         "description": "X3: baseline and steered with the same seed, compared token by token. Indices are\n0-based over newly generated tokens. In mock mode tokens are a word split.",
         "properties": {
@@ -1835,6 +1924,88 @@
         "summary": "Steer",
         "tags": [
           "model"
+        ]
+      }
+    },
+    "/api/v1/steer/check": {
+      "post": {
+        "description": "X1. Baseline and steered with the same seed, plus the target feature's activation on\neach finished text (re-encoded without steering). Not a quality score.",
+        "operationId": "check_api_v1_steer_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SteerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SteerCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Check",
+        "tags": [
+          "steering checks"
         ]
       }
     },

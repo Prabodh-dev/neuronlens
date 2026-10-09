@@ -53,6 +53,11 @@ class RealRuntime:
         with self._lock:
             return self._rt.generate(prompt, max_new_tokens, seed, steering)
 
+    def feature_activations(self, token_ids, feature_id):
+        """X1: one feature's activation per position of a finished text, no steering hook."""
+        with self._lock:
+            return self._rt.feature_activations(token_ids, feature_id)
+
     def exclusive(self):
         """Hold the model for a whole check (several generations), like one /steer call."""
         return self._lock

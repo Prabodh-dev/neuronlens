@@ -7,6 +7,11 @@ import pytest
 
 from tests.test_steering_checks import FakeRuntime
 
+
+class BigRuntime(FakeRuntime):
+    """FakeRuntime with the real number of features, for the default examples (ids up to 3587)."""
+    d_sae = 12288
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 spec = importlib.util.spec_from_file_location(
     "phase4_demo", os.path.join(ROOT, "ml", "scripts", "phase4_demo.py"))
@@ -20,7 +25,10 @@ def db(tmp_path):
     con = sqlite3.connect(path)
     con.executescript(open(os.path.join(ROOT, "contracts", "schema.sql")).read())
     con.execute("INSERT INTO meta VALUES ('run_id','test-run')")
-    for fid, label, dead, mx in [(7, "hon- – honing, honk", 0, 12.0), (13, "upside – upside down", 0, 9.0)]:
+    for fid, label, dead, mx in [(7, "hon- – honing, honk", 0, 12.0), (13, "upside – upside down", 0, 9.0),
+                                 (3446, "music – music, bands", 0, 15.0),
+                                 (1863, "supreme – supreme court", 0, 19.7),
+                                 (3587, "alzheimer – disease", 0, 11.0)]:
         con.execute("INSERT INTO features (feature_id, label, label_status, density, "
                     "max_activation, is_dead) VALUES (?,?,?,?,?,?)",
                     (fid, label, "named", 0.01, mx, dead))
@@ -33,12 +41,17 @@ def test_build_examples_fields_and_read_only(db):
     before = open(db, "rb").read()
     con = demo.open_readonly(db)
     msgs = []
-    out = demo.build_examples(FakeRuntime(baseline_len=20), con, max_new_tokens=20, log=msgs.append)
+    out = demo.build_examples(BigRuntime(baseline_len=20), con, max_new_tokens=20, log=msgs.append)
     assert [(e["feature_id"], e["prompt"], e["mode"], e["strength"]) for e in out] == [
-        (13, "The acrobat hung", "amplify", 0.5), (13, "He turned the picture", "amplify", 0.5),
-        (7, "She looked out of the window and saw", "amplify", 1.0),
-        (7, "Drivers began to honk their horns while the traffic", "ablate", 0.0)]
+        (3446, "The band walked on stage and", "amplify", 0.5),
+        (3446, "She sat down at the piano and", "amplify", 0.5),
+        (1863, "She opened the letter and read", "amplify", 0.5),
+        (13, "The acrobat hung", "amplify", 0.5),
+        (1863, "The lawyers argued before the", "ablate", 0.0),
+        (3587, "My grandmother was diagnosed with", "amplify", 1.0),
+        (7, "She looked out of the window and saw", "amplify", 1.0)]
     assert max(e["strength"] for e in out) <= 3.0         # nothing above the API cap
+    assert all(e["seed"] == 42 and e["max_new_tokens"] == 20 for e in out)
     e = out[0]
     for key in ("prompt", "seed", "feature_id", "mode", "strength", "baseline", "steered",
                 "first_divergence_index", "label", "max_activation", "tokens_changed",
@@ -47,18 +60,28 @@ def test_build_examples_fields_and_read_only(db):
     assert e["differs"] and e["first_divergence_index"] == 5 and e["label_matches_expected"]
     assert [r["strength"] for r in e["sweep"]["results"]] == list(demo.sc.DEFAULT_SWEEP_STRENGTHS)
     assert all("degenerate" in r and "reason" in r for r in e["sweep"]["results"])
-    assert all(x["sweep"] is not None for x in out[:3])   # every amplify example has a sweep
-    assert out[3]["sweep"] is None and msgs == []        # ablate has no sweep
-    # only the feature 7 amplify example carries a note, in neutral wording
-    assert [("note" in x) for x in out] == [False, False, True, False]
-    note = out[2]["note"]
-    assert "word fragments" in note and "rather than toward honking" in note
-    assert not any(w in note.lower() for w in ("proves", "detects", "fixes", "explains why", "novel"))
+    assert [x["sweep"] is not None for x in out] == [True, True, True, True, False, True, True]
+    assert msgs == []                                     # every label matched, nothing skipped
     json.dumps(out)                                       # serialisable
     with pytest.raises(sqlite3.OperationalError):
         con.execute("UPDATE features SET label='x'")
     con.close()
     assert open(db, "rb").read() == before
+
+
+def test_notes_are_on_the_limit_examples_in_neutral_wording(db):
+    out = demo.build_examples(BigRuntime(baseline_len=20), demo.open_readonly(db),
+                              max_new_tokens=20, sweep=False)
+    assert [("note" in x) for x in out] == [False, False, True, False, True, True, True]
+    assert "did not appear in the text" in out[2]["note"] and "The man walked into the room and" in out[2]["note"]
+    assert "about the same" in out[4]["note"] and "18.57 to 18.57" in out[4]["note"]
+    assert "re-encodes the finished text" in out[4]["note"] and "Supreme" in out[4]["note"]
+    assert "repeated" in out[5]["note"] and "little effect" in out[5]["note"] and "at 0.5" in out[5]["note"]
+    assert "word fragments" in out[6]["note"] and "rather than toward honking" in out[6]["note"]
+    for x in out:
+        if "note" in x:
+            low = x["note"].lower()
+            assert not any(w in low for w in ("proves", "detects", "fixes", "explains why", "novel"))
 
 
 def test_skips_missing_dead_and_warns_on_label_mismatch(db):
@@ -68,18 +91,20 @@ def test_skips_missing_dead_and_warns_on_label_mismatch(db):
     con.commit()
     con.close()
     msgs = []
-    out = demo.build_examples(FakeRuntime(), demo.open_readonly(db), max_new_tokens=20,
+    out = demo.build_examples(BigRuntime(), demo.open_readonly(db), max_new_tokens=20,
                               sweep=False, log=msgs.append)
-    assert [e["feature_id"] for e in out] == [7, 7]
-    assert all(not e["label_matches_expected"] for e in out)
+    assert [e["feature_id"] for e in out] == [3446, 3446, 1863, 1863, 3587, 7]   # 13 skipped
+    assert [e["label_matches_expected"] for e in out] == [True, True, True, True, True, False]
     assert any("skip feature 13" in m for m in msgs) and any("WARNING feature 7" in m for m in msgs)
     assert all(e["sweep"] is None for e in out)
 
 
 def test_summary_is_readable(db):
-    out = demo.build_examples(FakeRuntime(), demo.open_readonly(db), max_new_tokens=20)
+    out = demo.build_examples(BigRuntime(), demo.open_readonly(db), max_new_tokens=20)
     text = demo.summary(out)
-    assert "feature 13 (upside – upside down) amplify x0.5" in text and "sweep" in text
+    assert "feature 3446 (music – music, bands) amplify x0.5" in text and "sweep" in text
+    assert "feature 1863 (supreme – supreme court) ablate" in text
+    assert "feature 13 (upside – upside down) amplify x0.5" in text
     assert "feature 7 (hon- – honing, honk) amplify x1" in text
     assert "first divergence at new token 5" in text
 
@@ -166,7 +191,7 @@ def _env(monkeypatch, db, tmp_path):
     ckpt.write_bytes(b"")
     monkeypatch.setenv("NEURONLENS_DB", db)
     monkeypatch.setenv("NEURONLENS_CKPT", str(ckpt))
-    monkeypatch.setattr(demo, "load_runtime", lambda path: FakeRuntime(baseline_len=20))
+    monkeypatch.setattr(demo, "load_runtime", lambda path: BigRuntime(baseline_len=20))
 
 
 def test_main_explore_writes_only_the_explore_file(db, tmp_path, monkeypatch, capsys):
@@ -220,7 +245,7 @@ def test_default_mode_unchanged_by_explore_options(db, tmp_path, monkeypatch):
     out = tmp_path / "phase4_examples.json"
     demo.main(["--out", str(out), "--max-new-tokens", "20"])
     data = json.loads(out.read_text(encoding="utf-8"))
-    assert [e["feature_id"] for e in data["examples"]] == [13, 13, 7, 7]
+    assert [e["feature_id"] for e in data["examples"]] == [3446, 3446, 1863, 13, 1863, 3587, 7]
     assert not (tmp_path / "explore.json").exists()
 
 
@@ -231,7 +256,7 @@ def _up(hi, lo):
 
 
 def test_default_examples_store_activation_fields_and_summary_line(db):
-    rt = FakeRuntime(baseline_len=20, act_fn=_up(8.0, 1.0))
+    rt = BigRuntime(baseline_len=20, act_fn=_up(8.0, 1.0))
     out = demo.build_examples(rt, demo.open_readonly(db), max_new_tokens=20, sweep=False)
     for e in out:
         for k in demo.ACTIVATION_KEYS:

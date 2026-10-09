@@ -1,4 +1,4 @@
-"""Phase 4 steering checks (X2, X3, X4). The ML functions in ml/neuronlens/steering_checks.py
+"""Phase 4 steering checks (X1 to X4). The ML functions in ml/neuronlens/steering_checks.py
 do the work; this layer does what /steer does (DB lookup, dead-feature and length checks)
 and holds the model for the whole check, since each one runs several generations.
 Steering is a test of what a feature does, not a fix."""
@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends
 from ..db import Database
 from ..deps import get_db, get_runtime
 from ..errors import ApiError
-from ..models import (PromptOnlyRequest, PromptOnlyResponse, SteerCompareResponse,
+from ..models import (PromptOnlyRequest, PromptOnlyResponse, SteerCheckResponse,
+                      SteerCompareResponse,
                       SteerFeature, SteerRequest, SteerSweepRequest, SteerSweepResponse,
                       error_responses)
 from ..services.checks import steering_checks
@@ -40,6 +41,18 @@ def with_feature(out: dict, row) -> dict:
     out.pop("feature_id", None)
     out["feature"] = SteerFeature(feature_id=row["feature_id"], label=row["label"])
     return out
+
+
+@router.post("/steer/check", response_model=SteerCheckResponse)
+def check(req: SteerRequest, db: Database = Depends(get_db), runtime=Depends(get_runtime)):
+    """X1. Baseline and steered with the same seed, plus the target feature's activation on
+    each finished text (re-encoded without steering). Not a quality score."""
+    row = steerable_feature(db, req.feature_id)
+    check_length(runtime, req.prompt, "prompt")
+    out = run_check(runtime, lambda sc, rt: sc.steering_check(
+        rt, req.prompt, req.feature_id, req.mode, req.strength, row["max_activation"],
+        req.max_new_tokens, req.seed))
+    return SteerCheckResponse(**with_feature(out, row))
 
 
 @router.post("/steer/compare", response_model=SteerCompareResponse)

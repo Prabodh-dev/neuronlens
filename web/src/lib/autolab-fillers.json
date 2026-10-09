@@ -1,0 +1,103 @@
+{
+ "note": "Filler features: features that come back from /features/search for many unrelated words. Written by server/scripts/autolab_check.py --find-fillers on the real server; Auto-Lab drops them from the candidates. Do not edit by hand.",
+ "date": "2026-10-09",
+ "run_id": "gpt2-l8-k32",
+ "words": 200,
+ "search": {
+  "leading_space": true,
+  "top_n": 8,
+  "max_density": 0.01
+ },
+ "cutoff": {
+  "share": 0.1,
+  "more_than_words": 20.0
+ },
+ "fillers": [
+  {
+   "feature_id": 1375,
+   "label": "more – text navigation",
+   "count": 200,
+   "share": 1.0
+  },
+  {
+   "feature_id": 5023,
+   "label": "off- – noun and adjective",
+   "count": 199,
+   "share": 0.995
+  },
+  {
+   "feature_id": 2347,
+   "label": "open bracket – academic",
+   "count": 190,
+   "share": 0.95
+  },
+  {
+   "feature_id": 3356,
+   "label": "arden – website domains",
+   "count": 121,
+   "share": 0.605
+  },
+  {
+   "feature_id": 4368,
+   "label": "key – function parameter",
+   "count": 93,
+   "share": 0.465
+  },
+  {
+   "feature_id": 2109,
+   "label": "t – hyphenated word breaks",
+   "count": 35,
+   "share": 0.175
+  },
+  {
+   "feature_id": 2855,
+   "label": "quotation mark – in html code",
+   "count": 27,
+   "share": 0.135
+  },
+  {
+   "feature_id": 11625,
+   "label": "open bracket – programming",
+   "count": 26,
+   "share": 0.13
+  },
+  {
+   "feature_id": 11777,
+   "label": "link – online references",
+   "count": 24,
+   "share": 0.12
+  }
+ ],
+ "near_misses": [
+  {
+   "feature_id": 4474,
+   "label": "online – after document break",
+   "count": 15,
+   "share": 0.075
+  },
+  {
+   "feature_id": 11677,
+   "label": "from – spanning a range",
+   "count": 13,
+   "share": 0.065
+  },
+  {
+   "feature_id": 2574,
+   "label": "carpenter – trades",
+   "count": 9,
+   "share": 0.045
+  },
+  {
+   "feature_id": 5040,
+   "label": "pale – historical terms",
+   "count": 9,
+   "share": 0.045
+  },
+  {
+   "feature_id": 6842,
+   "label": "year – time units",
+   "count": 8,
+   "share": 0.04
+  }
+ ]
+}

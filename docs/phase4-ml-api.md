@@ -367,9 +367,9 @@ Same error type as the other functions (`SteeringCheckError`, with a `code`). No
 | `INVALID_INPUT` | fewer than 2 or more than 3 steers, or `steers` not a list; an entry missing `feature_id`, `strength` or `max_activation`; duplicate feature ids; a strength that is not a finite number from 0 to 10; a `max_activation` that is negative, not finite or 0 (a dead feature); a blank prompt; a bad `seed` or `max_new_tokens` |
 | `FEATURE_NOT_FOUND` | a `feature_id` that is negative or not below `rt.d_sae` |
 
-### Example (all values are example values)
+### Example (format only; all values are example values)
 
-Every value below is an example value, not output of a real run. No real W5 run has been recorded yet; real values will replace these when they are available. The feature ids and the text are placeholders.
+This example shows the format only. Every value in it is an example value, not output of a real run, and the feature ids and the text are placeholders. The real runs recorded so far are in "Real runs so far" below, and none of them is a usable demo example.
 
 ```json
 {
@@ -393,10 +393,27 @@ Every value below is an example value, not output of a real run. No real W5 run 
 }
 ```
 
+### Real runs so far
+
+Real GPU runs, all with seed 42, 60 new tokens and the same strength applied to both features. Two feature pairs and three prompts, run by hand. "Reads higher" is the `activation_verdict`; the number is the feature's activation on the steered text.
+
+| Prompt | Features | Strength | What the activations showed |
+| --- | --- | --- | --- |
+| `The band walked on stage and` | 3446 (music) + 1863 (supreme court) | 0.25 and 0.5 | only 3446 reads higher (11.82 and 10.80); 1863 stays 0.00 |
+| `The band walked on stage and` | 3446 + 1863 | 0.75 | both 0.00 |
+| `She sat down at the piano and` | 3446 + 13 (upside) | 0.25, 0.5 and 0.75 | both read "about the same" |
+| `She opened the letter and read` | 3446 + 1863 | 0.25 | only 3446 reads higher (12.70) |
+| `She opened the letter and read` | 3446 + 1863 | 0.5 | both read 0.00, although 1863 alone read 17.27 at 0.5 on this prompt |
+| `The reporter wrote that the` | 3446 + 1863 | 0.25 and 0.5 | both 0.00; the text at 0.5 mentioned a "court-jailed judge" and "the appeal" (1863 fires on the word "Supreme", not on court wording) |
+
+What this shows: no run so far showed both concepts at once with both activations higher. Combinations were not additive in any visible way in these runs: a feature that read high alone (1863 at 0.5 on the letter prompt) read 0.00 in the combination. This is a small search of two pairs and three prompts, not a proof that it cannot work. An automated search for a real demo example is under way.
+
+What a real demo example needs: both features clearly "higher" on the same prompt, with no loop warning.
+
 ### Limits
 
 - 2 to 3 features, amplify only. A feature cannot be ablated inside a combination.
-- A combination can break the text at strengths where each feature alone is fine, so a combination should be set beside the single-feature runs. This has not been measured in a real run yet.
+- A combination can break the text at strengths where each feature alone is fine, so a combination should be set beside the single-feature runs. In the small search so far (see "Real runs so far"), the combinations did not show both features higher at once; whether a combination breaks the text where each feature alone is fine has not been measured.
 - The activation fields are measured on the finished text, re-encoded without steering. They say whether each feature appears in the output text, not whether the output is better, and the limits listed for X1 apply to each feature.
 - The `degenerate` flag has the limits of the X2 rule: it catches repetition loops and non-word runs, not all low-quality text, and a result marked ok can still be poor.
 - Cost: two generations (three or four with `with_single_controls`) plus two forward passes per feature. It has not been timed.

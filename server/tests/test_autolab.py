@@ -247,11 +247,24 @@ def test_chain_on_mock(recorded, monkeypatch):
 
 # ---------- --replay and Prabodh's recorded run (demo/autolab_examples.json) ----------
 
+def _replay_recording():
+    """Prabodh's recording, scored the way the chain scores it: with the filler list."""
+    return al.replay(str(mock.AUTOLAB_PATH), al.load_fillers(al.FILLERS_PATH))[1]
+
+
 def _replayed(goal, prompt):
-    _, results = al.replay(str(mock.AUTOLAB_PATH))
-    hits = [r for r in results if (r["goal"], r["prompt"]) == (goal, prompt)]
+    hits = [r for r in _replay_recording() if (r["goal"], r["prompt"]) == (goal, prompt)]
     assert hits, f"{goal!r} on {prompt!r} is not in the recorded file"
     return hits[0]["recommendation"]
+
+
+def test_recording_matches_the_filler_list():
+    """The recording was made with the committed filler list: no filler was swept."""
+    fillers = al.load_fillers(al.FILLERS_PATH)
+    data = json.loads(mock.AUTOLAB_PATH.read_text(encoding="utf-8"))
+    assert len(fillers) == 9 and sorted(fillers) == data["rule"]["filler_ids"]
+    assert all(sw["request"]["feature_id"] not in fillers
+               for g in data["goals"] for sw in g["sweeps"])
 
 
 def test_court_law_on_man_picks_8362_not_9489():
@@ -259,8 +272,19 @@ def test_court_law_on_man_picks_8362_not_9489():
     assert rec["status"] == al.RECOMMENDED and rec["feature_id"] == 8362
 
 
-def test_sports_on_band_is_not_reliable():
-    assert _replayed("sports game", "The band walked on stage and") == {"status": al.NOT_RELIABLE}
+def test_sports_on_band_ships_after_the_rerecord():
+    """Was "not reliable" in the first recording (top 5, no leading space). With the
+    leading space, top 8 and the filler list, sports finds #4901 on this prompt."""
+    rec = _replayed("sports game", "The band walked on stage and")
+    assert (rec["status"], rec["feature_id"], rec["strength"]) == (al.RECOMMENDED, 4901, 1.5)
+
+
+def test_all_6_goals_ship():
+    ships = al.ship_summary(_replay_recording())
+    assert set(ships) == {"music", "court law", "cooking food", "sports game", "space planet",
+                          "weather rain"}
+    assert all(g["ship"] for g in ships.values())
+    assert ships["sports game"]["recommended_on"] == 3
 
 
 def test_replay_needs_no_server(monkeypatch, capsys):
@@ -327,10 +351,9 @@ def test_search_request_leading_space_top_8():
 def test_fillers_on_the_recorded_run():
     """In Prabodh's run, #1375 peaked on the first query word (token 0, right after the
     newline prefix) in every goal it showed up in."""
-    _, results = al.replay(str(mock.AUTOLAB_PATH))
-    found = al.fillers(results)
+    found = al.fillers(_replay_recording())
     assert {1375, 5023, 3356} <= set(found)
-    assert len(found[1375]["goals"]) == 4
+    assert len(found[1375]["goals"]) == 6                  # in every goal's top 8
     assert all(pk == 0 for pk, _, _ in found[1375]["goals"].values())
 
 
@@ -422,23 +445,27 @@ def test_chain_sweeps_only_the_kept_candidates(monkeypatch):
 
 
 def test_replay_applies_the_same_selection():
-    """The old recording (no leading space, top 5) with #1375 and #5023 as fillers."""
-    _, results = al.replay(str(mock.AUTOLAB_PATH), {1375, 5023})
-    by = {(r["goal"], r["prompt"]): r for r in results}
-    court = by[("court law", "The man walked into the room and")]
-    assert court["dropped_fillers"] == [1375, 5023]
-    assert court["recommendation"]["feature_id"] == 8362
-    _, results = al.replay(str(mock.AUTOLAB_PATH), {9489, 2611, 1375})
-    court = {(r["goal"], r["prompt"]): r for r in results}[("court law",
-                                                            "The man walked into the room and")]
-    assert court["recommendation"] == {"status": al.NO_MATCH}          # only 2 left
+    """music's top 8 holds 5 fillers, so exactly 3 candidates are left; one more dropped
+    id leaves 2, which is "no good match"."""
+    by = {(r["goal"], r["prompt"]): r for r in _replay_recording()}
+    music = by[("music", "The band walked on stage and")]
+    assert music["dropped_fillers"] == [1375, 5023, 2347, 3356, 2109]
+    assert [r["feature_id"] for r in music["rows"]] == [3446, 3482, 7982]
+    fillers = al.load_fillers(al.FILLERS_PATH) | {3446}
+    _, results = al.replay(str(mock.AUTOLAB_PATH), fillers)
+    music = {(r["goal"], r["prompt"]): r for r in results}[("music",
+                                                            "The band walked on stage and")]
+    assert music["recommendation"] == {"status": al.NO_MATCH}
 
 
-def test_mock_still_answers_the_new_chain(client, monkeypatch):
-    """The recording uses the old queries, so the new chain gets stand-ins until re-recorded."""
+def test_mock_replays_the_new_chain(client, monkeypatch):
+    """With the re-recorded file the mock answers the UI chain with the real results: the
+    same recommendation as --replay, marked simulated."""
     monkeypatch.setattr(al, "call", _via(client))
-    res = al.run_chain("http://t", "music", PROMPT, filler_ids={1375, 5023})
-    assert not res["failures"] and len(res["rows"]) == 5 and res["simulated"] is True
+    res = al.run_chain("http://t", "music", PROMPT, filler_ids=al.load_fillers(al.FILLERS_PATH))
+    assert not res["failures"] and res["simulated"] is True
+    assert res["recommendation"] == _replayed("music", PROMPT)
+    assert (res["recommendation"]["feature_id"], res["recommendation"]["strength"]) == (3482, 0.25)
 
 
 # ---------- --find-fillers ----------

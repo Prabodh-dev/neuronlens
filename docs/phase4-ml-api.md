@@ -256,6 +256,10 @@ Left out because it was not recorded in the run: `new_tokens`.
 
 ---
 
+## Not yet measured
+
+Generation time on the GPU has not been measured. X1 and X3 run two generations, X4 runs one, and X2 runs one baseline plus one generation per strength. Mirdul should set the server timeouts after the numbers are added to this file.
+
 ## Open items for the server and contract owners
 
 - Forward `generate` and `d_sae` from `RealRuntime`, and provide a mock stand-in (see Common rules).

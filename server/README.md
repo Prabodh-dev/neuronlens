@@ -25,6 +25,7 @@ Both call inspect with the SAE's k (every active feature), then rank and trim to
 Search (W8):
 
 - `POST /features/search`: the features that fired most on the words of the query (1 to 32 query tokens), with `max_activation`, `relative_to_max`, `tokens_active`, `peak_token` and `density`. Same `top_n`, `max_density` and `sort` options as X6/X7. It shows which features fired on the query, not what the query means. Keyword search on labels is `GET /features?query=`.
+- For search, send `max_density: 0.01`. Without it, very common features dominate the results: in the real-mode check, four dense features (end of text, gast-, exxon, were) filled the top 10 of every query. With 0.01, "music", "court ruling" and "recipe for pasta" all found sensible features, and a leading space on the first word made no difference.
 - A newline is put before the query so its first word is not token 0 (the outlier position, which has no features). The prefix is never returned in `tokens` and does not count toward the 32-token limit. Without a leading space, the first word is a different GPT-2 token than the same word mid-sentence.
 - Real-mode check: `python server/scripts/w8_check.py` (needs `NEURONLENS_MODE=real`, `NEURONLENS_DB`, `NEURONLENS_CKPT`).
 

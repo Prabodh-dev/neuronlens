@@ -7,11 +7,13 @@ import { FeatureTitle, StatusPill } from "@/components/FeatureBits";
 import { HeatText } from "@/components/HeatText";
 import { isSampleData, useHealth } from "@/components/HealthProvider";
 import { LogitBars } from "@/components/LogitBars";
+import { RunNote } from "@/components/RunNote";
 import { Cofire } from "./cofire";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
 import type { Example, FeatureDetail } from "@/lib/api/types";
 import { featureName, fmtDensity, fmtNum, oneIn } from "@/lib/format";
+import { featureLink } from "@/lib/share";
 import { heatCss } from "@/lib/heat";
 import { t } from "@/lib/copy";
 import { useApi } from "@/lib/useApi";
@@ -50,6 +52,7 @@ export default function FeaturePage() {
           </Link>
         )}
       </nav>
+      <RunNote />
 
       {!valid && (
         <div className="card">
@@ -64,12 +67,12 @@ export default function FeaturePage() {
         </div>
       )}
       {valid && loading && !f && <DetailSkeleton />}
-      {f && f.feature_id === id && <Detail f={f} sim={isSampleData(h)} />}
+      {f && f.feature_id === id && <Detail f={f} sim={isSampleData(h)} run={h?.run_id ?? null} />}
     </div>
   );
 }
 
-function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
+function Detail({ f, sim, run }: { f: FeatureDetail; sim: boolean; run: string | null }) {
   const [showAll, setShowAll] = useState(false);
   const [copied, setCopied] = useState(false);
   const examples = showAll ? f.examples : f.examples.slice(0, FIRST);
@@ -87,9 +90,10 @@ function Detail({ f, sim }: { f: FeatureDetail; sim: boolean }) {
     }
   }
 
+  // S5: the link reopens this feature, and records the run it was made on
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(featureLink(window.location.origin, f.feature_id, run));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

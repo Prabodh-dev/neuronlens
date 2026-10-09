@@ -308,3 +308,53 @@ def test_record_writes_the_mock_format(recorded, monkeypatch, tmp_path):
     assert g["search_request"] == GOAL["search_request"]
     assert [s["request"]["feature_id"] for s in g["sweeps"]] == [3446, 13]
     assert mock.load_autolab_examples(out)[0]["goal"] == "music"
+
+
+# ---------- search experiments and --fillers ----------
+
+def test_search_request_ui_default_and_experiments():
+    assert al.search_request("music") == {"query": "music", "top_n": 5, "max_density": 0.01}
+    assert al.search_request("music", "relative", True) == {
+        "query": " music", "top_n": 5, "max_density": 0.01, "sort": "relative"}
+
+
+def test_fillers_on_the_recorded_run():
+    """In Prabodh's run, #1375 peaked on the first query word (token 0, right after the
+    newline prefix) in every goal it showed up in."""
+    _, results = al.replay(str(mock.AUTOLAB_PATH))
+    found = al.fillers(results)
+    assert {1375, 5023, 3356} <= set(found)
+    assert len(found[1375]["goals"]) == 4
+    assert all(pk == 0 for pk, _, _ in found[1375]["goals"].values())
+
+
+def test_fillers_counts_goal_words_not_prompts():
+    def res(goal, prompt, fid, peak):
+        return {"goal": goal, "prompt": prompt, "search": {"tokens": ["a", " b"], "features": [
+            {"feature_id": fid, "label": "x", "density": 0.004, "peak_token": peak,
+             "relative_to_max": 0.5}]}}
+    found = al.fillers([res("music", "p1", 1, 0), res("music", "p2", 1, 0),
+                        res("music", "p3", 1, 0), res("rain", "p1", 2, 0), res("food", "p1", 2, 1)])
+    assert list(found) == [2]                       # #1: one goal on 3 prompts is not a filler
+    assert found[2]["goals"] == {"rain": (0, "a", 0.5), "food": (1, " b", 0.5)}
+
+
+def test_search_only_runs_no_sweeps(recorded, monkeypatch, capsys):
+    calls = []
+    via = _via(recorded)
+
+    def counting(base, path, body=None, timeout=10):
+        calls.append(path)
+        return via(base, path, body, timeout)
+    monkeypatch.setattr(al, "call", counting)
+    assert al.main(["--goal", "music", "--search-only", "--fillers"]) == 0
+    assert not any("sweep" in p for p in calls)
+    assert "peak token" in capsys.readouterr().out
+
+
+def test_experiment_options_cannot_record_or_replay(tmp_path):
+    for argv in (["--goal", "x", "--record", str(tmp_path / "r.json"), "--sort", "relative"],
+                 ["--goal", "x", "--record", str(tmp_path / "r.json"), "--leading-space"],
+                 ["--replay", str(mock.AUTOLAB_PATH), "--search-only"]):
+        with pytest.raises(SystemExit):
+            al.main(argv)

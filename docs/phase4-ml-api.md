@@ -316,6 +316,92 @@ Left out because it was not recorded in the run: `new_tokens`.
 
 ---
 
+## W5. Multi-concept steering
+
+`multi_steering_check(rt, prompt, steers, max_new_tokens=60, seed=42, with_single_controls=False)`
+
+Steers 2 or 3 features together and compares the result with the baseline. The endpoint is not decided: Mirdul proposes it, Prabodh signs off. Nothing here was added to `contracts/` or `server/`.
+
+**How the directions combine.** The directions are summed in the same forward hook. For each steer, `strength x max_activation x decoder direction` is added at every position except position 0, and the terms are added together. Amplify only; there is no ablate in a combination. The terms are summed in order of feature id, so the order of `steers` in the request does not change the result. With one non-zero strength (the others at 0) the hook output is identical to the single-feature hook, and the result should match X1 for that feature; this was tested bitwise on a toy model and on random tensors, not on the real model. The single-feature maths and X1 to X4 are unchanged.
+
+**What the runtime must provide.** `rt.generate(prompt, max_new_tokens, seed, steering)` must accept `neuronlens.steering_checks.MultiSteeringSpec(steers=((feature_id, strength, max_activation), ...))` as `steering` (`neuronlens.runtime.Runtime` does), plus `rt.d_sae` and `rt.feature_activations(token_ids, feature_id)`, as for X1. `RealRuntime` and the mock need to forward or stand in for them.
+
+| Input | Type | Notes |
+| --- | --- | --- |
+| `prompt` | str | not blank |
+| `steers` | list of 2 or 3 objects | each `{"feature_id": int, "strength": float, "max_activation": float}`; the feature ids must be different |
+| `steers[].feature_id` | int | 0 to `d_sae - 1` |
+| `steers[].strength` | float | 0 to 10 in ML (the server keeps its own cap of 3); 0 adds nothing |
+| `steers[].max_activation` | float | from the database; must be above 0 (a feature with 0 is dead) |
+| `max_new_tokens` | int | 1 to 120, default 60 |
+| `seed` | int | 0 to 2147483647, default 42; used for the baseline and the steered run |
+| `with_single_controls` | bool | default `false`; ML-side option, see below |
+
+| Output field | Type | Notes |
+| --- | --- | --- |
+| `prompt` | str | echoed |
+| `seed`, `max_new_tokens` | int | echoed |
+| `steers` | list | echoed, with `strength` and `max_activation` as floats, in the order given |
+| `baseline_text` | str | no steering, prompt included |
+| `steered_text` | str | all steers applied together, prompt included |
+| `differs` | bool | `baseline_text != steered_text` |
+| `first_divergence_index` | int or null | as in X3 (0-based, new tokens only); `null` when the texts are identical |
+| `degenerate` | bool | the degeneration rule of X2 applied to the steered text |
+| `reason` | str or null | why `degenerate` is true; `null` otherwise |
+| `activations` | list | one entry per steered feature, in the order of `steers` |
+| `activations[].feature_id` | int | |
+| `activations[].target_activation_baseline` | float | that feature's maximum activation over the new tokens of the baseline text |
+| `activations[].target_activation_steered` | float | the same for the steered text |
+| `activations[].activation_verdict` | str | `"higher"`, `"lower"` or `"about the same"`, from `(steered max - baseline max) / max_activation` with the X1 threshold (`ACTIVATION_SAME_FRACTION`, 0.05, uncalibrated) |
+
+The activations are measured as in X1: both texts are generated, then re-encoded through the model without any steering hook, and each feature is read over the new tokens (the prompt and position 0 are left out). When the two texts are identical the baseline numbers are reused. This costs one forward pass per feature per text.
+
+**Comparing with the single-feature runs.** Either call X1 for each feature with the same `prompt`, `seed`, `max_new_tokens`, `strength` and `max_activation`, or pass `with_single_controls=true`. The option runs each feature alone at its own strength (one more generation per feature) and adds `single_feature_runs`, a list in the order of `steers`: `{feature_id, strength, steered_text, differs, first_divergence_index, degenerate, reason, target_activation_baseline, target_activation_steered, activation_verdict}`. It is not part of the default response.
+
+### Errors
+
+Same error type as the other functions (`SteeringCheckError`, with a `code`). Nothing is generated for a bad request.
+
+| `code` | When |
+| --- | --- |
+| `INVALID_INPUT` | fewer than 2 or more than 3 steers, or `steers` not a list; an entry missing `feature_id`, `strength` or `max_activation`; duplicate feature ids; a strength that is not a finite number from 0 to 10; a `max_activation` that is negative, not finite or 0 (a dead feature); a blank prompt; a bad `seed` or `max_new_tokens` |
+| `FEATURE_NOT_FOUND` | a `feature_id` that is negative or not below `rt.d_sae` |
+
+### Example (all values are example values)
+
+Every value below is an example value, not output of a real run. No real W5 run has been recorded yet; real values will replace these when they are available. The feature ids and the text are placeholders.
+
+```json
+{
+  "prompt": "(example prompt)",
+  "seed": 42,
+  "max_new_tokens": 60,
+  "steers": [
+    {"feature_id": 101, "strength": 0.5, "max_activation": 20.0},
+    {"feature_id": 202, "strength": 0.5, "max_activation": 15.0}
+  ],
+  "baseline_text": "(example baseline text)",
+  "steered_text": "(example steered text)",
+  "differs": true,
+  "first_divergence_index": 4,
+  "degenerate": false,
+  "reason": null,
+  "activations": [
+    {"feature_id": 101, "target_activation_baseline": 0.0, "target_activation_steered": 9.5, "activation_verdict": "higher"},
+    {"feature_id": 202, "target_activation_baseline": 2.0, "target_activation_steered": 2.1, "activation_verdict": "about the same"}
+  ]
+}
+```
+
+### Limits
+
+- 2 to 3 features, amplify only. A feature cannot be ablated inside a combination.
+- A combination can break the text at strengths where each feature alone is fine, so a combination should be set beside the single-feature runs. This has not been measured in a real run yet.
+- The activation fields are measured on the finished text, re-encoded without steering. They say whether each feature appears in the output text, not whether the output is better, and the limits listed for X1 apply to each feature.
+- The `degenerate` flag has the limits of the X2 rule: it catches repetition loops and non-word runs, not all low-quality text, and a result marked ok can still be poor.
+- Cost: two generations (three or four with `with_single_controls`) plus two forward passes per feature. It has not been timed.
+- The combined output is a test of what the features do together; it is not presented as an improvement.
+
 ## Timing
 
 Two measurements, both on one GPU laptop:

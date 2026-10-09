@@ -240,7 +240,7 @@ def main(argv=None):
                    help="explore mode: prompt (repeatable; each feature runs on each prompt)")
     p.add_argument("--strengths", default=None,
                    help="explore mode: comma list used exactly for the sweep "
-                        "(default 0,0.5,1,2,3,5)")
+                        "(default 0,0.25,0.5,0.75,1,1.5,2)")
     p.add_argument("--mode", choices=sc.MODES, default=None,
                    help="explore mode: amplify (default) or ablate")
     p.add_argument("--explore-out", default=str(REPO_ROOT / "demo" / "explore.json"),

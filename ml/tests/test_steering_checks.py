@@ -245,6 +245,18 @@ def test_x2_thresholds_are_named_constants():
         assert hasattr(sc, name)
 
 
+def test_x2_default_strengths_stay_within_the_api_cap():
+    assert sc.DEFAULT_SWEEP_STRENGTHS == (0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0)
+    assert max(sc.DEFAULT_SWEEP_STRENGTHS) <= 3.0          # SteerRequest.strength cap
+    assert sc.STRENGTH_MAX == 10.0                          # the ML side still accepts 0 to 10
+    assert len(sc.DEFAULT_SWEEP_STRENGTHS) <= sc.MAX_SWEEP_POINTS
+
+
+def test_x2_ml_still_accepts_strengths_above_the_api_cap():
+    r = sc.strength_sweep(FakeRuntime(), "Hi ", 7, 10.0, strengths=[5.0, 10.0], max_new_tokens=20)
+    assert [x["strength"] for x in r["results"]] == [5.0, 10.0]
+
+
 def test_x2_sweep_default_strengths_order_and_baseline_once():
     rt = FakeRuntime(baseline_len=20)
     r = sc.strength_sweep(rt, "Hello ", 7, 10.0, max_new_tokens=20, seed=3)

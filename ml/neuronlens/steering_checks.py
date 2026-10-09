@@ -178,7 +178,9 @@ def seed_matched_compare(rt, prompt, feature_id, mode, strength, max_activation,
 
 # ------------------------------------------------- X2: strength sweep + degeneration
 
-DEFAULT_SWEEP_STRENGTHS = (0.0, 0.5, 1.0, 2.0, 3.0, 5.0)
+# All within the API cap on strength (3). On the demo feature the useful range was about 0.5 to 1
+# and repetition loops started around 1 to 1.5, so the default is dense there.
+DEFAULT_SWEEP_STRENGTHS = (0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0)
 MAX_SWEEP_POINTS = 12     # most strengths per sweep (each one is a full generation)
 
 # Degeneration rule. An output is marked degenerate when ANY of these holds, judged on the

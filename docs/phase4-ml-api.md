@@ -28,7 +28,7 @@ Not handled in ML (the server keeps doing them): text length (`TEXT_TOO_LONG`), 
 
 ### Strength range
 
-The ML functions accept `strength` from 0 to 10 (`STRENGTH_MAX`). The current API caps `SteerRequest.strength` at 3 (`le=3`). X2's default sweep is `[0, 0.5, 1, 2, 3, 5]`, which includes 5. The contract owner needs to decide whether the sweep endpoint allows values above 3 or whether the default list is cut to stay within 3. The ML side works with either.
+Decision: the cap on `SteerRequest.strength` stays at 3 and the contract does not change. In GPU runs on the demo feature, the useful range was about 0.5 to 1, and repetition loops started around 1 to 1.5. That is one feature on GPT-2 small, so other features may differ. The default sweep is therefore `[0, 0.25, 0.5, 0.75, 1, 1.5, 2]`, all within the cap. The ML functions still accept `strength` from 0 to 10 (`STRENGTH_MAX`); the server keeps rejecting values above 3 on its own endpoints.
 
 ---
 
@@ -145,7 +145,7 @@ Amplifies one feature at several strengths with the same seed. The baseline is g
 | Input | Type | Notes |
 | --- | --- | --- |
 | `prompt`, `feature_id`, `max_activation`, `max_new_tokens`, `seed` | as in X1 | mode is always amplify |
-| `strengths` | list of float | default `[0.0, 0.5, 1.0, 2.0, 3.0, 5.0]`; 1 to 12 values, each 0 to 10; order is kept |
+| `strengths` | list of float | default `[0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]`; 1 to 12 values, each 0 to 10 in ML (the server keeps its own cap of 3); order is kept |
 
 | Output field | Type | Notes |
 | --- | --- | --- |
@@ -242,6 +242,5 @@ With the same prompt, seed and `max_new_tokens`, `text` equals the `baseline_tex
 ## Open items for the server and contract owners
 
 - Forward `generate` and `d_sae` from `RealRuntime`, and provide a mock stand-in (see Common rules).
-- Decide the strength range for the sweep (see Strength range).
 - Decide the response models and endpoint paths; the field names above are what the ML functions return.
 - Read `max_activation` from the database and pass it in, as `/steer` does.

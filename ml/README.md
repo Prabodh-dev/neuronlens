@@ -50,7 +50,7 @@ Results: Result (256 sequences, seed 999): ours FVU 0.1626, CE recovered 0.9858;
 
 - X1 `steering_check`: baseline text, steered text and whether they differ.
 - X3 `seed_matched_compare`: token-by-token comparison; reports `first_divergence_index`, the tokens before it, the tokens from it onward, and `tokens_changed` counted from there. The raw percent is also returned, with a note that it overstates the direct effect because later tokens drift.
-- X2 `strength_sweep`: one feature at several strengths (default 0, 0.5, 1, 2, 3, 5), with a `degenerate` flag and `reason` per strength. The thresholds are named constants in the module and are not calibrated on real outputs yet.
+- X2 `strength_sweep`: one feature at several strengths (default 0, 0.25, 0.5, 0.75, 1, 1.5, 2), with a `degenerate` flag and `reason` per strength. The thresholds are named constants in the module and are not calibrated on real outputs yet.
 - X4 `prompt_only_baseline`: what the model writes from the prompt alone.
 
 Exact inputs, outputs, error cases and example JSON are in `docs/phase4-ml-api.md`. To produce demo examples on the GPU machine (reads the database read-only, writes `demo/phase4_examples.json`):

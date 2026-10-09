@@ -998,6 +998,152 @@
         "title": "RunList",
         "type": "object"
       },
+      "SearchFeature": {
+        "properties": {
+          "density": {
+            "description": "share of tokens this feature fires on in the dictionary",
+            "title": "Density",
+            "type": "number"
+          },
+          "feature_id": {
+            "title": "Feature Id",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "max_activation": {
+            "description": "highest activation on the query's tokens",
+            "title": "Max Activation",
+            "type": "number"
+          },
+          "peak_token": {
+            "description": "index into `tokens` of the strongest token",
+            "title": "Peak Token",
+            "type": "integer"
+          },
+          "relative_to_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative To Max"
+          },
+          "tokens_active": {
+            "title": "Tokens Active",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feature_id",
+          "label",
+          "max_activation",
+          "relative_to_max",
+          "tokens_active",
+          "peak_token",
+          "density"
+        ],
+        "title": "SearchFeature",
+        "type": "object"
+      },
+      "SearchRequest": {
+        "properties": {
+          "max_density": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "hide features whose density (share of tokens they fire on) is above this; off by default",
+            "title": "Max Density"
+          },
+          "query": {
+            "description": "1 to 32 tokens of the query itself",
+            "title": "Query",
+            "type": "string"
+          },
+          "sort": {
+            "default": "activation",
+            "description": "activation: rank by raw max activation (default). relative: rank by relative_to_max",
+            "enum": [
+              "activation",
+              "relative"
+            ],
+            "title": "Sort",
+            "type": "string"
+          },
+          "top_n": {
+            "default": 10,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Top N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchRequest",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "description": "W8: the features that fired most on the words of the query. It shows which features\nfired on the query, not what the query means.",
+        "properties": {
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/SearchFeature"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "tokens": {
+            "description": "the query's own tokens, as the model split them",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tokens",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query",
+          "model_name",
+          "simulated",
+          "tokens",
+          "features"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
       "SteerCheckResponse": {
         "description": "X1: baseline vs steered (same seed) and the target feature's activation on each\nfinished text, re-encoded without steering. It reports whether the feature fires on the\nresulting text; it does not say the output is better.",
         "properties": {
@@ -2002,6 +2148,78 @@
         "summary": "Random Feature",
         "tags": [
           "features"
+        ]
+      }
+    },
+    "/api/v1/features/search": {
+      "post": {
+        "description": "W8. The features that fired most on the words of the query. A fixed prefix is scored\nas token 0 (an outlier position with no features) so every query word is scored; it is\nnever returned. Shows which features fired on the query, not what the query means.",
+        "operationId": "search_api_v1_features_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "inspect analysis"
         ]
       }
     },

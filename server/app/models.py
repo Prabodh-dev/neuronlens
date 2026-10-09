@@ -304,6 +304,72 @@ class _PromptRequest(BaseModel):
         return v
 
 
+class MultiSteer(BaseModel):
+    feature_id: int
+    strength: float = Field(default=0.5, ge=0, le=3,
+                            description="1.0 = the feature's own max activation. Default 0.5: "
+                                        "several features loop at 1.0 and above, and steers add "
+                                        "together")
+
+
+class MultiSteerRequest(_PromptRequest):
+    steers: list[MultiSteer] = Field(min_length=2, max_length=3,
+                                     description="2 or 3 different features, amplify only")
+    with_single_controls: bool = Field(default=False,
+                                       description="also run each feature alone (one more "
+                                                   "generation each)")
+
+    @field_validator("steers")
+    @classmethod
+    def _different_features(cls, v: list[MultiSteer]) -> list[MultiSteer]:
+        if len({s.feature_id for s in v}) != len(v):
+            raise ValueError("feature ids in steers must be different")
+        return v
+
+
+class MultiSteerEcho(BaseModel):
+    feature_id: int
+    label: Optional[str]
+    strength: float
+
+
+class MultiActivation(BaseModel):
+    feature_id: int
+    label: Optional[str]
+    target_activation_baseline: float
+    target_activation_steered: float
+    activation_verdict: Literal["higher", "lower", "about the same"]
+
+
+class SingleFeatureRun(MultiActivation):
+    strength: float
+    steered_text: str
+    differs: bool
+    first_divergence_index: Optional[int]
+    degenerate: bool
+    reason: Optional[str]
+
+
+class MultiSteerResponse(BaseModel):
+    """W5: 2 or 3 features amplified together, same seed as the baseline. The activations
+    are read on the finished texts and show which concepts were active; steering is a test
+    of what features do. `degenerate` flags loops and broken text."""
+    prompt: str
+    seed: int
+    max_new_tokens: int
+    simulated: bool
+    steers: list[MultiSteerEcho]
+    baseline_text: str
+    steered_text: str
+    differs: bool
+    first_divergence_index: Optional[int]
+    degenerate: bool
+    reason: Optional[str]
+    activations: list[MultiActivation]
+    single_feature_runs: Optional[list[SingleFeatureRun]] = Field(
+        description="null unless with_single_controls")
+
+
 class SteerCheckResponse(BaseModel):
     """X1: baseline vs steered (same seed) and the target feature's activation on each
     finished text, re-encoded without steering. It reports whether the feature fires on the

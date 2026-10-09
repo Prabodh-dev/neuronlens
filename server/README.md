@@ -29,6 +29,12 @@ Search (W8):
 - A newline is put before the query so its first word is not token 0 (the outlier position, which has no features). The prefix is never returned in `tokens` and does not count toward the 32-token limit. Without a leading space, the first word is a different GPT-2 token than the same word mid-sentence.
 - Real-mode check: `python server/scripts/w8_check.py` (needs `NEURONLENS_MODE=real`, `NEURONLENS_DB`, `NEURONLENS_CKPT`).
 
+Multi-concept steering (W5):
+
+- `POST /steer/multi`: amplify 2 or 3 different features together (same seed as the baseline), each with `strength` 0 to 3, **default 0.5**. Returns both texts, `differs`, `first_divergence_index`, `degenerate` and `reason`, and per feature its activation on the finished texts and a verdict. It shows which concepts were active; steering is a test of what features do. `with_single_controls: true` also runs each feature alone (one more generation each).
+- Higher strengths often loop: several features start repeating at 1.0 and above, and the steers add together. Check `degenerate`.
+- Mock: a request that matches the recorded example in `demo/phase4_examples.json` (`multi`) returns it, read straight from that file; any other request gets a stand-in. Both are `simulated: true`. Real-mode check: `python server/scripts/w5_check.py`.
+
 Each check holds the model for all its generations (same lock as `/steer`). Rough timing (real mode, warm server, Prabodh's laptop; estimates from two measurements, not benchmarks): about 0.65 s per generation, so a check takes about 1.5 s and a 7-point sweep about 5 s. A call right after server start may be slower. Clients allow 30 s (60 s for a sweep) as generous limits; see Timing in `docs/phase4-ml-api.md`. In mock mode, inputs that match `demo/phase4_examples.json` return those real outputs, still marked `[simulated]`; other inputs get a filler stand-in. Mock tokens are a word split, so counts and divergence indices differ from real mode.
 
 ## Run (from the repo root)

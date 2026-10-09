@@ -1,4 +1,4 @@
-"""Phase 4 steering checks (X1 to X4). The ML functions in ml/neuronlens/steering_checks.py
+"""Phase 4 steering checks (X1 to X4) and multi-concept steering (W5). The ML functions in ml/neuronlens/steering_checks.py
 do the work; this layer does what /steer does (DB lookup, dead-feature and length checks)
 and holds the model for the whole check, since each one runs several generations.
 Steering is a test of what a feature does, not a fix."""
@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends
 from ..db import Database
 from ..deps import get_db, get_runtime
 from ..errors import ApiError
-from ..models import (PromptOnlyRequest, PromptOnlyResponse, SteerCheckResponse,
+from ..models import (MultiSteerRequest, MultiSteerResponse, PromptOnlyRequest,
+                      PromptOnlyResponse, SteerCheckResponse,
                       SteerCompareResponse,
                       SteerFeature, SteerRequest, SteerSweepRequest, SteerSweepResponse,
                       error_responses)
@@ -41,6 +42,34 @@ def with_feature(out: dict, row) -> dict:
     out.pop("feature_id", None)
     out["feature"] = SteerFeature(feature_id=row["feature_id"], label=row["label"])
     return out
+
+
+@router.post("/steer/multi", response_model=MultiSteerResponse)
+def multi(req: MultiSteerRequest, db: Database = Depends(get_db), runtime=Depends(get_runtime)):
+    """W5. Amplify 2 or 3 features together (same seed as the baseline), with each feature's
+    activation on the finished texts: shows which concepts were active. Optional controls run
+    each feature alone. Higher strengths often loop; see `degenerate`."""
+    check_length(runtime, req.prompt, "prompt")
+    simulated = bool(getattr(runtime, "is_simulated", False))
+    recorded = getattr(runtime, "recorded_multi", None)
+    if recorded is not None:  # mock: the recorded example, from demo/phase4_examples.json
+        out = recorded(req.prompt, req.seed, req.max_new_tokens,
+                       [(s.feature_id, s.strength) for s in req.steers], req.with_single_controls)
+        if out is not None:
+            return MultiSteerResponse(**out, simulated=simulated)
+    rows = {s.feature_id: steerable_feature(db, s.feature_id) for s in req.steers}
+    steers = [{"feature_id": s.feature_id, "strength": s.strength,
+               "max_activation": rows[s.feature_id]["max_activation"]} for s in req.steers]
+    out = run_check(runtime, lambda sc, rt: sc.multi_steering_check(
+        rt, req.prompt, steers, req.max_new_tokens, req.seed, req.with_single_controls))
+    labels = {f: r["label"] for f, r in rows.items()}
+    out["steers"] = [{"feature_id": s["feature_id"], "strength": s["strength"],
+                      "label": labels[s["feature_id"]]} for s in out["steers"]]
+    out["activations"] = [{**a, "label": labels[a["feature_id"]]} for a in out["activations"]]
+    out["single_feature_runs"] = ([{**r, "label": labels[r["feature_id"]]}
+                                   for r in out["single_feature_runs"]]
+                                  if "single_feature_runs" in out else None)
+    return MultiSteerResponse(**out, simulated=simulated)
 
 
 @router.post("/steer/check", response_model=SteerCheckResponse)

@@ -143,3 +143,38 @@ def test_real_mode_not_loaded(monkeypatch):
                            ("inspect/compare", {"text_a": "hi", "text_b": "yo"})):
             r = c.post(f"{API}/{path}", json=body)
             assert r.status_code == 503 and r.json()["error"]["code"] == "MODEL_NOT_LOADED"
+
+
+# ---------- max_density filter ----------
+
+def _densities(client, ids):
+    return {i: client.get(f"{API}/features/{i}").json()["density"] for i in ids}
+
+
+def test_max_density_hides_common_features(client):
+    text = "The court ruled. The cat sat!"
+    full = client.post(f"{API}/inspect/report", json={"text": text, "top_n": 20}).json()
+    ids = {f["feature_id"] for s in full["sentences"] for f in s["features"]}
+    dens = _densities(client, ids)
+    cut = sorted(dens.values())[len(dens) // 2]  # hide roughly the denser half
+    b = client.post(f"{API}/inspect/report",
+                    json={"text": text, "top_n": 20, "max_density": cut}).json()
+    kept = {f["feature_id"] for s in b["sentences"] for f in s["features"]}
+    assert kept and all(d <= cut for d in _densities(client, kept).values())
+    assert not kept & {i for i in ids if dens[i] > cut}  # the dense ones are gone
+    # lower-ranked, sparser features move up into the freed places
+    cmp = client.post(f"{API}/inspect/compare", json={"text_a": "The cat sat",
+                                                      "text_b": "The court ruled", "top_n": 50,
+                                                      "max_density": cut}).json()
+    cmp_ids = [f["feature_id"] for f in cmp["features"]]
+    assert cmp_ids and all(d <= cut for d in _densities(client, cmp_ids).values())
+
+
+def test_max_density_off_by_default_and_validated(client):
+    body = {"text": "The court ruled.", "top_n": 5}
+    assert client.post(f"{API}/inspect/report", json=body).json() ==         client.post(f"{API}/inspect/report", json={**body, "max_density": None}).json()
+    for bad in (0, -0.1, 1.5):
+        for path, req in (("inspect/report", {**body, "max_density": bad}),
+                          ("inspect/compare", {"text_a": "a", "text_b": "b", "max_density": bad})):
+            r = client.post(f"{API}/{path}", json=req)
+            assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_INPUT"

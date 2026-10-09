@@ -91,6 +91,10 @@ PYTHONPATH=. python scripts/repair_example_tokens.py --rebuild-examples \
 
 Flags: `--db` (default `../data/neuronlens.db`), `--rebuild-examples` (required to change anything), `--ckpt` (the checkpoint the database was built from), `--data-dir` (default `~/data/fineweb/sample/10BT`), `--n-seqs` (use the value given to `make_index.py`; default 3000) and `--seed` (default 123, the seed `make_index.py` uses). Before writing, it copies the database to `<db>.bak2` and stops if that file already exists. It runs in one transaction and prints the number of rows containing U+FFFD before and after. Stop the server before running it, so nothing reads the file while it is rewritten.
 
+## Pages and demo start-up
+
+The web app has six pages: Microscope, Features, Inspect, Steer, Auto-Lab and Metrics. The exact commands to start the back end and front end on the demo machine are in [docs/demo-startup.md](docs/demo-startup.md).
+
 ## Claims policy
 
 - Say "shows which concepts were active".

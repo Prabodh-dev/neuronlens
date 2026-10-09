@@ -4,8 +4,8 @@ NeuronLens is built in five phases; a phase ends only when its exit gate passes,
 nobody starts the next phase's work on main before then. This doc goes with the
 Developer Handbook, which holds the contract, templates and role guides.
 Phases at a glance
-Stretch items (S1 to S5) happen only inside phase 4 or later if a person is ahead; they
-never delay a gate.
+Stretch items (S1 to S5) run in a stretch window at the start of phase 5. The window
+closes before the freeze, and the items never delay a gate.
 Phase details
 Phase 1: Scaffold and contract
 Prabodh
@@ -108,13 +108,18 @@ Phase Goal Main people Exit gate
    degeneration rule.
    Anand: UI for each feature as soon as its endpoint exists; Limits box shows the honest
    limits from Handbook section 8.
-   Prabodh: co-fire counts (W4) as a data file; stretch training (S4,
-   S2) if the GPU is free.
+   Prabodh: co-fire counts (W4) as a data file.
    Exit gate: each shipped feature has a real demo example in the DB or in
    demo/ , and an
    honest limit on screen. Anything that fails the gate is hidden or removed.
-   Phase 5: Freeze and demo
-   No new features. Bug fixes, copy fixes and rehearsal only.
+   Phase 5: Stretch window, then freeze and demo
+   Part 1: Stretch window
+   Order: S5 (Anand), S2 (Prabodh trains; Mirdul and Anand add layer switching), S3
+   (Mirdul). S1 and S4 (Prabodh) only if many hours remain.
+   Each item ships only if it is finished, tested and demoable on real data; otherwise it
+   is cut. The stretch window closes before the freeze.
+   Part 2: Freeze
+   The freeze starts when the stretch window closes. No new features. Bug fixes, copy fixes and rehearsal only.
    Anand finalises the demo script and records a backup screen recording in
    Claims check on every screen against the Handbook claims policy.
    demo/ .

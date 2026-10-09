@@ -369,7 +369,7 @@ Same error type as the other functions (`SteeringCheckError`, with a `code`). No
 
 ### Example (format only; all values are example values)
 
-This example shows the format only. Every value in it is an example value, not output of a real run, and the feature ids and the text are placeholders. The real runs recorded so far are in "Real runs so far" below, and none of them is a usable demo example.
+This example shows the format only. Every value in it is an example value, not output of a real run, and the feature ids and the text are placeholders. The real demo example is in "Real demo example" below; the manual runs that came before it are in "Real runs before the search".
 
 ```json
 {
@@ -393,7 +393,7 @@ This example shows the format only. Every value in it is an example value, not o
 }
 ```
 
-### Real runs so far
+### Real runs before the search
 
 Real GPU runs, all with seed 42, 60 new tokens and the same strength applied to both features. Two feature pairs and three prompts, run by hand. "Reads higher" is the `activation_verdict`; the number is the feature's activation on the steered text.
 
@@ -406,14 +406,57 @@ Real GPU runs, all with seed 42, 60 new tokens and the same strength applied to 
 | `She opened the letter and read` | 3446 + 1863 | 0.5 | both read 0.00, although 1863 alone read 17.27 at 0.5 on this prompt |
 | `The reporter wrote that the` | 3446 + 1863 | 0.25 and 0.5 | both 0.00; the text at 0.5 mentioned a "court-jailed judge" and "the appeal" (1863 fires on the word "Supreme", not on court wording) |
 
-What this shows: no run so far showed both concepts at once with both activations higher. Combinations were not additive in any visible way in these runs: a feature that read high alone (1863 at 0.5 on the letter prompt) read 0.00 in the combination. This is a small search of two pairs and three prompts, not a proof that it cannot work. An automated search for a real demo example is under way.
+What these manual runs showed: none of them had both activations higher at once. Combinations were not additive in any visible way in these runs: a feature that read high alone (1863 at 0.5 on the letter prompt) read 0.00 in the combination. These were a small search of two pairs and three prompts, not a proof that it cannot work. An automated search that followed found the example below.
 
 What a real demo example needs: both features clearly "higher" on the same prompt, with no loop warning.
+
+### Real demo example
+
+Observed on the GPU laptop: amplify, strength 0.5 on both features, seed 42. The pair is feature 4280 ("that – support that claim") and feature 9530 ("sin – moral wrongdoing"). It was picked by an automated search (600 candidate features, 100 pairs) and then checked on held-out prompts; both features rose together on 2 of 3 held-out prompts.
+
+| Prompt | 4280 | 9530 | Result |
+| --- | --- | --- | --- |
+| `The man walked into the room and` | 0.00 to 4.20 | 0.00 to 5.89 | both "higher"; the example below |
+| `The woman looked at him and` | no change | 0.00 to 1.41 | only one feature moved |
+| `She opened the letter and read` | 1.95 to 2.97 | 0.00 to 2.66 | both rose, but the steered text names real political figures, so it is not shown in the demo |
+
+On the `man` prompt, the same features steered alone at 0.5 read 2.29 (4280) and 4.45 (9530), against 4.20 and 5.89 together. That is one prompt, one seed and one strength.
+
+The recorded readings and steered text (shortened with "..."; fields that were not recorded here, such as `max_activation` and the divergence index, are left out):
+
+```json
+{
+  "prompt": "The man walked into the room and",
+  "seed": 42,
+  "steers": [
+    {"feature_id": 4280, "strength": 0.5},
+    {"feature_id": 9530, "strength": 0.5}
+  ],
+  "steered_text": "The man walked into the room and saw the man that had been talking, and had accused the man of making a false statement, claiming he was a Christian. A ...",
+  "activations": [
+    {"feature_id": 4280, "target_activation_baseline": 0.0, "target_activation_steered": 4.2, "activation_verdict": "higher"},
+    {"feature_id": 9530, "target_activation_baseline": 0.0, "target_activation_steered": 5.89, "activation_verdict": "higher"}
+  ],
+  "single_feature_runs": [
+    {"feature_id": 4280, "strength": 0.5, "target_activation_steered": 2.29},
+    {"feature_id": 9530, "strength": 0.5, "target_activation_steered": 4.45}
+  ]
+}
+```
+
+`ml/scripts/phase4_demo.py` records this example in the default run: `demo/phase4_examples.json` gets a `multi` list with this entry, including the per-feature activations and the single-feature runs (`with_single_controls`).
+
+**Negative results.** Two other pairs from the same search, 8658 + 10025 and 10849 + 11623, did not hold on held-out prompts, so they are not used. The pair above was picked from the 100 pairs tried.
+
 
 ### Limits
 
 - 2 to 3 features, amplify only. A feature cannot be ablated inside a combination.
-- A combination can break the text at strengths where each feature alone is fine, so a combination should be set beside the single-feature runs. In the small search so far (see "Real runs so far"), the combinations did not show both features higher at once; whether a combination breaks the text where each feature alone is fine has not been measured.
+- The example was found by a search, so there is a selection effect: it is the pair picked from 100 pairs of 600 candidates, and two other searched pairs did not hold on held-out prompts. Other pairs and prompts can behave differently.
+- It depends on the prompt: on `The woman looked at him and` only one of the two features moved.
+- The strength window is narrow. The example was recorded at 0.5 only, and in the earlier manual runs the readings were lost at higher strengths (both 0.00 at 0.75 for another pair).
+- The activation readings show which concepts were active in the finished text. The steered text is shown as a test of what the features do together, not as a fix and not as better text.
+- A combination can break the text at strengths where each feature alone is fine, so a combination should be set beside the single-feature runs. In the manual runs before the search (see "Real runs before the search"), the combinations did not show both features higher at once; whether a combination breaks the text where each feature alone is fine has not been measured.
 - The activation fields are measured on the finished text, re-encoded without steering. They say whether each feature appears in the output text, not whether the output is better, and the limits listed for X1 apply to each feature.
 - The `degenerate` flag has the limits of the X2 rule: it catches repetition loops and non-word runs, not all low-quality text, and a result marked ok can still be poor.
 - Cost: two generations (three or four with `with_single_controls`) plus two forward passes per feature. It has not been timed.

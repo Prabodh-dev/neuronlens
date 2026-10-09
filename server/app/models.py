@@ -140,6 +140,10 @@ class _AnalysisFeature(BaseModel):
 class ReportRequest(BaseModel):
     text: str
     top_n: int = Field(default=5, ge=1, le=20, description="features per sentence")
+    max_density: Optional[float] = Field(
+        default=None, gt=0, le=1,
+        description="hide features whose density (share of tokens they fire on) is above this; "
+                    "off by default")
 
     @field_validator("text")
     @classmethod
@@ -178,6 +182,10 @@ class TextCompareRequest(BaseModel):
     text_a: str
     text_b: str
     top_n: int = Field(default=10, ge=1, le=50)
+    max_density: Optional[float] = Field(
+        default=None, gt=0, le=1,
+        description="hide features whose density (share of tokens they fire on) is above this; "
+                    "off by default")
 
     @field_validator("text_a", "text_b")
     @classmethod

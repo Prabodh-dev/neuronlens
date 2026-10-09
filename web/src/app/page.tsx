@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CountUp } from "@/components/CountUp";
 import { isSampleData, useHealth } from "@/components/HealthProvider";
-import { type Frame, LensField } from "@/components/landing/LensField";
 import { DEMO_TEXT, LiveDemo } from "@/components/landing/LiveDemo";
 import { NeuronArt } from "@/components/landing/NeuronArt";
+import { Tour } from "@/components/landing/Tour";
 import s from "@/components/landing/landing.module.css";
 import { api } from "@/lib/api/client";
 import { fmtInt, showToken } from "@/lib/format";
@@ -57,17 +57,9 @@ export default function Landing() {
   const names = useApi((sig) => api.features({ status: "named", sort: "max_activation", order: "desc", limit: 60 }, sig), "landing:names");
   const metrics = useApi((sig) => api.metrics(null, sig), "landing:metrics");
   const ceRec = metrics.data?.metrics.find((m) => m.name === "ce_recovered")?.value ?? null;
-  // one real /inspect call feeds the hero, the live card and the inspect tile (top_n is capped at 20)
+  // one real /inspect call feeds the tour, the live card and the inspect tile (top_n is capped at 20)
   const demo = useApi((sig) => api.inspect({ text: DEMO_TEXT, top_n: 20 }, sig), "landing:demo");
-  const frames: Frame[] = useMemo(
-    () =>
-      (demo.data?.tokens ?? [])
-        .filter((t) => !t.is_outlier_position && t.features.length > 0)
-        .map((t) => ({ text: t.text, feats: t.features.map((f) => ({ id: f.feature_id, a: f.activation })) })),
-    [demo.data],
-  );
-  const demoPeak = Math.max(1e-6, ...frames.map((f) => f.feats[0]?.a ?? 0));
-  const [frame, setFrame] = useState(-1);
+  const demoPeak = Math.max(1e-6, ...(demo.data?.tokens ?? []).filter((t) => !t.is_outlier_position).map((t) => t.features[0]?.activation ?? 0));
 
   const named = useMemo(() => (names.data?.items ?? []).filter((f) => f.label).map((f) => ({ id: f.feature_id, label: f.label! })), [names.data]);
   const ideas = useMemo(() => {
@@ -85,42 +77,13 @@ export default function Landing() {
 
   return (
     <div className={s.landing}>
-      {/* hero: every feature as a dot, under a lens */}
+      {/* hero: a guided tour that plays by itself and loops */}
       <section className={s.hero}>
-        <div className={s.stage}>
-          {h && <LensField total={h.d_sae} named={named} frames={frames} onFrame={setFrame} />}
-          <div className={s.heroCopy}>
-            <span className={`${s.kicker} rise`}>
-              <i /> {h ? `${h.model_name} · layer ${h.hook_layer} · ${total} features` : "Connecting…"}
-            </span>
-            <h1 className={`${s.title} rise`} style={{ animationDelay: "0.08s" }}>
-              Put GPT-2
-              <br />
-              <span className={s.dim}>under a lens.</span>
-            </h1>
-            <p className={`${s.sub} rise`} style={{ animationDelay: "0.16s" }}>
-              Every dot is one of its {total ?? ""} features. <span className={s.forMouse}>Move your cursor to look closer.</span>
-              <span className={s.forTouch}>Tap a dot in the lens to open it.</span>
-            </p>
-            <div className={`${s.ctas} rise`} style={{ animationDelay: "0.24s" }}>
-              <Link href="/microscope" className="btn btn-lg">
-                Open microscope <span aria-hidden="true">→</span>
-              </Link>
-              <Link href={`/inspect?text=${encodeURIComponent(DEMO_TEXT)}`} className="btn btn-ghost btn-lg">
-                Try a sentence
-              </Link>
-            </div>
-          </div>
-          {frames[frame] && (
-            <span className={s.firing} aria-hidden="true">
-              <i /> lit now: <b>“{showToken(frames[frame].text)}”</b> · its top {frames[frame].feats.length} features
-            </span>
-          )}
-          <span className={s.hint} aria-hidden="true">
-            click a dot in the lens to open it
-          </span>
-        </div>
+        <Tour h={h ?? null} named={names.data ? named : names.error ? [] : null} demo={demo.data} ceRec={ceRec} />
+      </section>
 
+      {/* the headline numbers, just below the tour */}
+      <section aria-label="Key numbers">
         {h && (
           <div className={s.statBar}>
             <div className={s.stat}>

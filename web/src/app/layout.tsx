@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { HealthProvider } from "@/components/HealthProvider";
+import { ModelGate } from "@/components/ModelGate";
 import { ModelTag } from "@/components/ModelTag";
 import { TopBar } from "@/components/TopBar";
 import "./globals.css";
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <HealthProvider>
           <TopBar />
-          <main id="main">{children}</main>
+          <main id="main">
+            <ModelGate>{children}</ModelGate>
+          </main>
           <footer className={s.footer}>
             <div className={s.footInner}>
               <span>{t("note.limit")}</span>

@@ -1,0 +1,493 @@
+/* The landing tour fills the first screen. The field sits in the middle; text shows up only when a
+   chapter needs it: a title at the top, evidence beside the feature, the sentence or run at the bottom. */
+@keyframes capIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes wipe {
+  from {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+  }
+  to {
+    -webkit-mask-position: 0 0;
+    mask-position: 0 0;
+  }
+}
+
+.tour {
+  --side: max(var(--gutter), calc((100% - var(--col)) / 2 + var(--gutter)));
+  position: relative;
+  height: 100svh;
+  min-height: 620px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #000;
+}
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* keeps text readable: dark at the top and bottom edges, and in the middle for the opening and closing */
+.shadeEdges,
+.shadeCenter {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.shadeEdges {
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 0.85) 0%, transparent 24%),
+    linear-gradient(0deg, rgb(0 0 0 / 0.92) 0%, rgb(0 0 0 / 0.5) 18%, transparent 34%);
+}
+.shadeCenter {
+  background: radial-gradient(ellipse 44% 36% at 50% 46%, rgb(0 0 0 / 0.8) 0%, rgb(0 0 0 / 0.45) 50%, transparent 76%);
+  opacity: 0;
+  transition: opacity 0.9s var(--ease);
+}
+.shadeCenter[data-on="1"] {
+  opacity: 1;
+}
+
+/* shared text bits */
+.head > *,
+.center > *,
+.callout > *,
+.sentence,
+.runs {
+  animation: capIn 0.8s var(--ease) both;
+}
+.head > :nth-child(2),
+.center > :nth-child(2),
+.callout > :nth-child(2) {
+  animation-delay: 0.08s;
+}
+.center > :nth-child(3),
+.callout > :nth-child(3) {
+  animation-delay: 0.16s;
+}
+.center > :nth-child(4),
+.callout > :nth-child(4) {
+  animation-delay: 0.24s;
+}
+.callout > :nth-child(n + 5) {
+  animation-delay: 0.32s;
+}
+.eyebrow {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dim {
+  background: linear-gradient(90deg, #fff 0%, #7a7a7a 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.sub {
+  max-width: 44ch;
+  font-size: clamp(16px, 1.5vw, 19px);
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.cardLabel {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* centre: the opening title and the closing number */
+.center {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  width: min(920px, calc(100% - 2 * var(--gutter)));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+.hero {
+  font-size: clamp(52px, 8vw, 124px);
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.058em;
+  text-wrap: balance;
+}
+.big {
+  font-size: clamp(96px, 13vw, 190px);
+  font-weight: 500;
+  letter-spacing: -0.065em;
+  font-variant-numeric: tabular-nums;
+}
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* very top: mock, sample or offline, while the header is out of the way */
+.mode {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 2 * var(--gutter));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px dashed rgb(255 255 255 / 0.3);
+  background: #000;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mode i {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+}
+
+/* top: the chapter's title */
+.head {
+  position: absolute;
+  z-index: 2;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(860px, calc(100% - 2 * var(--gutter)));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.title {
+  font-size: clamp(30px, 3.8vw, 54px);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+.titleLong {
+  font-size: clamp(26px, 3.1vw, 44px);
+}
+
+/* beside the visited feature (the camera keeps it at 40% across, 50% down) */
+.callout {
+  position: absolute;
+  z-index: 2;
+  left: calc(40% + 196px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(330px, calc(60% - 196px - var(--side)));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--line-3);
+  background: rgb(0 0 0 / 0.86);
+  backdrop-filter: blur(6px);
+}
+.example {
+  font-family: var(--f-mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.example mark {
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: #fff;
+  color: #000;
+  white-space: pre;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chips span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-3);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  white-space: pre;
+}
+.more {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding-bottom: 3px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--line-3);
+  transition: border-color 0.2s;
+}
+.more:hover {
+  border-color: #fff;
+}
+.more span {
+  display: inline-block;
+  transition: transform 0.3s var(--ease);
+}
+.more:hover span {
+  transform: translateX(4px);
+}
+
+/* bottom: the sentence or the steering run, then the chapter bar */
+.dock {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  width: min(860px, calc(100% - 2 * var(--gutter)));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.sentence {
+  font-family: var(--f-mono);
+  font-size: clamp(17px, 1.9vw, 24px);
+  line-height: 1.9;
+  text-align: center;
+}
+.sentence span {
+  white-space: pre-wrap;
+  padding: 3px 1px;
+  border-radius: 4px;
+  transition: color 0.25s, background 0.25s, box-shadow 0.25s;
+}
+.next {
+  color: var(--faint);
+}
+.done {
+  color: var(--ink-2);
+}
+.now {
+  color: #000;
+  background: #fff;
+  box-shadow: 0 0 22px rgb(255 255 255 / 0.45);
+}
+.runs {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--line-3);
+  background: rgb(0 0 0 / 0.86);
+  backdrop-filter: blur(6px);
+}
+.runGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.run {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.run p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.runOn p {
+  color: var(--ink);
+}
+.run mark {
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: #fff;
+  color: #000;
+}
+.runTag {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.runOn .runTag {
+  color: #fff;
+}
+/* the steered text writes itself in, left to right */
+.wipe {
+  -webkit-mask-image: linear-gradient(90deg, #000 45%, transparent 55%);
+  mask-image: linear-gradient(90deg, #000 45%, transparent 55%);
+  -webkit-mask-size: 220% 100%;
+  mask-size: 220% 100%;
+  animation: wipe 2.4s var(--ease) 1.2s both;
+}
+
+.bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgb(0 0 0 / 0.75);
+  backdrop-filter: blur(6px);
+}
+.ctrlBtn {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--line-3);
+  background: #000;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.ctrlBtn:hover {
+  border-color: rgb(255 255 255 / 0.5);
+  background: #111;
+}
+.chapters {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.chapters li {
+  flex: 1;
+  min-width: 0;
+}
+.chapters button {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.track {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.16);
+  overflow: hidden;
+}
+.track i {
+  display: block;
+  height: 100%;
+  background: #fff;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.chLabel {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s;
+}
+.chapters button:hover .chLabel,
+.chapters button[aria-current] .chLabel {
+  color: #fff;
+}
+.count {
+  flex-shrink: 0;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .tour {
+    min-height: 640px;
+  }
+  .head {
+    top: 50px;
+  }
+  .mode {
+    font-size: 10.5px;
+  }
+  .hero {
+    font-size: clamp(44px, 12vw, 64px);
+  }
+  .big {
+    font-size: clamp(76px, 22vw, 104px);
+  }
+  .ctas :global(.btn) {
+    flex: 1;
+  }
+  /* on phones the evidence card sits below the feature, above the chapter bar */
+  .callout {
+    left: var(--gutter);
+    right: var(--gutter);
+    top: auto;
+    bottom: 84px;
+    width: auto;
+    transform: none;
+    padding: 13px 14px;
+  }
+  .chips,
+  .callout > .cardLabel:nth-of-type(2) {
+    display: none;
+  }
+  .runGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .chLabel {
+    display: none;
+  }
+  .chapters button[aria-current] .chLabel {
+    display: block;
+    overflow: visible;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wipe {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}

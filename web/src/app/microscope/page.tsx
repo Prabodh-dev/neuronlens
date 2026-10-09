@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FeatureTitle } from "@/components/FeatureBits";
 import { HeatText } from "@/components/HeatText";
 import { isMockModel, useHealth } from "@/components/HealthProvider";
-import { NeuronField, type FieldPin } from "@/components/NeuronField";
+import { FeatureGrid, type GridPin } from "@/components/FeatureGrid";
 import { ErrorState, Skeleton } from "@/components/States";
 import { ApiError, api } from "@/lib/api/client";
 import type { FeatureListItem, InspectResponse, SteerMode, SteerRequest, SteerResponse } from "@/lib/api/types";
@@ -89,10 +89,11 @@ export default function Microscope() {
     return m;
   }, [cur, byId]);
 
-  /* selection, pin, search */
-  const [selected, setSelected] = useState<number | null>(null);
-  const [focus, setFocus] = useState<{ id: number; n: number } | null>(null);
-  const [pin, setPin] = useState<FieldPin>(null);
+  /* opening a feature: the map flies in, then the tile opens into its panel; back reverses it */
+  const [open, setOpen] = useState<number | null>(null);
+  const [arrived, setArrived] = useState<number | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [pin, setPin] = useState<GridPin>(null);
   const shown = useMemo(() => {
     if (!pin) return activity;
     const m = new Map(activity);
@@ -100,22 +101,42 @@ export default function Microscope() {
     else m.delete(pin.id);
     return m;
   }, [activity, pin]);
-  const pick = useCallback((id: number, zoom = false) => {
-    setSelected(id);
-    if (zoom) setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }));
+  const pick = useCallback((id: number) => {
+    setClosing(false);
+    setArrived(null);
+    setOpen(id);
   }, []);
+  const back = useCallback(() => {
+    setClosing(true);
+    // let the panel fold back into its tile, then the map zooms out
+    setTimeout(() => {
+      setArrived(null);
+      setOpen(null);
+      setClosing(false);
+    }, 260);
+  }, []);
+  const step = useCallback(
+    (d: number) => {
+      if (!neurons || open === null) return;
+      const i = neurons.findIndex((f) => f.feature_id === open);
+      const next = neurons[(i + d + neurons.length) % neurons.length];
+      if (next) pick(next.feature_id);
+    },
+    [neurons, open, pick],
+  );
   useEffect(() => {
     if (!neurons) return;
     const want = new URLSearchParams(window.location.search).get("neuron");
-    if (want && /^\d+$/.test(want) && byId.has(Number(want))) pick(Number(want), true);
+    if (want && /^\d+$/.test(want) && byId.has(Number(want))) pick(Number(want));
   }, [neurons, byId, pick]);
   const [find, setFind] = useState("");
   const matches = useMemo(() => {
     const q = find.trim().toLowerCase();
     if (!q || !neurons) return [];
     const asId = /^#?\d+$/.test(q) ? Number(q.replace("#", "")) : null;
-    return neurons.filter((f) => f.feature_id === asId || (f.label ?? "").toLowerCase().includes(q)).slice(0, 6);
+    return neurons.filter((f) => f.feature_id === asId || (f.label ?? "").toLowerCase().includes(q));
   }, [find, neurons]);
+  const highlight = useMemo(() => (matches.length ? new Set(matches.map((m) => m.feature_id)) : null), [matches]);
 
   /* keyboard */
   useEffect(() => {
@@ -131,11 +152,11 @@ export default function Microscope() {
       } else if (e.key === "ArrowLeft" && tokens.length) {
         setPlaying(false);
         setTi((i) => Math.max(0, i - 1));
-      } else if (e.key === "Escape") setSelected(null);
+      } else if (e.key === "Escape" && open !== null) back();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tokens.length]);
+  }, [tokens.length, open, back]);
 
   const stepBy = (d: number) => {
     setPlaying(false);
@@ -202,25 +223,25 @@ export default function Microscope() {
         {inspect.error && <span className={s.inlineErr}>{inspect.error.code === "NOT_FOUND" ? "Live firing needs /inspect on the server." : inspect.error.message}</span>}
       </div>
 
-      {/* the lens */}
+      {/* the map */}
       <div className={s.stage}>
-        <div className={s.lens}>
+        <div className={s.map} data-dim={arrived !== null && arrived === open && !closing ? "1" : "0"}>
           {loadErr ? (
-            <div className={s.lensMsg}>
+            <div className={s.mapMsg}>
               <ErrorState error={loadErr} onRetry={() => setLoadTick((t) => t + 1)} />
             </div>
           ) : !neurons ? (
-            <div className={s.lensMsg}>
-              <div className={s.loadRing} aria-hidden="true" />
+            <div className={s.mapMsg}>
+              <div className={s.loadSquare} aria-hidden="true" />
               <span className="mono small muted">{progress ? `${fmtInt(progress[0])} / ${fmtInt(progress[1])}` : "Loading"}</span>
             </div>
           ) : (
-            <NeuronField neurons={neurons} activity={shown} selected={selected} pin={pin} onSelect={setSelected} focus={focus} />
+            <FeatureGrid neurons={neurons} activity={shown} open={open} pin={pin} highlight={highlight} onOpen={pick} onArrive={setArrived} />
           )}
         </div>
 
-        {/* left overlay: counts + search */}
-        <div className={s.hud}>
+        {/* top left: how many fire, and find one by number or name */}
+        <div className={s.hud} data-away={open !== null ? "1" : "0"}>
           <div className={s.count}>
             <b className="mono">{fmtInt(activity.size)}</b>
             <span>firing</span>
@@ -231,61 +252,69 @@ export default function Microscope() {
           <div className={s.find}>
             <input
               className={s.findInput}
-              placeholder="Find neuron"
+              placeholder="Go to # or name"
               value={find}
               onChange={(e) => setFind(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && matches[0]) {
-                  pick(matches[0].feature_id, true);
+                  pick(matches[0].feature_id);
                   setFind("");
                 }
               }}
-              aria-label="Find a neuron by name or number"
+              aria-label="Go to a feature by number or name"
               autoComplete="off"
             />
-            {matches.length > 0 && (
+            {find.trim() && (
               <ul className={s.findList}>
-                {matches.map((m) => (
+                {matches.slice(0, 6).map((m) => (
                   <li key={m.feature_id}>
                     <button
                       onClick={() => {
-                        pick(m.feature_id, true);
+                        pick(m.feature_id);
                         setFind("");
                       }}
                     >
-                      {featureName(m.label, m.feature_id)}
+                      <span className="mono muted">#{m.feature_id}</span> {featureName(m.label, m.feature_id)}
                     </button>
                   </li>
                 ))}
+                {!matches.length && <li className={s.findNone}>No match</li>}
+                {matches.length > 6 && <li className={s.findNone}>{fmtInt(matches.length)} lit on the map</li>}
               </ul>
             )}
           </div>
         </div>
 
-        {/* right: firing list or the selected neuron */}
-        <aside className={`${s.drawer} ${selected !== null ? s.drawerOpen : ""}`} aria-live="polite">
-          {selected === null ? (
-            <FiringNow token={cur} byId={byId} onPick={(id) => pick(id, true)} />
-          ) : (
+        {/* top right: what the current word fires */}
+        <aside className={s.drawer} data-away={open !== null ? "1" : "0"} aria-live="polite">
+          <FiringNow token={cur} byId={byId} onPick={pick} />
+        </aside>
+
+        {/* the opened tile */}
+        {open !== null && arrived === open && (
+          <div className={s.specWrap}>
+          <div className={s.specimen} data-closing={closing ? "1" : "0"} role="dialog" aria-label={`Feature ${open}`}>
             <Specimen
-              key={selected}
-              id={selected}
-              list={byId.get(selected) ?? null}
+              key={open}
+              id={open}
+              list={byId.get(open) ?? null}
               tokens={tokens}
               ti={ti}
-              now={shown.get(selected) ?? 0}
+              now={shown.get(open) ?? 0}
               onToken={(i) => (setPlaying(false), setTi(i))}
-              onClose={() => setSelected(null)}
-              pin={pin?.id === selected ? pin : null}
+              onBack={back}
+              onStep={step}
+              pin={pin?.id === open ? pin : null}
               setPin={setPin}
               prompt={text}
               sim={sim}
             />
-          )}
-        </aside>
+          </div>
+          </div>
+        )}
 
-        <p className={s.hint}>
-          <kbd>scroll</kbd> zoom · <kbd>drag</kbd> move · <kbd>click</kbd> a neuron · <kbd>space</kbd> play
+        <p className={s.hint} data-away={open !== null ? "1" : "0"}>
+          <kbd>scroll</kbd> zoom · <kbd>drag</kbd> move · <kbd>click</kbd> a tile to open · <kbd>esc</kbd> back · <kbd>space</kbd> play
         </p>
       </div>
     </div>
@@ -332,9 +361,10 @@ function Specimen(props: {
   ti: number;
   now: number;
   onToken: (i: number) => void;
-  onClose: () => void;
-  pin: FieldPin;
-  setPin: (p: FieldPin) => void;
+  onBack: () => void;
+  onStep: (d: number) => void;
+  pin: GridPin;
+  setPin: (p: GridPin) => void;
   prompt: string;
   sim: boolean;
 }) {
@@ -359,13 +389,24 @@ function Specimen(props: {
   }
 
   return (
-    <div className={s.card}>
+    <div className={s.spec}>
       <div className={s.specHead}>
-        <span className="eyebrow">#{id}</span>
-        <button className={s.close} onClick={props.onClose} aria-label="Close">
-          ×
+        <button className={s.backBtn} onClick={props.onBack} autoFocus>
+          <span aria-hidden="true">←</span> All features
         </button>
+        <span className={`eyebrow ${s.specId}`}>#{id}</span>
+        <div className={s.stepper}>
+          <button className="icon-btn" onClick={() => props.onStep(-1)} aria-label="Previous feature on the map">
+            <span aria-hidden="true">‹</span>
+          </button>
+          <button className="icon-btn" onClick={() => props.onStep(1)} aria-label="Next feature on the map">
+            <span aria-hidden="true">›</span>
+          </button>
+        </div>
       </div>
+
+      <div className={s.specBody}>
+      <div className={s.specCol}>
       <h2 className={s.specName}>
         <FeatureTitle label={list?.label ?? f?.label ?? null} id={id} />
       </h2>
@@ -382,20 +423,22 @@ function Specimen(props: {
       </div>
 
       <section className={s.sec}>
+        <span className="eyebrow">Top example</span>
+        {detail.loading && !f && <Skeleton h={36} />}
+        {detail.error && <ErrorState error={detail.error} compact />}
+        {f && ex && <HeatText className={s.mini} tokens={ex.tokens.map((t, i) => ({ text: t, heat: (ex.activations[i] ?? 0) / (peak || 1), peak: i === ex.peak_index }))} />}
+        {f && !ex && <p className="muted small">None stored.</p>}
+      </section>
+      </div>
+
+      <div className={s.specCol}>
+      <section className={s.sec}>
         <span className="eyebrow">In your sentence</span>
         {fired ? (
           <HeatText className={s.mini} selected={ti} onSelect={props.onToken} tokens={across.map((a) => ({ text: a.text, heat: a.heat, skip: a.skip }))} />
         ) : (
           <p className="muted small">Not active here.</p>
         )}
-      </section>
-
-      <section className={s.sec}>
-        <span className="eyebrow">Top example</span>
-        {detail.loading && !f && <Skeleton h={36} />}
-        {detail.error && <ErrorState error={detail.error} compact />}
-        {f && ex && <HeatText className={s.mini} tokens={ex.tokens.map((t, i) => ({ text: t, heat: (ex.activations[i] ?? 0) / (peak || 1), peak: i === ex.peak_index }))} />}
-        {f && !ex && <p className="muted small">None stored.</p>}
       </section>
 
       <section className={s.sec}>
@@ -438,6 +481,8 @@ function Specimen(props: {
       <Link href={`/features/${id}`} className="link small">
         Full details →
       </Link>
+      </div>
+      </div>
     </div>
   );
 }

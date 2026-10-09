@@ -7,8 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import Settings
 from .db import Database, load_meta
 from .errors import CatchAllMiddleware, install_error_handlers
-from .routes import features, health, model, runs, steering
+from .routes import analysis, features, health, model, runs, steering
 from .services import build_runtime
+from .services.cofire import load_cofire
 
 API_PREFIX = "/api/v1"
 log = logging.getLogger("neuronlens")
@@ -27,6 +28,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise
         app.state.db = db
         app.state.runtime, app.state.runtime_error = build_runtime(settings, db)
+        app.state.cofire = load_cofire(settings.cofire_file(), app.state.meta["run_id"],
+                                       simulated=settings.mode == "mock")
         log.info("neuronlens ready: mode=%s run=%s", settings.mode, app.state.meta["run_id"])
         try:
             yield
@@ -43,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(features.router, prefix=API_PREFIX)
     app.include_router(model.router, prefix=API_PREFIX)
     app.include_router(steering.router, prefix=API_PREFIX)
+    app.include_router(analysis.router, prefix=API_PREFIX)
     app.include_router(runs.router, prefix=API_PREFIX)
     return app
 

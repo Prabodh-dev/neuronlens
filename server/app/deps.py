@@ -18,3 +18,7 @@ def get_runtime(request: Request):
         reason = request.app.state.runtime_error or "model is not loaded"
         raise ApiError("MODEL_NOT_LOADED", f"Inspect and Steer are unavailable: {reason}")
     return runtime
+
+
+def get_cofire(request: Request):
+    return request.app.state.cofire

@@ -15,6 +15,13 @@ Phase 4 steering checks (fields in `docs/phase4-ml-api.md`; the code is `ml/neur
 - `POST /steer/sweep` (X2): amplify at several strengths (default 0 to 2, each at most 3), with a degeneration flag.
 - `POST /steer/prompt-only` (X4): the prompt alone, same seed, no steering.
 
+Inspect analysis (aggregate `/inspect`; no new ML):
+
+- `POST /inspect/report` (X6): per sentence, the features with the highest activation on its tokens, with `tokens_active`, `peak_token` and `relative_to_max` (activation / the feature's dictionary max). Split after `.` `!` `?` followed by whitespace or the end, and after newlines. Known wrong splits: "Mr. Smith", "U.S. troops", "e.g. this" split early; "end.Next" is not split.
+- `POST /inspect/compare` (X7): features ranked by |max activation in text_b - in text_a|; 0 where a feature is not active.
+
+Both call inspect with the SAE's k (every active feature), then rank and trim to `top_n`.
+
 Each check holds the model for all its generations (same lock as `/steer`). Rough timing (real mode, warm server, Prabodh's laptop; estimates from two measurements, not benchmarks): about 0.65 s per generation, so a check takes about 1.5 s and a 7-point sweep about 5 s. A call right after server start may be slower. Clients allow 30 s (60 s for a sweep) as generous limits; see Timing in `docs/phase4-ml-api.md`. In mock mode, inputs that match `demo/phase4_examples.json` return those real outputs, still marked `[simulated]`; other inputs get a filler stand-in. Mock tokens are a word split, so counts and divergence indices differ from real mode.
 
 ## Run (from the repo root)
@@ -46,3 +53,4 @@ python server/scripts/export_openapi.py   # writes contracts/openapi.json
 - `NEURONLENS_DB`: default `contracts/fixtures/sample.db`
 - `NEURONLENS_CKPT`: real mode only
 - `NEURONLENS_CORS_ORIGINS`: comma-separated, default `http://localhost:3000`
+- `NEURONLENS_COFIRE`: co-fire file for `GET /features/{id}/cofire` (W4). Default `data/cofire.json` in real mode, `server/app/fixtures/mock_cofire.json` (features 7 and 13 only) in mock mode. If it is missing or built for another run, the server still starts, logs one warning, and the endpoint returns `available: false`.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { showToken } from "@/lib/format";
+import { EMPTY_TOKEN_TIP, showToken } from "@/lib/format";
 import { tokenColors } from "@/lib/heat";
 
 export type HeatToken = {
@@ -32,11 +32,18 @@ export function HeatText({ tokens, selected, onSelect, className, label }: Props
     <div className={className} aria-label={label} onMouseLeave={() => setHover(null)}>
       {tokens.map((t, i) => {
         const a = Math.max(0, Math.min(1, t.heat));
-        const cls = ["tok", t.peak ? "peak" : "", t.skip ? "skip" : "", selected === i ? "selected" : ""].join(" ").trim();
+        const empty = t.text === "";
+        const cls = ["tok", t.peak ? "peak" : "", t.skip ? "skip" : "", empty ? "empty" : "", selected === i ? "selected" : ""].join(" ").trim();
+        const label =
+          t.value !== undefined
+            ? `${empty ? "empty token" : `token "${t.text}"`}, activation ${t.value.toFixed(2)}`
+            : empty
+              ? EMPTY_TOKEN_TIP
+              : undefined;
         const common = {
           className: cls,
-          title: t.value !== undefined ? `token "${t.text}", activation ${t.value.toFixed(2)}` : undefined,
-          "aria-label": t.value !== undefined ? `token "${t.text}", activation ${t.value.toFixed(2)}` : undefined,
+          title: label,
+          "aria-label": label,
           style: t.skip ? undefined : tokenColors(a),
           onMouseMove: (e: React.MouseEvent) => setHover({ i, x: e.clientX, y: e.clientY }),
         };

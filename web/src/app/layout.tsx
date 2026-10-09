@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { HealthProvider } from "@/components/HealthProvider";
+import { ModelTag } from "@/components/ModelTag";
 import { TopBar } from "@/components/TopBar";
 import "./globals.css";
 import { t } from "@/lib/copy";
@@ -22,11 +23,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <HealthProvider>
           <TopBar />
-          <main>{children}</main>
+          <main id="main">{children}</main>
           <footer className={s.footer}>
             <div className={s.footInner}>
               <span>{t("note.limit")}</span>
-              <span>GPT-2 small · layer 8</span>
+              <ModelTag />
             </div>
           </footer>
         </HealthProvider>

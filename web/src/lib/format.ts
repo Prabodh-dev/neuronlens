@@ -34,12 +34,16 @@ export function densityScale(d: number): number {
   return Math.max(0.02, Math.min(1, (Math.log10(d) - lo) / -lo));
 }
 
-/** Show a token exactly as tokenised, with invisible characters made visible (never trimmed). */
+/** Show a token exactly as tokenised, with invisible characters made visible (never trimmed).
+ *  An empty token (the leading byte-pieces of a character such as ’) shows as a small "·". */
 export function showToken(t: string): string {
-  if (t === "") return "∅";
+  if (t === "") return EMPTY_TOKEN;
   if (/^ +$/.test(t)) return "␠";
   return t.replace(/\n/g, "↵").replace(/\t/g, "⇥");
 }
+
+export const EMPTY_TOKEN = "·";
+export const EMPTY_TOKEN_TIP = "Empty token: part of a character that the next token completes";
 
 /** A feature's label, or "Unlabelled feature #id" where no number is shown next to it. */
 export function featureName(label: string | null | undefined, id: number): string {
@@ -51,9 +55,11 @@ export function fmtPct(v: number | null | undefined): string {
   if (v === null || v === undefined || Number.isNaN(v)) return "—";
   return `${v.toFixed(pctDigits(v))}%`;
 }
+/** Decimals for a percentage: one at 1% and above, otherwise two significant digits (0.0081%). */
 export function pctDigits(v: number): number {
   const a = Math.abs(v);
-  return a === 0 || a >= 1 ? 1 : a >= 0.1 ? 2 : 3;
+  if (a === 0 || a >= 1) return 1;
+  return Math.min(6, Math.ceil(-Math.log10(a)) + 1);
 }
 
 export function clamp(v: number, lo: number, hi: number) {

@@ -6,7 +6,7 @@
 }
 .controls {
   position: sticky;
-  top: 76px;
+  top: calc(var(--head-h, 60px) + 16px);
   display: flex;
   flex-direction: column;
   gap: 18px;

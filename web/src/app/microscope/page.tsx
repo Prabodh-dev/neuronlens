@@ -10,7 +10,7 @@ import { ErrorState, Skeleton } from "@/components/States";
 import { ApiError, api } from "@/lib/api/client";
 import type { FeatureListItem, InspectResponse, SteerMode, SteerRequest, SteerResponse } from "@/lib/api/types";
 import { diffWords } from "@/lib/diff";
-import { featureName, fmtDensity, fmtInt, fmtNum, showToken } from "@/lib/format";
+import { EMPTY_TOKEN_TIP, featureName, fmtDensity, fmtInt, fmtNum, showToken } from "@/lib/format";
 import { t } from "@/lib/copy";
 import { useAction, useApi } from "@/lib/useApi";
 import s from "./microscope.module.css";
@@ -192,8 +192,9 @@ export default function Microscope() {
           <button
             key={i}
             role="listitem"
-            className={`${s.tok} ${i === ti ? s.tokOn : ""} ${i < ti ? s.tokPast : ""}`}
+            className={`${s.tok} ${i === ti ? s.tokOn : ""} ${i < ti ? s.tokPast : ""} ${t.text === "" ? s.tokEmpty : ""}`}
             onClick={() => (setPlaying(false), setTi(i))}
+            title={t.text === "" ? EMPTY_TOKEN_TIP : undefined}
           >
             {showToken(t.text)}
           </button>

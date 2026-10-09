@@ -5,11 +5,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { FeaturePicker, type PickedFeature } from "@/components/FeaturePicker";
 import { isMockModel, useHealth } from "@/components/HealthProvider";
+import { RunNote } from "@/components/RunNote";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api, serverHas, type ApiError } from "@/lib/api/client";
 import type { SteerCheckResponse, SteerCompareResponse, SteerMode, SteerRequest, SteeringExample } from "@/lib/api/types";
 import { diffWords } from "@/lib/diff";
 import { featureName, fmtNum } from "@/lib/format";
+import { readSteerLink, steerLink } from "@/lib/share";
 import { t } from "@/lib/copy";
 import { useAction, useApi } from "@/lib/useApi";
 import { ActivationCheck, PromptOnlyPanel, SplitView, SweepPanel } from "./checks";
@@ -24,6 +26,7 @@ type Shown = {
   strength: number;
   seed: number;
   prompt: string;
+  len?: number;
   baseline: string;
   steered: string;
   cmp?: SteerCompareResponse;
@@ -94,6 +97,7 @@ function Steer() {
         strength: res.strength,
         seed: res.seed,
         prompt: body.prompt,
+        len: body.max_new_tokens,
         baseline: res.baseline_text,
         steered: res.steered_text,
         cmp: res,
@@ -101,8 +105,25 @@ function Steer() {
       });
   }
 
+  // S5: a shared link (/steer?feature=…&prompt=…) reruns that exact result on arrival. No run-once
+  // guard: in development React mounts twice and cancels the first run, so the second must go ahead
+  useEffect(() => {
+    const l = readSteerLink(params);
+    if (!l) return;
+    setMode(l.mode);
+    if (l.mode === "amplify") setStrength(l.strength);
+    setPrompt(l.prompt);
+    setSeed(l.seed);
+    setMaxTokens(l.max_new_tokens);
+    compareWith({ feature_id: l.feature_id, mode: l.mode, strength: l.strength, prompt: l.prompt, seed: l.seed, max_new_tokens: l.max_new_tokens });
+    // once, on arrival
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function run() {
     if (!feature || !prompt.trim()) return;
+    // a new run: drop the settings of a link this page was opened with
+    if (params.get("prompt") !== null) router.replace(`${pathname}?feature=${feature.feature_id}`, { scroll: false });
     await compareWith({ feature_id: feature.feature_id, mode, strength: mode === "amplify" ? strength : 0, prompt, seed, max_new_tokens: maxTokens });
   }
 
@@ -156,6 +177,7 @@ function Steer() {
         </div>
       </div>
 
+      <RunNote />
       <div className={s.layout}>
         <form
           className={`card ${s.controls}`}
@@ -336,7 +358,7 @@ function Steer() {
 
           {steer.loading && !shown && <ResultSkeleton />}
           {shown ? (
-            <Comparison shown={shown} simulated={isMockModel(h)} busy={steer.loading || check.loading} checkError={check.error} />
+            <Comparison shown={shown} simulated={isMockModel(h)} busy={steer.loading || check.loading} checkError={check.error} run={h?.run_id ?? null} />
           ) : (
             !steer.loading &&
             !steer.error && (
@@ -396,8 +418,22 @@ function Steer() {
   );
 }
 
-function Comparison({ shown, simulated, busy, checkError }: { shown: Shown; simulated: boolean; busy: boolean; checkError: ApiError | null }) {
+function Comparison(props: { shown: Shown; simulated: boolean; busy: boolean; checkError: ApiError | null; run: string | null }) {
+  const { shown, simulated, busy, checkError, run } = props;
   const segs = useMemo(() => diffWords(shown.baseline, shown.steered), [shown.baseline, shown.steered]);
+  const [copied, setCopied] = useState(false);
+  // S5: a link that reruns this exact result (live runs only: a saved run's length is not recorded)
+  async function copyLink() {
+    if (shown.len === undefined) return;
+    const l = { feature_id: shown.feature.feature_id, mode: shown.mode, strength: shown.strength, seed: shown.seed, prompt: shown.prompt, max_new_tokens: shown.len };
+    try {
+      await navigator.clipboard.writeText(steerLink(window.location.origin, l, run));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked */
+    }
+  }
   return (
     <section className={`card ${s.result} ${busy ? s.dim : ""}`} aria-labelledby="cmp-h">
       <div className="card-head">
@@ -411,6 +447,11 @@ function Comparison({ shown, simulated, busy, checkError }: { shown: Shown; simu
             <span className="pill pill-saved pill-dot">{t("badge.saved")}</span>
           )}
           {shown.curated && <span className="pill pill-outline">Curated</span>}
+          {shown.source === "live" && shown.len !== undefined && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={copyLink} title="A link that reruns this result with the same feature, prompt, strength, seed and mode">
+              {copied ? "Link copied" : "Copy link"}
+            </button>
+          )}
         </div>
       </div>
       {shown.cmp ? (

@@ -24,7 +24,8 @@ Explore mode tries other features without editing code. It runs every --feature 
 
 For each feature and prompt it prints the database label and status, then one line per
 strength with the start of the generated text, the degenerate flag and the index of the
-earliest token that differs from the baseline. With --mode ablate the strengths do not apply:
+earliest token that differs from the baseline, followed by an activation line (the target
+feature's maximum activation on the baseline and on that text, read without steering). With --mode ablate the strengths do not apply:
 the feature is ablated once. Dead features are skipped with a message.
 """
 import argparse
@@ -95,7 +96,7 @@ def build_examples(rt, con, examples=EXAMPLES, seed=SEED, max_new_tokens=MAX_NEW
             log(f"WARNING feature {fid}: label is {label!r}, expected it to mention "
                 f"{ex['expect_label']!r}; check the feature id")
         cmp = sc.seed_matched_compare(rt, ex["prompt"], fid, ex["mode"], ex["strength"], max_act,
-                                      max_new_tokens, seed)
+                                      max_new_tokens, seed, with_activations=True)
         check = {"feature_id": fid, "label": label, "label_status": status,
                  "label_matches_expected": label_ok, "max_activation": max_act,
                  "prompt": ex["prompt"], "seed": seed, "mode": ex["mode"],
@@ -108,6 +109,7 @@ def build_examples(rt, con, examples=EXAMPLES, seed=SEED, max_new_tokens=MAX_NEW
                  "percent_changed_from_divergence": cmp["percent_changed_from_divergence"],
                  "percent_changed_raw": cmp["percent_changed_raw"],
                  "percent_changed_raw_note": cmp["percent_changed_raw_note"],
+                 **{k: cmp[k] for k in ACTIVATION_KEYS},
                  "sweep": None}
         if ex.get("note"):
             check["note"] = ex["note"]
@@ -139,6 +141,7 @@ def summary(examples, width=160):
             lines.append(f"  first divergence at new token {e['first_divergence_index']}; "
                          f"{e['tokens_changed']} of {e['tokens_compared_from_divergence']} "
                          f"tokens from there differ ({e['percent_changed_from_divergence']}%)")
+        lines.append("  " + activation_line(e))
         if e["sweep"]:
             lines.append("  sweep (strength: degenerate?):")
             for r in e["sweep"]["results"]:
@@ -149,6 +152,18 @@ def summary(examples, width=160):
 
 
 CONTINUATION_CHARS = 120
+
+
+ACTIVATION_KEYS = ("target_activation_baseline", "target_activation_steered",
+                   "target_activation_baseline_mean", "target_activation_steered_mean",
+                   "activation_change", "activation_verdict")
+
+
+def activation_line(d):
+    """'activation: baseline 1.23 -> steered 4.56 (higher)': the target feature's maximum
+    activation over the new tokens, read on the finished texts without steering."""
+    return (f"activation: baseline {d['target_activation_baseline']:.2f} -> "
+            f"steered {d['target_activation_steered']:.2f} ({d['activation_verdict']})")
 
 
 def continuation_of(prompt, text):
@@ -198,20 +213,23 @@ def explore(rt, con, features, prompts, strengths, mode="amplify", seed=SEED,
             log(f"feature {fid} | {label or '(no label)'} | {status} | prompt: {prompt!r}")
             if mode == "amplify":
                 sw = sc.strength_sweep(rt, prompt, fid, max_act, strengths=strengths,
-                                       max_new_tokens=max_new_tokens, seed=seed)
+                                       max_new_tokens=max_new_tokens, seed=seed,
+                                       with_activations=True)
                 base_text = sw["baseline_text"]
                 results = [{"strength": r["strength"], "text": r["text"],
                             "continuation": continuation_of(prompt, r["text"]),
                             "differs_from_baseline": r["differs_from_baseline"],
                             "first_divergence_index": r["first_divergence_index"],
                             "degenerate": r["degenerate"], "reason": r["reason"],
-                            "metrics": r["metrics"]} for r in sw["results"]]
+                            "metrics": r["metrics"],
+                            **{k: r[k] for k in ACTIVATION_KEYS}} for r in sw["results"]]
             else:
                 sc.validate(rt, prompt, max_new_tokens, seed, fid, "ablate", 0.0, max_act)
                 base = rt.generate(prompt, max_new_tokens, seed, None)
                 g = rt.generate(prompt, max_new_tokens, seed,
                                 sc.SteeringSpec(fid, "ablate", 0.0, float(max_act)))
                 a = sc.assess_degeneration(g.new_ids, g.continuation)
+                act = sc.activation_report(rt, base, g, fid, max_act)
                 base_text = base.text
                 results = [{"strength": 0.0, "text": g.text,
                             "continuation": continuation_of(prompt, g.text),
@@ -219,13 +237,14 @@ def explore(rt, con, features, prompts, strengths, mode="amplify", seed=SEED,
                             "first_divergence_index":
                                 sc.compare_generations(base, g)["first_divergence_index"],
                             "degenerate": a["degenerate"], "reason": a["reason"],
-                            "metrics": a["metrics"]}]
+                            "metrics": a["metrics"], **act}]
             log(f"  baseline            {continuation_of(prompt, base_text)[:CONTINUATION_CHARS]!r}")
             for r in results:
                 div = "-" if r["first_divergence_index"] is None else r["first_divergence_index"]
                 name = f"x{r['strength']:g}" if mode == "amplify" else "ablate"
                 log(f"  {name:<7} div={div!s:<4} {_flag(r['degenerate'], r['reason']):<38}"
                     f" {r['continuation'][:CONTINUATION_CHARS]!r}")
+                log(f"    {activation_line(r)}")
             log("")
             runs.append({"feature_id": fid, "label": label, "label_status": status,
                          "max_activation": max_act, "prompt": prompt, "seed": seed,

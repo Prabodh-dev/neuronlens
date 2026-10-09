@@ -144,6 +144,10 @@ class ReportRequest(BaseModel):
         default=None, gt=0, le=1,
         description="hide features whose density (share of tokens they fire on) is above this; "
                     "off by default")
+    sort: Literal["activation", "relative"] = Field(
+        default="activation",
+        description="activation: rank by raw max activation (default). relative: rank by "
+                    "relative_to_max, how strongly each feature fired for that feature")
 
     @field_validator("text")
     @classmethod
@@ -186,6 +190,10 @@ class TextCompareRequest(BaseModel):
         default=None, gt=0, le=1,
         description="hide features whose density (share of tokens they fire on) is above this; "
                     "off by default")
+    sort: Literal["activation", "relative"] = Field(
+        default="activation",
+        description="activation: rank by raw max activation (default). relative: rank by "
+                    "relative_to_max, how strongly each feature fired for that feature")
 
     @field_validator("text_a", "text_b")
     @classmethod

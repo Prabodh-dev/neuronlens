@@ -804,6 +804,16 @@
             "description": "hide features whose density (share of tokens they fire on) is above this; off by default",
             "title": "Max Density"
           },
+          "sort": {
+            "default": "activation",
+            "description": "activation: rank by raw max activation (default). relative: rank by relative_to_max, how strongly each feature fired for that feature",
+            "enum": [
+              "activation",
+              "relative"
+            ],
+            "title": "Sort",
+            "type": "string"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -1696,6 +1706,16 @@
             ],
             "description": "hide features whose density (share of tokens they fire on) is above this; off by default",
             "title": "Max Density"
+          },
+          "sort": {
+            "default": "activation",
+            "description": "activation: rank by raw max activation (default). relative: rank by relative_to_max, how strongly each feature fired for that feature",
+            "enum": [
+              "activation",
+              "relative"
+            ],
+            "title": "Sort",
+            "type": "string"
           },
           "text_a": {
             "title": "Text A",

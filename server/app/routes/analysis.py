@@ -4,7 +4,10 @@ inspect is called with the SAE's k (every active feature on every token), then r
 trimmed to the requested top_n, so tokens_active and the ranking are not undercounted.
 Token 0 has no features (an outlier position, as in /inspect). Optional max_density hides
 features that fire on more than that share of tokens (features.density) before ranking, so
-very common features do not crowd out specific ones; it is off by default.
+very common features do not crowd out specific ones; it is off by default. sort="relative"
+ranks by relative_to_max (activation / the feature's dictionary max) instead of raw
+activation; for compare, by |relative_to_max in b - in a|. Features with no dictionary max
+(relative_to_max null) go last.
 
 Sentence split (X6): a sentence ends after a token ending in . ! or ? when the next token
 starts with whitespace or the text ends, and after any token containing a newline. Known
@@ -84,17 +87,41 @@ def relative(value: float, fid: int, info: dict) -> float | None:
     return round(value / feature_max, 4) if feature_max else None
 
 
+NO_RELATIVE = float("-inf")  # sorts features without relative_to_max last
+
+
+def report_key(sort: str, info: dict):
+    if sort == "relative":
+        def key(kv):
+            rel = relative(kv[1]["max"], kv[0], info)
+            return (-(rel if rel is not None else NO_RELATIVE), -kv[1]["max"], kv[0])
+        return key
+    return lambda kv: (-kv[1]["max"], kv[0])
+
+
+def compare_key(sort: str, info: dict):
+    if sort == "relative":
+        def key(row):
+            fid, a, b, _ = row
+            ra, rb = relative(a["max"], fid, info), relative(b["max"], fid, info)
+            change = abs(rb - ra) if ra is not None and rb is not None else NO_RELATIVE
+            return (-change, -abs(row[3]), fid)
+        return key
+    return lambda row: (-abs(row[3]), row[0])
+
+
 @router.post("/inspect/report", response_model=ReportResponse)
 def report(req: ReportRequest, db: Database = Depends(get_db), meta: dict = Depends(get_meta),
            runtime=Depends(get_runtime)):
     """X6. For each sentence, the features with the highest activation on its tokens."""
     check_length(runtime, req.text, "text")
     tokens = all_active(runtime, meta, req.text)
-    per_sentence = []
-    for a, b in split_sentences(tokens):
-        agg = drop_dense(db, aggregate(tokens[a:b]), req.max_density)
-        top = sorted(agg.items(), key=lambda kv: (-kv[1]["max"], kv[0]))[:req.top_n]
-        per_sentence.append((a, b, top))
+    spans = [(a, b, drop_dense(db, aggregate(tokens[a:b]), req.max_density))
+             for a, b in split_sentences(tokens)]
+    ranking_info = (dictionary(db, (fid for *_, agg in spans for fid in agg))
+                    if req.sort == "relative" else {})
+    key = report_key(req.sort, ranking_info)
+    per_sentence = [(a, b, sorted(agg.items(), key=key)[:req.top_n]) for a, b, agg in spans]
     info = dictionary(db, (fid for _, _, top in per_sentence for fid, _ in top))
     sentences = [
         ReportSentence(index=n, text="".join(t["text"] for t in tokens[a:b]), start_token=a,
@@ -125,7 +152,8 @@ def compare_texts(req: TextCompareRequest, db: Database = Depends(get_db),
     for fid in set(agg_a) | set(agg_b):
         a, b = agg_a.get(fid, empty), agg_b.get(fid, empty)
         rows.append((fid, a, b, b["max"] - a["max"]))
-    rows.sort(key=lambda r: (-abs(r[3]), r[0]))
+    ranking_info = dictionary(db, (r[0] for r in rows)) if req.sort == "relative" else {}
+    rows.sort(key=compare_key(req.sort, ranking_info))
     rows = rows[:req.top_n]
     info = dictionary(db, (r[0] for r in rows))
     features = [TextCompareFeature(

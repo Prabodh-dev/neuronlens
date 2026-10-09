@@ -109,3 +109,48 @@ def test_cli_end_to_end_and_out_file(db, tmp_path, capsys):
     assert printed == out.read_text(encoding="utf-8")
     assert "Feature 6" in printed and "Feature 7" in printed and "\n\nFeature 7" in printed
     assert open(db, "rb").read() == before  # database untouched
+
+
+def test_ids_file_csv_with_header_and_plain_list(tmp_path):
+    csv_path = tmp_path / "spot.csv"
+    csv_path.write_text(
+        'feature_id,auto_label,top_examples\r\n7,"x, y","a || b\nmore"\r\n6,z,c\r\n7,dup,d\r\n',
+        encoding="utf-8")
+    assert rl.load_ids(csv_path) == [7, 6]
+    plain = tmp_path / "ids.txt"
+    plain.write_text("6\n\n 19 \n7\n")
+    assert rl.load_ids(plain) == [6, 19, 7]
+    bad = tmp_path / "bad.csv"
+    bad.write_text("name,label\na,b\n")
+    with pytest.raises(ValueError, match="no feature id column"):
+        rl.load_ids(bad)
+    bad.write_text("feature_id\nabc\n")
+    with pytest.raises(ValueError, match="not a feature id"):
+        rl.load_ids(bad)
+
+
+def test_ids_file_uses_database_labels_and_ignores_range(db, tmp_path, capsys):
+    con = sqlite3.connect(db)
+    con.execute("UPDATE features SET label='multi- prefix', label_status='named', "
+                "notes='auto-labelled  by\nmodel' WHERE feature_id=6")
+    con.commit()
+    con.close()
+    ids = tmp_path / "ids.csv"
+    ids.write_text("feature_id\n7\n6\n99\n")
+    before = open(db, "rb").read()
+    rl.main(["--db", db, "--ids-file", str(ids), "--start", "1", "--end", "3", "--examples", "1"])
+    out = capsys.readouterr().out
+    heads = [ln for ln in out.splitlines() if ln.startswith("Feature ")]
+    assert heads == [
+        "Feature 7 | proposed label: (empty) | status: unlabelled",
+        "Feature 6 | proposed label: multi- prefix | status: named | notes: auto-labelled by model",
+        "Feature 99 | proposed label: (none in database)"]
+    assert "x multi[[idis]]ciplinary work" in out and "(feature not in database)" in out
+    assert open(db, "rb").read() == before
+
+
+def test_labels_file_still_wins_when_given(db, tmp_path, capsys):
+    labels = tmp_path / "l.json"
+    labels.write_text(json.dumps({"6": "from file"}))
+    rl.main(["--db", db, "--labels", str(labels), "--start", "6", "--end", "6", "--examples", "1"])
+    assert "Feature 6 | proposed label: from file" in capsys.readouterr().out

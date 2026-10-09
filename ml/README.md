@@ -48,7 +48,7 @@ Results: Result (256 sequences, seed 999): ours FVU 0.1626, CE recovered 0.9858;
 ## Phase 4: steering checks
 `neuronlens/steering_checks.py` holds the functions behind the Phase 4 steering endpoints. Steering is a test of what a feature does, not a fix; every function runs the baseline and the steered text with the same seed, and the steering maths is unchanged.
 
-- X1 `steering_check`: baseline text, steered text and whether they differ.
+- X1 `steering_check`: baseline text, steered text, whether they differ, and the target feature's activation on each text (re-encoded without steering; it reads the feature on the finished text and does not judge the output).
 - X3 `seed_matched_compare`: token-by-token comparison; reports `first_divergence_index`, the tokens before it, the tokens from it onward, and `tokens_changed` counted from there. The raw percent is also returned, with a note that it overstates the direct effect because later tokens drift.
 - X2 `strength_sweep`: one feature at several strengths (default 0, 0.25, 0.5, 0.75, 1, 1.5, 2), with a `degenerate` flag and `reason` per strength. The thresholds are named constants in the module and are not calibrated on real outputs yet.
 - X4 `prompt_only_baseline`: what the model writes from the prompt alone.

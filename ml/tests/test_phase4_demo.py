@@ -115,11 +115,12 @@ def test_explore_amplify_uses_exactly_the_given_strengths(db):
         assert r["results"][0]["first_divergence_index"] is None
         assert r["results"][1]["first_divergence_index"] == 5
         assert set(r["results"][1]) == {"strength", "text", "continuation", "differs_from_baseline",
-                                        "first_divergence_index", "degenerate", "reason", "metrics"}
+                                        "first_divergence_index", "degenerate", "reason", "metrics",
+                                        *demo.ACTIVATION_KEYS}
     out = "\n".join(lines)
     assert "feature 7 | hon- – honing, honk | named | prompt: 'P one '" in out
     assert out.count("x0.75") == 4 and "div=5" in out and "div=-" in out
-    assert out.count("baseline") == 4
+    assert sum(l.startswith("  baseline") for l in lines) == 4
     json.dumps(runs)
 
 
@@ -221,3 +222,53 @@ def test_default_mode_unchanged_by_explore_options(db, tmp_path, monkeypatch):
     data = json.loads(out.read_text(encoding="utf-8"))
     assert [e["feature_id"] for e in data["examples"]] == [13, 13, 7, 7]
     assert not (tmp_path / "explore.json").exists()
+
+
+# ------------------------------------------------------------ activation fields and lines
+
+def _up(hi, lo):
+    return lambda ids, fid: [hi if 65 <= i <= 90 else lo for i in ids]
+
+
+def test_default_examples_store_activation_fields_and_summary_line(db):
+    rt = FakeRuntime(baseline_len=20, act_fn=_up(8.0, 1.0))
+    out = demo.build_examples(rt, demo.open_readonly(db), max_new_tokens=20, sweep=False)
+    for e in out:
+        for k in demo.ACTIVATION_KEYS:
+            assert k in e
+    a = out[0]
+    assert a["target_activation_baseline"] == 1.0 and a["target_activation_steered"] == 8.0
+    assert a["activation_verdict"] == "higher"
+    json.dumps(out)
+    text = demo.summary(out)
+    assert "activation: baseline 1.00 -> steered 8.00 (higher)" in text
+    assert text.count("activation: baseline") == len(out)       # one line per example
+
+
+def test_activation_line_format():
+    d = {"target_activation_baseline": 0.5, "target_activation_steered": 12.3456,
+         "activation_verdict": "lower"}
+    assert demo.activation_line(d) == "activation: baseline 0.50 -> steered 12.35 (lower)"
+
+
+def test_explore_prints_an_activation_line_per_strength_and_for_ablate(db):
+    lines = []
+    runs = demo.explore(FakeRuntime(baseline_len=20, act_fn=_up(8.0, 1.0)), demo.open_readonly(db),
+                        [7], ["Hi "], [0.0, 0.5, 1.0], max_new_tokens=20, log=lines.append)
+    act = [l for l in lines if "activation: baseline" in l]
+    assert len(act) == 3 and all(l.startswith("    activation:") for l in act)
+    assert "(about the same)" in act[0] and "(higher)" in act[1]       # strength 0 matches baseline
+    assert [r["activation_verdict"] for r in runs[0]["results"]] == ["about the same", "higher", "higher"]
+    ab = []
+    demo.explore(FakeRuntime(baseline_len=20, act_fn=_up(8.0, 1.0)), demo.open_readonly(db), [7],
+                 ["Hi "], [1.0], mode="ablate", max_new_tokens=20, log=ab.append)
+    assert sum("activation: baseline" in l for l in ab) == 1
+
+
+def test_main_explore_json_has_activation_fields(db, tmp_path, monkeypatch):
+    _env(monkeypatch, db, tmp_path)
+    out = tmp_path / "explore.json"
+    demo.main(["--feature", "7", "--prompt", "A ", "--strengths", "0.5", "--max-new-tokens", "20",
+               "--explore-out", str(out)])
+    r = json.loads(out.read_text(encoding="utf-8"))["runs"][0]["results"][0]
+    assert all(k in r for k in demo.ACTIVATION_KEYS)

@@ -9,7 +9,7 @@ The example JSON below is real model output from one GPU run on GPT-2 small: fea
 ## Common rules
 
 - **Same seed for both runs.** Every function that compares runs generates the baseline and the steered text with the same `seed`, so a difference comes from the intervention. Sampling settings are fixed in `ml/neuronlens/steering.py` (temperature 0.8, top-p 0.95).
-- **How to call.** Each function takes the loaded runtime `rt`, then the inputs listed per function. It needs `rt.generate(prompt, max_new_tokens, seed, steering)` and `rt.d_sae`. `neuronlens.runtime.Runtime` has both. `server/app/services/real.py` (`RealRuntime`) wraps `Runtime` and does not forward them yet, so it needs `generate` (under its lock) and `d_sae` passed through. Mock mode needs its own stand-in; the functions do not run without a `generate`.
+- **How to call.** Each function takes the loaded runtime `rt`, then the inputs listed per function. It needs `rt.generate(prompt, max_new_tokens, seed, steering)`, `rt.d_sae`, and for X1 also `rt.feature_activations(token_ids, feature_id)`. `neuronlens.runtime.Runtime` has both. `server/app/services/real.py` (`RealRuntime`) wraps `Runtime` and does not forward them yet, so it needs `generate` and `feature_activations` (under its lock) and `d_sae` passed through. Mock mode needs its own stand-in; the functions do not run without a `generate`.
 - **Where `max_activation` comes from.** The server passes it, read from `features.max_activation` for the feature, exactly as `/steer` does today.
 - **Text fields.** `baseline_text`, `steered_text`, `text` hold the full decoded text, prompt included (same format as `/steer`). Token lists hold one display string per token from `textdecode.token_pieces`: a character split across tokens appears whole on its last token and as `""` on the earlier ones, so no list contains U+FFFD for valid UTF-8.
 - **Ablate.** `strength` is ignored for ablate and is reported as `0.0`.
@@ -36,7 +36,7 @@ Decision: the cap on `SteerRequest.strength` stays at 3 and the contract does no
 
 `steering_check(rt, prompt, feature_id, mode, strength, max_activation, max_new_tokens=60, seed=42)`
 
-Baseline and steered text for one feature, plus a flag for whether they differ.
+Baseline and steered text for one feature, a flag for whether they differ, and the target feature's activation on each text.
 
 | Input | Type | Notes |
 | --- | --- | --- |
@@ -58,8 +58,22 @@ Baseline and steered text for one feature, plus a flag for whether they differ.
 | `baseline_text` | str | no steering, prompt included |
 | `steered_text` | str | steered, prompt included |
 | `differs` | bool | `baseline_text != steered_text` |
+| `target_activation_baseline` | float | the target feature's maximum activation over the new tokens of the baseline text |
+| `target_activation_steered` | float | the same for the steered text |
+| `target_activation_baseline_mean` | float | mean activation over the new tokens of the baseline text |
+| `target_activation_steered_mean` | float | mean activation over the new tokens of the steered text |
+| `activation_change` | float | `(target_activation_steered - target_activation_baseline) / max_activation`, so it is comparable across features; `0.0` when `max_activation` is 0 (possible for ablate) |
+| `activation_verdict` | str | `"higher"`, `"lower"` or `"about the same"`, from `activation_change` (see below) |
 
 Amplify at strength 0 adds nothing, so `differs` should be `false` (a control).
+
+**How the activation fields are measured.** Both texts are generated; then their token ids are fed back through the model with no steering hook attached, along the same SAE path that Inspect uses (`Runtime.feature_activations` and `Runtime.inspect` share one helper), and the target feature's activation is read at every new token. The prompt tokens and position 0 are left out, and the ids are used as generated, without re-tokenising the text. The maximum and the mean are taken over the new tokens. The feature is not measured inside the steered run, which would be circular for amplify.
+
+`activation_verdict` is `"higher"` when `activation_change` is at least `ACTIVATION_SAME_FRACTION` (0.05), `"lower"` when it is at most minus 0.05, and `"about the same"` when its absolute value is below 0.05. The 0.05 is a starting value and has not been calibrated on real outputs. When the two texts are identical, the baseline numbers are reused, so `activation_change` is `0.0` and the verdict is `"about the same"`.
+
+The limit: this reads the feature on the finished text, re-encoded without steering. It says nothing about whether the output is better, and a higher or lower reading is not a quality judgement. The maximum is a single token's value, so it can move while the mean barely does.
+
+The sweep (X2) does not include activations yet.
 
 The call was `steering_check(rt, "The acrobat hung", 13, "amplify", 0.5, 21.4249, 60, 42)`:
 
@@ -91,13 +105,28 @@ A second real example, same feature, strength and seed, prompt `He turned the pi
 }
 ```
 
+These two real examples were recorded before the activation fields existed, so they do not show them. No real activation values have been recorded yet.
+
+Example values for the new fields. These numbers are example values, not measured, and are not tied to the texts above (they assume a `max_activation` of 20.0, also an example value):
+
+```json
+{
+  "target_activation_baseline": 2.3,
+  "target_activation_steered": 11.8,
+  "target_activation_baseline_mean": 0.4,
+  "target_activation_steered_mean": 3.1,
+  "activation_change": 0.475,
+  "activation_verdict": "higher"
+}
+```
+
 ---
 
 ## X3. Seed-matched compare
 
 `seed_matched_compare(rt, prompt, feature_id, mode, strength, max_activation, max_new_tokens=60, seed=42)`
 
-Runs the baseline and the steered generation with the same seed and compares the new tokens one by one. Same inputs and same errors as X1. The pure part is `compare_generations(baseline, steered)` (two `Generation` objects).
+Runs the baseline and the steered generation with the same seed and compares the new tokens one by one. It also has an opt-in `with_activations` flag (off by default, used by the demo script) that adds the six X1 activation fields; they are not part of the documented response. Same inputs and same errors as X1. The pure part is `compare_generations(baseline, steered)` (two `Generation` objects).
 
 Indices are 0-based and count newly generated tokens only (not the prompt). A position past the end of the shorter output counts as different.
 
@@ -150,6 +179,8 @@ No divergence (for example amplify at strength 0): `diverges` is `false`, `first
 `strength_sweep(rt, prompt, feature_id, max_activation, strengths=DEFAULT_SWEEP_STRENGTHS, max_new_tokens=60, seed=42)`
 
 Amplifies one feature at several strengths with the same seed. The baseline is generated once.
+
+The documented output has no activations yet. The function has an opt-in `with_activations` flag (off by default, used by `ml/scripts/phase4_demo.py`): it adds the six X1 activation fields to each result and `target_activation_baseline` and `target_activation_baseline_mean` at the top level. That is not part of the documented response.
 
 | Input | Type | Notes |
 | --- | --- | --- |
@@ -285,6 +316,8 @@ One measurement on the GPU laptop, a single run: 8 generations of 60 new tokens 
 | one generation (X4) | 1 | roughly 1.5 to 2 seconds |
 | X1 or X3 check | 2 | about 3 to 4 seconds |
 | X2 sweep with 7 strengths | 8 (baseline plus 7) | about 12 to 15 seconds |
+
+X1 now also re-encodes the two texts (two short forward passes after the generations); that extra time has not been measured.
 
 The server should use generous timeouts, and the UI should show a progress state for a sweep. The numbers will change on other hardware, and they were measured at 60 new tokens only.
 

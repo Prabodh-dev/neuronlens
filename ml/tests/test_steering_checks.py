@@ -4,6 +4,11 @@ from neuronlens import steering_checks as sc
 from neuronlens.steering_checks import Generation, SteeringCheckError
 
 
+ACT_FIELDS = ("target_activation_baseline", "target_activation_steered",
+              "target_activation_baseline_mean", "target_activation_steered_mean",
+              "activation_change", "activation_verdict")
+
+
 class FakeRuntime:
     """Deterministic stand-in for Runtime. Tokens are single characters; the baseline is a
     fixed function of (prompt, seed). A steering spec changes the output from token index
@@ -11,12 +16,36 @@ class FakeRuntime:
 
     d_sae = 100
 
-    def __init__(self, baseline_len=20, diverge_at=5, steered_ids=None, base_ids=None):
+    def __init__(self, baseline_len=20, diverge_at=5, steered_ids=None, base_ids=None, act_fn=None):
         self.calls = []
+        self.events = []        # "generate" / "encode" in call order
+        self.encode_calls = []  # (token_ids, feature_id) for every feature_activations call
+        self.hook_active = False
+        self.act_fn = act_fn    # (token_ids, feature_id) -> per-token activations
         self.baseline_len, self.diverge_at = baseline_len, diverge_at
         self.steered_ids, self.base_ids = steered_ids, base_ids
 
+    def feature_activations(self, token_ids, feature_id):
+        """Stub of Runtime.feature_activations: known per-token activations, position 0 is 0.0."""
+        assert not self.hook_active, "re-encoding must run with no steering hook attached"
+        self.events.append("encode")
+        self.encode_calls.append((list(token_ids), feature_id))
+        if self.act_fn is not None:
+            acts = list(self.act_fn(token_ids, feature_id))
+        else:
+            acts = [(i % 10) / 10 for i in token_ids]
+        acts[0] = 0.0
+        return acts
+
     def generate(self, prompt, max_new_tokens, seed, steering=None):
+        self.hook_active = steering is not None   # a steered run has its hook only while it runs
+        try:
+            return self._generate(prompt, max_new_tokens, seed, steering)
+        finally:
+            self.hook_active = False
+            self.events.append("generate")
+
+    def _generate(self, prompt, max_new_tokens, seed, steering=None):
         self.calls.append((prompt, max_new_tokens, seed, steering))
         prompt_ids = [ord(c) for c in prompt]
         base = self.base_ids if self.base_ids is not None else \
@@ -39,7 +68,7 @@ def test_x1_returns_texts_and_flag():
     rt = FakeRuntime()
     r = sc.steering_check(rt, "Hello ", 7, "amplify", 3.0, 10.0, max_new_tokens=20, seed=5)
     assert set(r) == {"feature_id", "mode", "strength", "seed", "max_new_tokens",
-                      "baseline_text", "steered_text", "differs"}
+                      "baseline_text", "steered_text", "differs", *ACT_FIELDS}
     assert r["differs"] is True and r["baseline_text"].startswith("Hello ")
     assert r["baseline_text"] != r["steered_text"]
     assert r["strength"] == 3.0 and r["seed"] == 5
@@ -306,3 +335,168 @@ def test_x4_errors(kwargs):
     args.update(kwargs)
     with pytest.raises(SteeringCheckError):
         sc.prompt_only_baseline(FakeRuntime(), **args)
+
+
+# ------------------------------------------------------------ X1: target activation
+
+def upper_is(hi, lo):
+    """Activation stub: uppercase letters (the steered text) get `hi`, lowercase ones `lo`."""
+    return lambda ids, fid: [hi if 65 <= i <= 90 else lo for i in ids]
+
+
+def late_lower_is(hi, lo):
+    """Activation stub: lowercase letters from 'g' on (present only in the baseline after the
+    divergence point) get `hi`; everything else, including the shared prefix, gets `lo`."""
+    return lambda ids, fid: [hi if 103 <= i <= 122 else lo for i in ids]
+
+
+def x1(rt, strength=3.0, max_activation=10.0, mode="amplify", prompt="Hello ", **kw):
+    return sc.steering_check(rt, prompt, 7, mode, strength, max_activation,
+                             max_new_tokens=20, seed=1, **kw)
+
+
+def test_x1_activation_higher():
+    r = x1(FakeRuntime(act_fn=upper_is(8.0, 1.0)))
+    assert r["target_activation_baseline"] == 1.0 and r["target_activation_steered"] == 8.0
+    assert r["activation_change"] == pytest.approx(0.7) and r["activation_verdict"] == "higher"
+
+
+def test_x1_activation_lower():
+    r = x1(FakeRuntime(act_fn=late_lower_is(8.0, 1.0)))
+    assert r["target_activation_baseline"] == 8.0 and r["target_activation_steered"] == 1.0
+    assert r["activation_change"] == pytest.approx(-0.7) and r["activation_verdict"] == "lower"
+
+
+def test_x1_activation_about_the_same():
+    r = x1(FakeRuntime(act_fn=lambda ids, f: [3.0] * len(ids)))
+    assert r["activation_change"] == 0.0 and r["activation_verdict"] == "about the same"
+    assert r["differs"] is True       # the texts differ even though the activation does not
+
+
+def test_x1_identical_texts_are_consistent():
+    rt = FakeRuntime(act_fn=upper_is(8.0, 1.0))
+    r = x1(rt, strength=0)            # amplify at 0 adds nothing: same text
+    assert r["differs"] is False
+    assert r["activation_change"] == 0.0 and r["activation_verdict"] == "about the same"
+    assert r["target_activation_baseline"] == r["target_activation_steered"]
+    assert r["target_activation_baseline_mean"] == r["target_activation_steered_mean"]
+    assert len(rt.encode_calls) == 1  # the baseline numbers are reused
+
+
+def test_x1_ablate_and_zero_max_activation():
+    rt = FakeRuntime(act_fn=late_lower_is(8.0, 1.0))
+    r = x1(rt, mode="ablate", strength=3.0)
+    assert r["strength"] == 0.0 and r["activation_verdict"] == "lower"
+    assert rt.encode_calls[-1][1] == 7 and rt.calls[-1][3].mode == "ablate"
+    z = x1(FakeRuntime(act_fn=late_lower_is(8.0, 1.0)), mode="ablate", max_activation=0.0)
+    assert z["activation_change"] == 0.0 and z["activation_verdict"] == "about the same"
+    assert z["target_activation_baseline"] == 8.0 and z["target_activation_steered"] == 1.0
+
+
+def test_activation_same_fraction_boundary():
+    assert sc.ACTIVATION_SAME_FRACTION == 0.05
+    assert sc.activation_verdict(0.0) == "about the same"
+    assert sc.activation_verdict(0.0499) == "about the same"
+    assert sc.activation_verdict(-0.0499) == "about the same"
+    assert sc.activation_verdict(0.05) == "higher"        # exactly the constant
+    assert sc.activation_verdict(-0.05) == "lower"
+    # end to end: change of exactly 0.05 (baseline max 1.0, steered 2.0, max_activation 20)
+    at = x1(FakeRuntime(act_fn=upper_is(2.0, 1.0)), max_activation=20.0)
+    assert at["activation_change"] == 0.05 and at["activation_verdict"] == "higher"
+    below = x1(FakeRuntime(act_fn=upper_is(1.99, 1.0)), max_activation=20.0)
+    assert below["activation_verdict"] == "about the same"
+
+
+def test_x1_activation_uses_new_tokens_only_and_max_and_mean():
+    # prompt positions carry a huge value that must not count; position 0 is dropped anyway
+    def acts(ids, fid):
+        out = [99.0] * len(ids)
+        n_prompt = len("Hello ")
+        for i in range(n_prompt, len(ids)):
+            out[i] = float(i - n_prompt)          # 0, 1, 2, ... over the new tokens
+        return out
+    r = x1(FakeRuntime(baseline_len=20, act_fn=acts))
+    assert r["target_activation_baseline"] == 19.0
+    assert r["target_activation_baseline_mean"] == pytest.approx(9.5)
+
+
+def test_x1_empty_continuation_gives_zeros():
+    rt = FakeRuntime(base_ids=[], steered_ids=[], act_fn=lambda ids, f: [5.0] * len(ids))
+    r = sc.steering_check(rt, "Hi ", 7, "amplify", 1.0, 10.0, max_new_tokens=20, seed=1)
+    assert r["target_activation_baseline"] == 0.0 and r["target_activation_steered_mean"] == 0.0
+
+
+def test_x1_re_encoding_happens_after_generation_with_no_hook_active():
+    rt = FakeRuntime(act_fn=upper_is(8.0, 1.0))
+    x1(rt)
+    assert rt.events == ["generate", "generate", "encode", "encode"]   # never inside a run
+    assert rt.hook_active is False
+    base_ids, steered_ids = rt.encode_calls[0][0], rt.encode_calls[1][0]
+    assert base_ids != steered_ids and all(fid == 7 for _, fid in rt.encode_calls)
+
+
+def test_x3_and_x2_activation_fields_are_opt_in():
+    rt = FakeRuntime(act_fn=upper_is(8.0, 1.0))
+    plain = sc.seed_matched_compare(rt, "Hello ", 7, "amplify", 3.0, 10.0, 20, 1)
+    assert not any(k in plain for k in ACT_FIELDS) and rt.encode_calls == []
+    withact = sc.seed_matched_compare(rt, "Hello ", 7, "amplify", 3.0, 10.0, 20, 1, with_activations=True)
+    assert withact["activation_verdict"] == "higher" and withact["first_divergence_index"] == 5
+    sw = sc.strength_sweep(FakeRuntime(act_fn=upper_is(8.0, 1.0)), "Hello ", 7, 10.0,
+                           strengths=[0, 3], max_new_tokens=20, with_activations=True)
+    assert sw["results"][0]["activation_verdict"] == "about the same"
+    assert sw["results"][1]["activation_verdict"] == "higher"
+    assert sw["target_activation_baseline"] == 1.0
+    plain_sw = sc.strength_sweep(FakeRuntime(), "Hello ", 7, 10.0, strengths=[0, 3], max_new_tokens=20)
+    assert not any(k in plain_sw["results"][0] for k in ACT_FIELDS)
+
+
+# --------------------------------------------------- Runtime.feature_activations wiring
+
+def _runtime_with_stub_model(extra_hook=False):
+    from types import SimpleNamespace
+    import torch
+    from neuronlens import runtime as rtmod
+
+    class Block:
+        def __init__(self):
+            self._forward_hooks = {}
+
+    class FakeSAE:
+        d_sae = 6
+        def encode(self, x):          # known activations: feature f at position t = 10*f + t
+            T = x.shape[0]
+            a = torch.stack([torch.arange(T, dtype=torch.float32) + 10 * f for f in range(6)], dim=1)
+            return a, None
+
+    rt = rtmod.Runtime.__new__(rtmod.Runtime)
+    rt.sae, rt.device, rt.d_sae, rt.hook_layer = FakeSAE(), "cpu", 6, 0
+    rt.mu, rt.scale = torch.zeros(3), torch.tensor(1.0)
+    block = Block()
+
+    class Col:                         # Collector registers a bound method of itself
+        out = None
+        def _hook(self, *a): pass
+
+    rt.col = Col()
+    block._forward_hooks[1] = rt.col._hook
+    if extra_hook:
+        block._forward_hooks[2] = lambda *a: None
+
+    def transformer(ids):
+        rt.col.out = torch.zeros(1, ids.shape[1], 3)
+    transformer.h = [block]
+    rt.model = SimpleNamespace(transformer=transformer)
+    return rt
+
+
+def test_runtime_feature_activations_matches_inspect_path_and_zeroes_position_0():
+    rt = _runtime_with_stub_model()
+    acts = rt.feature_activations([5, 6, 7, 8], 2)
+    assert acts == [0.0, 21.0, 22.0, 23.0]           # position 0 is reported as 0.0
+    assert rt.feature_activations([5], 2) == [0.0]
+
+
+def test_runtime_feature_activations_refuses_when_another_hook_is_attached():
+    rt = _runtime_with_stub_model(extra_hook=True)
+    with pytest.raises(RuntimeError, match="forward hook other than"):
+        rt.feature_activations([1, 2, 3], 0)

@@ -22,6 +22,12 @@
       "percent_changed_from_divergence": 92.9,
       "percent_changed_raw": 86.7,
       "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "target_activation_baseline": 0.0,
+      "target_activation_steered": 2.874537944793701,
+      "target_activation_baseline_mean": 0.0,
+      "target_activation_steered_mean": 0.047908965746561685,
+      "activation_change": 0.134168186767158,
+      "activation_verdict": "higher",
       "sweep": {
         "baseline_degenerate": false,
         "baseline_reason": null,
@@ -147,6 +153,12 @@
       "percent_changed_from_divergence": 93.3,
       "percent_changed_raw": 93.3,
       "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "target_activation_baseline": 0.0,
+      "target_activation_steered": 0.0,
+      "target_activation_baseline_mean": 0.0,
+      "target_activation_steered_mean": 0.0,
+      "activation_change": 0.0,
+      "activation_verdict": "about the same",
       "sweep": {
         "baseline_degenerate": false,
         "baseline_reason": null,
@@ -272,6 +284,12 @@
       "percent_changed_from_divergence": 98.3,
       "percent_changed_raw": 98.3,
       "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "target_activation_baseline": 0.0,
+      "target_activation_steered": 0.0,
+      "target_activation_baseline_mean": 0.0,
+      "target_activation_steered_mean": 0.0,
+      "activation_change": 0.0,
+      "activation_verdict": "about the same",
       "sweep": {
         "baseline_degenerate": false,
         "baseline_reason": null,
@@ -398,6 +416,12 @@
       "percent_changed_from_divergence": 5.2,
       "percent_changed_raw": 5.0,
       "percent_changed_raw_note": "percent_changed_raw counts every differing token against all generated tokens. It overstates the direct effect of the intervention: after the first divergence the two runs continue from different text, so later tokens drift even where the intervention no longer acts. Use first_divergence_index and tokens_changed instead.",
+      "target_activation_baseline": 0.0,
+      "target_activation_steered": 0.0,
+      "target_activation_baseline_mean": 0.0,
+      "target_activation_steered_mean": 0.0,
+      "activation_change": 0.0,
+      "activation_verdict": "about the same",
       "sweep": null
     }
   ]

@@ -5,9 +5,14 @@ which features x strengths worked, so we can decide which goal buttons ship.
     python server/scripts/autolab_check.py --prompt "The band walked on stage and" --goal "music"
     python server/scripts/autolab_check.py --goals-file goals.txt --repeat 5 --url http://127.0.0.1:8000
 
-Chain (seed 42): POST /features/search with the goal words (top 5, max_density 0.01), then
-POST /steer/sweep with with_activations for each of the 5 candidates. Each cell is scored
-with the rule below.
+Chain (seed 42): POST /features/search with the goal words and a leading space (top 8,
+max_density 0.01); drop the filler features (demo/autolab_fillers.json) and keep the first
+5; fewer than 3 left is "no good match". Then POST /steer/sweep with with_activations for
+each candidate. Each cell is scored with the rule below.
+
+    python server/scripts/autolab_check.py --find-fillers demo/autolab_fillers.json
+(real server) searches 200 common words the same way and lists the features that come back
+for more than 10% of them: the filler list.
 
 Recommendation (rule v2), strength 0 (the control) left out: a worked cell is "stable" if
 the strength next to it (before or after) also worked. Only features with a stable worked
@@ -28,16 +33,20 @@ to --prompt). Blank lines and lines starting with # are skipped.
 Only the standard library is used, so it runs anywhere Python 3.9+ does.
 """
 import argparse
+import datetime
 import json
 import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 # ---------- Auto-Lab rule (the UI uses the same constants) ----------
 SEED = 42
 MAX_NEW_TOKENS = 60
-CANDIDATES = 5                       # features taken from search
+SEARCH_TOP_N = 8                     # search for the goal with a leading space, top 8 ...
+CANDIDATES = 5                       # ... drop the filler features, keep the first 5
+MIN_CANDIDATES = 3                   # fewer than 3 left: "no good match"
 MAX_DENSITY = 0.01                   # search hides features firing on more than 1% of tokens
 STRENGTHS = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]   # the /steer/sweep default; 0 is the control
 RISE_MIN = 3.0                       # worked: steered - unsteered >= 3.0 ...
@@ -49,6 +58,29 @@ MARK = {WORKED: "✓", NO_EFFECT: "✗", BREAKS: "⚠️"}
 SEARCH_TIMEOUT = 30                  # the UI's limits (web/src/lib/api/client.ts)
 SWEEP_TIMEOUT = 120
 TARGET_S, WARN_S = 35.0, 40.0        # one chain: target, and "tell us right away"
+
+# ---------- the filler list (--find-fillers) ----------
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FILLERS_PATH = REPO_ROOT / "demo" / "autolab_fillers.json"
+FILLER_SHARE = 0.10                  # a filler shows up for more than 10% of common words
+# 200 common English words on unrelated topics, searched like a goal (leading space, top 8)
+COMMON_WORDS = """
+time year people way day man thing woman life child world school state family student
+group country problem hand part place case week company system program question work
+government number night point home water room mother area money story fact month lot right
+study book eye job word business issue side kind head house service friend father power
+hour game line end member law car city community name president team minute idea kid body
+information back parent face others level office door health person art war history party
+result change morning reason research girl guy moment air teacher force education foot boy
+age policy music market sense nation plan college interest death experience effect class
+control care field development role effort rate heart drug show leader light voice wife
+police mind price report decision son view relationship town road arm difference value
+building action model season society tax director position player record paper space
+ground form event official matter center couple site project activity star table need
+court oil situation cost industry figure street image phone data picture practice piece
+land product doctor wall patient worker news test movie north love support technology
+step baby computer type attention film tree
+""".split()
 
 
 def score_cell(unsteered, steered, degenerate):
@@ -62,8 +94,11 @@ def score_cell(unsteered, steered, degenerate):
 
 
 RECOMMENDED, NOT_RELIABLE, NOTHING = "recommended", "not reliable", "nothing worked"
+NO_MATCH = "no good match"
 STATUS_TEXT = {NOT_RELIABLE: "Worked at one strength only, not reliable",
-               NOTHING: "Nothing worked"}
+               NOTHING: "Nothing worked",
+               NO_MATCH: f"No good match (fewer than {MIN_CANDIDATES} features left after "
+                         "dropping the filler features)"}
 SHIP_MIN_PROMPTS = 2                 # a goal ships if it has a recommendation on 2 of 3 prompts
 
 
@@ -112,10 +147,29 @@ def ship_summary(results):
     return goals
 
 
-def rule_dict():
-    return {"version": 2, "seed": SEED, "max_new_tokens": MAX_NEW_TOKENS,
-            "candidates": CANDIDATES, "max_density": MAX_DENSITY, "strengths": STRENGTHS,
-            "rise_min": RISE_MIN, "ratio_min": RATIO_MIN, "ship_min_prompts": SHIP_MIN_PROMPTS}
+def select_candidates(features, filler_ids):
+    """(kept, dropped): the search features in order with the filler features dropped, the
+    first CANDIDATES of them kept; dropped lists the filler ids that were in the results."""
+    dropped = [f["feature_id"] for f in features if f["feature_id"] in filler_ids]
+    kept = [f for f in features if f["feature_id"] not in filler_ids][:CANDIDATES]
+    return kept, dropped
+
+
+def load_fillers(path=FILLERS_PATH):
+    """The filler ids from --find-fillers output, or an empty set if the file is missing."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return {f["feature_id"] for f in json.load(fh)["fillers"]}
+    except OSError:
+        return set()
+
+
+def rule_dict(filler_ids=()):
+    return {"version": 3, "seed": SEED, "max_new_tokens": MAX_NEW_TOKENS,
+            "leading_space": True, "search_top_n": SEARCH_TOP_N, "candidates": CANDIDATES,
+            "min_candidates": MIN_CANDIDATES, "filler_ids": sorted(filler_ids),
+            "max_density": MAX_DENSITY, "strengths": STRENGTHS, "rise_min": RISE_MIN,
+            "ratio_min": RATIO_MIN, "ship_min_prompts": SHIP_MIN_PROMPTS}
 
 
 def parse_goals(text, default_prompt):
@@ -162,23 +216,22 @@ def call(base, path, body=None, timeout=10):
 
 # ---------- the chain ----------
 
-def search_request(goal, sort="activation", leading_space=False):
-    """The UI's search request; sort and leading_space are experiments (--sort relative,
-    --leading-space) and are only sent when they differ from the UI."""
-    req = {"query": (" " + goal.lstrip()) if leading_space else goal, "top_n": CANDIDATES,
-           "max_density": MAX_DENSITY}
+def search_request(goal, sort="activation"):
+    """The UI's search request: the goal words with a leading space (so the first word gets
+    the token it has mid-sentence), top SEARCH_TOP_N. sort is an experiment (--sort)."""
+    req = {"query": " " + goal.strip(), "top_n": SEARCH_TOP_N, "max_density": MAX_DENSITY}
     if sort != "activation":
         req["sort"] = sort
     return req
 
 
-def run_chain(base, goal, prompt, sort="activation", leading_space=False, search_only=False):
+def run_chain(base, goal, prompt, sort="activation", search_only=False, filler_ids=()):
     """One Auto-Lab chain. Returns a dict with rows, recommendation, timings and failures,
     and under "raw" every request and response (what --record saves). The defaults are the
-    UI chain; sort, leading_space and search_only are for experiments."""
+    UI chain; sort and search_only are for experiments."""
     t0 = time.perf_counter()
     out = {"goal": goal, "prompt": prompt, "rows": [], "failures": [], "calls": []}
-    search_req = search_request(goal, sort, leading_space)
+    search_req = search_request(goal, sort)
     try:
         search, s = call(base, "/api/v1/features/search", search_req, SEARCH_TIMEOUT)
         out["calls"].append(("search", s))
@@ -191,11 +244,16 @@ def run_chain(base, goal, prompt, sort="activation", leading_space=False, search
         return out
     out["simulated"] = search.get("simulated")
     out["search"] = search
+    kept, out["dropped_fillers"] = select_candidates(search["features"], filler_ids)
     if search_only:
         out["recommendation"] = None
         out["total_s"] = time.perf_counter() - t0
         return out
-    for f in search["features"][:CANDIDATES]:
+    if len(kept) < MIN_CANDIDATES:
+        out["recommendation"] = {"status": NO_MATCH}
+        out["total_s"] = time.perf_counter() - t0
+        return out
+    for f in kept:
         body = {"prompt": prompt, "feature_id": f["feature_id"], "strengths": STRENGTHS,
                 "seed": SEED, "max_new_tokens": MAX_NEW_TOKENS, "with_activations": True}
         try:
@@ -227,10 +285,11 @@ def score_sweep(feature, sweep, failures):
             "search_activation": feature.get("max_activation"), "cells": cells}
 
 
-def replay(path):
-    """(file data, results) re-scored from a --record file with the current rule, without a
-    server: the file keeps the raw search and sweep responses, so a rule change needs no
-    rerun."""
+def replay(path, filler_ids=()):
+    """(file data, results) re-scored from a --record file with the current rule and the
+    same candidate selection as the chain, without a server: the file keeps the raw search
+    and sweep responses, so a rule change needs no rerun. A recording made with another
+    search (older files: no leading space, top 5) is scored on the features it has."""
     with open(path, encoding="utf-8") as fh:
         data = json.load(fh)
     results = []
@@ -238,8 +297,13 @@ def replay(path):
         out = {"goal": g["goal"], "prompt": g["prompt"], "rows": [], "failures": [],
                "calls": [], "total_s": 0.0, "simulated": g["search"].get("simulated"),
                "search": g["search"]}
+        kept, out["dropped_fillers"] = select_candidates(g["search"]["features"], filler_ids)
+        if len(kept) < MIN_CANDIDATES:
+            out["recommendation"] = {"status": NO_MATCH}
+            results.append(out)
+            continue
         sweeps = {sw["request"]["feature_id"]: sw["response"] for sw in g["sweeps"]}
-        for f in g["search"]["features"][:CANDIDATES]:
+        for f in kept:
             if f["feature_id"] in sweeps:
                 out["rows"].append(score_sweep(f, sweeps[f["feature_id"]], out["failures"]))
             else:
@@ -249,15 +313,42 @@ def replay(path):
     return data, results
 
 
+def find_fillers(base, words=COMMON_WORDS):
+    """Searches every word like a goal (leading space, top SEARCH_TOP_N) and counts how
+    often each feature comes back. Returns (counts, labels, failures)."""
+    counts, labels, failures = {}, {}, []
+    for w in words:
+        try:
+            res, _ = call(base, "/api/v1/features/search", search_request(w), SEARCH_TIMEOUT)
+        except CallFailed as e:
+            failures.append(str(e))
+            continue
+        for f in res["features"]:
+            counts[f["feature_id"]] = counts.get(f["feature_id"], 0) + 1
+            labels[f["feature_id"]] = f.get("label")
+    return counts, labels, failures
+
+
+def filler_list(counts, labels, n_words, share=FILLER_SHARE):
+    """(fillers, near_misses): features that came back for more than `share` of the words,
+    most frequent first, and the next 5 below the cutoff (to show the gap)."""
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    row = lambda fid, n: {"feature_id": fid, "label": labels.get(fid), "count": n,  # noqa: E731
+                          "share": round(n / n_words, 3)}
+    above = [row(fid, n) for fid, n in ranked if n > share * n_words]
+    below = [row(fid, n) for fid, n in ranked if n <= share * n_words][:5]
+    return above, below
+
+
 def fillers(results, min_goals=2):
-    """{feature_id: info} for features in the top CANDIDATES of the search for at least
-    min_goals different goal words, with the query token each hit peaked on (token 0 is
-    the first query word, right after the newline prefix) and its relative_to_max."""
+    """{feature_id: info} for features in the search results for at least min_goals
+    different goal words, with the query token each hit peaked on (token 0 is the first
+    query word, right after the newline prefix) and its relative_to_max."""
     seen = {}
     for r in results:
         s = r.get("search") or {}
         toks = s.get("tokens", [])
-        for f in s.get("features", [])[:CANDIDATES]:
+        for f in s.get("features", []):
             e = seen.setdefault(f["feature_id"], {"label": f.get("label"), "goals": {},
                                                   "density": f.get("density")})
             pk = f.get("peak_token")
@@ -269,6 +360,8 @@ def fillers(results, min_goals=2):
 def show(res, verbose=False):
     print(f"\nGoal: {res['goal']!r}   Prompt: {res['prompt']!r}   seed {SEED}"
           + ("   [mock: simulated data]" if res.get("simulated") else ""))
+    if res.get("dropped_fillers"):
+        print(f"  filler features dropped: {', '.join(f'#{i}' for i in res['dropped_fillers'])}")
     if res["rows"]:
         head = f"  {'feature':<36}" + "".join(f"{s:>7g}" for s in STRENGTHS)
         print(head)
@@ -290,7 +383,7 @@ def show(res, verbose=False):
         s = res["search"]
         toks = s.get("tokens", [])
         print(f"  query tokens: {toks}")
-        for f in s["features"][:CANDIDATES]:
+        for f in s["features"]:
             pk = f.get("peak_token")
             tok = toks[pk] if pk is not None and pk < len(toks) else None
             print(f"  #{f['feature_id']:<6} {str(f.get('label'))[:34]:<34} "
@@ -327,7 +420,7 @@ def print_ships(results):
 
 def print_fillers(results):
     found = fillers(results)
-    print(f"\nFeatures in the top {CANDIDATES} for 2 or more goals (peak token 0 = the first "
+    print("\nFeatures in the search results for 2 or more goals (peak token 0 = the first "
           "query word, right after the newline prefix):")
     if not found:
         print("  none")
@@ -337,6 +430,41 @@ def print_fillers(results):
               f"goals, peaked on token 0 in {first} of them")
         for goal, (pk, tok, rel) in e["goals"].items():
             print(f"      {goal!r}: peak token {pk} {tok!r}, relative_to_max {rel}")
+
+
+def run_find_fillers(base, health, out_path):
+    counts, labels, failures = find_fillers(base)
+    n = len(COMMON_WORDS) - len(failures)
+    if not n:
+        raise SystemExit("every search failed: " + "; ".join(failures[:3]))
+    above, below = filler_list(counts, labels, n)
+    cut = FILLER_SHARE * n
+    print(f"\n{n} common words searched (leading space, top {SEARCH_TOP_N}, max_density "
+          f"{MAX_DENSITY}). Cutoff: more than {FILLER_SHARE:.0%} of the words, so more than "
+          f"{cut:g}.")
+    for f in above:
+        print(f"  FILLER  #{f['feature_id']:<6} {str(f['label'])[:36]:<36} {f['count']:>4} words "
+              f"({f['share']:.0%})")
+    for f in below:
+        print(f"  below   #{f['feature_id']:<6} {str(f['label'])[:36]:<36} {f['count']:>4} words "
+              f"({f['share']:.0%})")
+    if above and below:
+        print(f"  Gap at the cutoff: {above[-1]['count']} -> {below[0]['count']} words.")
+    for e in failures:
+        print(f"  FAILED: {e}")
+    with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump({"note": "Filler features: features that come back from /features/search for "
+                           "many unrelated words. Written by server/scripts/autolab_check.py "
+                           "--find-fillers on the real server; Auto-Lab drops them from the "
+                           "candidates. Do not edit by hand.",
+                   "date": datetime.date.today().isoformat(), "run_id": health["run_id"],
+                   "words": n, "search": {"leading_space": True, "top_n": SEARCH_TOP_N,
+                                          "max_density": MAX_DENSITY},
+                   "cutoff": {"share": FILLER_SHARE, "more_than_words": cut},
+                   "fillers": above, "near_misses": below}, fh, indent=1, ensure_ascii=False)
+        fh.write("\n")
+    print(f"wrote {len(above)} filler(s) to {out_path}")
+    return 1 if failures else 0
 
 
 def main(argv=None):
@@ -355,23 +483,30 @@ def main(argv=None):
     p.add_argument("-v", "--verbose", action="store_true", help="numbers per cell and per call")
     p.add_argument("--replay", help="re-score a --record file with the current rule; no server")
     p.add_argument("--fillers", action="store_true",
-                   help="also list features in the top 5 for 2+ goals and the query token "
-                        "they peaked on (works with --replay)")
+                   help="also list features in the search results for 2+ goals and the query "
+                        "token they peaked on (works with --replay)")
     p.add_argument("--search-only", action="store_true",
                    help="experiment: only the search step, with peak tokens (no sweeps, fast)")
     p.add_argument("--sort", choices=["activation", "relative"], default="activation",
                    help="experiment: the search sort (the UI uses activation)")
-    p.add_argument("--leading-space", action="store_true",
-                   help="experiment: send ' goal words', so the first word gets the token it "
-                        "has mid-sentence")
+    p.add_argument("--fillers-file", default=str(FILLERS_PATH),
+                   help="the filler list dropped from the candidates (default "
+                        "demo/autolab_fillers.json)")
+    p.add_argument("--find-fillers", metavar="OUT",
+                   help="real server only: search the 200 common words and write the filler "
+                        "list to OUT (normally demo/autolab_fillers.json)")
     a = p.parse_args(argv)
-    experiment = a.search_only or a.sort != "activation" or a.leading_space
+    experiment = a.search_only or a.sort != "activation"
     if a.replay and experiment:
         p.error("--replay re-scores the recorded UI chain; the experiment options need a server")
     if a.record and experiment:
         p.error("--record saves the UI chain only; drop the experiment options")
+    filler_ids = load_fillers(a.fillers_file)
+    if not a.find_fillers:
+        print(f"Filler list: {len(filler_ids)} feature(s) from {a.fillers_file}"
+              + ("" if filler_ids else " (missing or empty: nothing is dropped)"))
     if a.replay:
-        data, results = replay(a.replay)
+        data, results = replay(a.replay, filler_ids)
         print(f"Replay of {a.replay}: run {data.get('run_id')}, recorded with rule "
               f"v{data.get('rule', {}).get('version', 1)}, scored with rule "
               f"v{rule_dict()['version']}")
@@ -381,23 +516,26 @@ def main(argv=None):
         if a.fillers:
             print_fillers(results)
         return 0
-    if bool(a.goal) == bool(a.goals_file):
-        p.error("give --goal or --goals-file (or --replay FILE)")
-    goals = ([(a.goal, a.prompt)] if a.goal else
-             parse_goals(open(a.goals_file, encoding="utf-8").read(), a.prompt))
+    if not a.find_fillers and bool(a.goal) == bool(a.goals_file):
+        p.error("give --goal or --goals-file (or --replay FILE, or --find-fillers OUT)")
     try:
         health, _ = call(a.url, "/api/v1/health")
     except CallFailed as e:
         raise SystemExit(f"cannot reach the server at {a.url}: {e}")
     print(f"Server {a.url}: {health['mode']} mode, run {health['run_id']}, "
           f"{health['model_name']} layer {health['hook_layer']}")
-    if a.record and health["mode"] != "real":
-        raise SystemExit("--record needs a real-mode server: the mock must replay real outputs")
+    if (a.record or a.find_fillers) and health["mode"] != "real":
+        raise SystemExit("--record and --find-fillers need a real-mode server: the mock must "
+                         "replay real outputs")
+    if a.find_fillers:
+        return run_find_fillers(a.url, health, a.find_fillers)
+    goals = ([(a.goal, a.prompt)] if a.goal else
+             parse_goals(open(a.goals_file, encoding="utf-8").read(), a.prompt))
 
     results, t_all = [], time.perf_counter()
     for i in range(a.repeat):
         for goal, prompt in goals:
-            res = run_chain(a.url, goal, prompt, a.sort, a.leading_space, a.search_only)
+            res = run_chain(a.url, goal, prompt, a.sort, a.search_only, filler_ids)
             res["repeat"] = i + 1
             results.append(res)
             if i == 0 or res["failures"] or a.verbose:
@@ -424,7 +562,7 @@ def main(argv=None):
             json.dump({"note": "Auto-Lab chains recorded on the real server by "
                                "server/scripts/autolab_check.py --record. The mock replays "
                                "them (marked simulated); do not edit by hand.",
-                       "run_id": health["run_id"], "rule": rule_dict(),
+                       "run_id": health["run_id"], "rule": rule_dict(filler_ids),
                        "goals": [r["raw"] for r in firsts]}, fh, indent=1, ensure_ascii=False)
             fh.write("\n")
         skipped = len(goals) - len(firsts)
@@ -434,7 +572,7 @@ def main(argv=None):
         r.pop("raw", None)
     if a.json:
         with open(a.json, "w", encoding="utf-8") as fh:
-            json.dump({"url": a.url, "health": health, "rule": rule_dict(),
+            json.dump({"url": a.url, "health": health, "rule": rule_dict(filler_ids),
                        "total_s": total, "results": results}, fh, indent=1, ensure_ascii=False)
         print(f"wrote {a.json}")
     return 1 if failed else 0

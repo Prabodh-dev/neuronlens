@@ -4,8 +4,8 @@ import type { AutoLabGoal } from "./autolab-presets";
 import { dropFillers } from "./autolab-fillers";
 
 /* Auto-Lab: for a goal and a prompt, find the features that fired on the goal's words, try each one at
-   every strength of the Every strength tab, and tag each strength. Every call runs one after another
-   (the model has one lock). Same chain and rule as server/scripts/autolab_check.py (rule v2). Tags:
+   every strength of the Every strength tab, and tag each strength. The model calls (search, sweeps) run
+   one after another (the model has one lock); the database reads for names and examples run beside them. Same chain and rule as server/scripts/autolab_check.py (rule v2). Tags:
      worked     the feature's reading on the finished text rose clearly from the unsteered text
                 (WORKED below) and the text did not loop
      none       no clear rise, no loop
@@ -22,10 +22,17 @@ export const WORKED = { minRise: 3.0, minRatio: 2 } as const;
  *  AUTOLAB_CANDIDATES. With fewer than MIN_CANDIDATES left, nothing else runs ("No feature matches"). */
 const SEARCH_TOP = 8;
 export const MIN_CANDIDATES = 3;
+/** Pieces per word above which the words are not ones the model knows: the search's query tokens
+ *  divided by the words typed. Prabodh measured 3 to 4 for 7 random-letter inputs, 1 to 1.5 for 9 real
+ *  words and the 6 goal buttons; score thresholds cannot tell them apart (fragment features fire strongly). */
+export const MAX_PIECES_PER_WORD = 2;
 
 export const AUTOLAB_SEED = 42;
 export const AUTOLAB_LEN = 60; // the Every strength tab's default length
 export const AUTOLAB_CANDIDATES = 5;
+/** What the screen says a full run takes ("about N seconds"): timed UI runs on Prabodh's laptop took 20 to
+ *  25 s (Mirdul's script, about 14 s). Never lower than real runs take; lower it only after timing again. */
+export const AUTOLAB_ETA_S = 20;
 /** The Every strength tab's strengths without the unsteered 0: the columns before the first sweep lands. */
 export const AUTOLAB_STRENGTHS = [0.25, 0.5, 0.75, 1, 1.5, 2];
 const MAX_DENSITY = 0.01; // as W8: without it very common features fill the search
@@ -90,27 +97,51 @@ export function snippet(ex: Example | undefined): Snippet | null {
   return { before: flat(t.slice(a, p).join("")), peak: t[p] === END ? "" : flat(t[p]), after: flat(t.slice(p + 1, z).join("")) };
 }
 
-/** Runs Auto-Lab. Resolves to "nomatch" when fewer than MIN_CANDIDATES features are left after the
- *  fillers are dropped (nothing else runs). A report from a mock server is marked `simulated`, and the
+/** Why a run stopped after the search, before any sweep: the model split the words into small pieces
+ *  (`tokens`: the pieces, as the search reports them), or too few features were left. */
+export type Stopped = { stop: "pieces"; tokens: string[] } | { stop: "nomatch" };
+
+/** Runs Auto-Lab. Resolves to a Stopped when the model splits the words into more than
+ *  MAX_PIECES_PER_WORD pieces each, or when fewer than MIN_CANDIDATES features are left after the
+ *  fillers are dropped (nothing else runs in either case). A report from a mock server is marked `simulated`, and the
  *  screen labels it so. Throws on errors and when `signal` aborts. */
-export async function runAutoLab(goal: AutoLabGoal, prompt: string, signal: AbortSignal, onStep: (s: Step) => void): Promise<Report | "nomatch"> {
+export async function runAutoLab(goal: AutoLabGoal, prompt: string, signal: AbortSignal, onStep: (s: Step) => void): Promise<Report | Stopped> {
   onStep({ stage: "search" });
   // a leading space, so the first word gets the token it has mid-sentence
   const found = await api.featureSearch({ query: " " + goal.words.trim(), top_n: SEARCH_TOP, max_density: MAX_DENSITY, sort: "activation" }, signal);
+  const words = goal.words.trim().split(/\s+/).length;
+  if (found.tokens.length / words > MAX_PIECES_PER_WORD) return { stop: "pieces", tokens: found.tokens };
   const picked = dropFillers(found.features).slice(0, AUTOLAB_CANDIDATES);
-  if (picked.length < MIN_CANDIDATES) return "nomatch";
+  if (picked.length < MIN_CANDIDATES) return { stop: "nomatch" };
 
-  // each candidate's name and top example, so it is clear what fired on the words (reads only)
-  const candidates: Candidate[] = [];
-  for (const f of picked) {
-    const d = await api.feature(f.feature_id, signal).catch(() => null);
-    candidates.push({ feature_id: f.feature_id, label: d?.label ?? f.label, example: snippet(d?.examples[0]) });
-  }
+  // Each candidate's name and top example (database reads, no model) are asked for all at once, beside
+  // the sweeps, so they never hold up the first sweep; until a read lands, its row shows the search's label.
+  let candidates: Candidate[] = picked.map((f) => ({ feature_id: f.feature_id, label: f.label, example: null }));
+  const n = candidates.length;
+  const named = (r: Row): Row => {
+    const c = candidates.find((x) => x.feature_id === r.feature_id);
+    return c ? { ...r, label: c.label, example: c.example } : r;
+  };
+  let shown: { i: number; rows: Row[] } = { i: 1, rows: [] };
+  const emit = (i: number, live: Row[]) => {
+    shown = { i, rows: live };
+    onStep({ stage: "feature", i, n, candidates, rows: live.map(named) });
+  };
+  const reads = Promise.all(
+    picked.map((f) =>
+      api.feature(f.feature_id, signal).then(
+        (d) => {
+          candidates = candidates.map((c) => (c.feature_id === f.feature_id ? { ...c, label: d.label ?? c.label, example: snippet(d.examples[0]) } : c));
+          if (!signal.aborted) emit(shown.i, shown.rows);
+        },
+        () => {}, // a failed read leaves the search's label
+      ),
+    ),
+  );
 
   const rows: Row[] = [];
-  const n = candidates.length;
   for (const [k, c] of candidates.entries()) {
-    onStep({ stage: "feature", i: k + 1, n, candidates, rows: [...rows] });
+    emit(k + 1, [...rows]);
     // the same call as the Every strength tab (its default strengths, the same seed and length), with
     // the feature's reading on each finished text
     const sw = await api.steerSweep({ feature_id: c.feature_id, prompt, seed: AUTOLAB_SEED, max_new_tokens: AUTOLAB_LEN, with_activations: true }, signal);
@@ -131,9 +162,11 @@ export async function runAutoLab(goal: AutoLabGoal, prompt: string, signal: Abor
       // a text identical to the unsteered one cannot read higher: no effect
       const tag: Tag = r.degenerate ? "breaks" : base !== null && steered !== null && worked(base, steered) ? "worked" : "none";
       cells = [...cells, { strength: r.strength, tag, base, steered, rise: base !== null && steered !== null ? steered - base : 0, stable: false, text: r.text, reason: r.reason }];
-      onStep({ stage: "feature", i: k + 1, n, candidates, rows: [...rows, partial()] });
+      emit(k + 1, [...rows, partial()]);
     }
     rows.push(partial());
   }
-  return { goal, prompt, seed: AUTOLAB_SEED, simulated: found.simulated, rows, verdict: pickBest(rows) };
+  await reads; // long done by now: they ran beside the sweeps
+  const final = rows.map(named);
+  return { goal, prompt, seed: AUTOLAB_SEED, simulated: found.simulated, rows: final, verdict: pickBest(final) };
 }

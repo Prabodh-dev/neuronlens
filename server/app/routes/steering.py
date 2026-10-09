@@ -104,12 +104,16 @@ def sweep(req: SteerSweepRequest, db: Database = Depends(get_db),
     One generation per strength plus the baseline, so this is the slowest call."""
     # with_activations (described on the request field) adds the feature's activation on the
     # baseline and on each text; the docstring stays as it was so openapi.json only gains lines
-    row = steerable_feature(db, req.feature_id)
-    check_length(runtime, req.prompt, "prompt")
-    out = run_check(runtime, lambda sc, rt: sc.strength_sweep(
-        rt, req.prompt, req.feature_id, row["max_activation"], req.strengths,
-        req.max_new_tokens, req.seed, with_activations=req.with_activations))
-    resp = SteerSweepResponse(**with_feature(out, row))
+    recorded = getattr(runtime, "recorded_sweep", None)  # mock: demo/autolab_examples.json
+    out = recorded(req.prompt, req.feature_id, req.strengths, req.seed,
+                   req.max_new_tokens) if recorded else None
+    if out is None:
+        row = steerable_feature(db, req.feature_id)
+        check_length(runtime, req.prompt, "prompt")
+        out = with_feature(run_check(runtime, lambda sc, rt: sc.strength_sweep(
+            rt, req.prompt, req.feature_id, row["max_activation"], req.strengths,
+            req.max_new_tokens, req.seed, with_activations=req.with_activations)), row)
+    resp = SteerSweepResponse(**out)
     if req.with_activations:
         return resp
     # flag off: the response is exactly what it was before the flag existed

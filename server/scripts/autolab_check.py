@@ -66,6 +66,12 @@ def recommend(rows):
     return best[1] if best else None
 
 
+def rule_dict():
+    return {"seed": SEED, "max_new_tokens": MAX_NEW_TOKENS, "candidates": CANDIDATES,
+            "max_density": MAX_DENSITY, "strengths": STRENGTHS, "rise_min": RISE_MIN,
+            "ratio_min": RATIO_MIN}
+
+
 def parse_goals(text, default_prompt):
     goals = []
     for line in text.splitlines():
@@ -111,14 +117,16 @@ def call(base, path, body=None, timeout=10):
 # ---------- the chain ----------
 
 def run_chain(base, goal, prompt):
-    """One Auto-Lab chain. Returns a dict with rows, recommendation, timings and failures."""
+    """One Auto-Lab chain. Returns a dict with rows, recommendation, timings and failures,
+    and under "raw" every request and response (what --record saves)."""
     t0 = time.perf_counter()
     out = {"goal": goal, "prompt": prompt, "rows": [], "failures": [], "calls": []}
+    search_req = {"query": goal, "top_n": CANDIDATES, "max_density": MAX_DENSITY}
     try:
-        search, s = call(base, "/api/v1/features/search",
-                         {"query": goal, "top_n": CANDIDATES, "max_density": MAX_DENSITY},
-                         SEARCH_TIMEOUT)
+        search, s = call(base, "/api/v1/features/search", search_req, SEARCH_TIMEOUT)
         out["calls"].append(("search", s))
+        out["raw"] = {"goal": goal, "prompt": prompt, "search_request": search_req,
+                      "search": search, "sweeps": []}
     except CallFailed as e:
         out["failures"].append(str(e))
         out["total_s"] = time.perf_counter() - t0
@@ -131,6 +139,7 @@ def run_chain(base, goal, prompt):
         try:
             sweep, s = call(base, "/api/v1/steer/sweep", body, SWEEP_TIMEOUT)
             out["calls"].append((f"sweep #{f['feature_id']}", s))
+            out["raw"]["sweeps"].append({"request": body, "response": sweep})
         except CallFailed as e:
             out["failures"].append(str(e))
             continue
@@ -193,6 +202,9 @@ def main(argv=None):
     p.add_argument("--goals-file", help="one goal per line: 'goal words' or 'goal words | prompt'")
     p.add_argument("--repeat", type=int, default=1, help="run every chain N times back to back")
     p.add_argument("--json", help="also write all results to this file")
+    p.add_argument("--record", help="real server only: save every search and sweep response "
+                                    "of the first run of each goal, for the mock "
+                                    "(demo/autolab_examples.json)")
     p.add_argument("-v", "--verbose", action="store_true", help="numbers per cell and per call")
     a = p.parse_args(argv)
     if bool(a.goal) == bool(a.goals_file):
@@ -205,6 +217,8 @@ def main(argv=None):
         raise SystemExit(f"cannot reach the server at {a.url}: {e}")
     print(f"Server {a.url}: {health['mode']} mode, run {health['run_id']}, "
           f"{health['model_name']} layer {health['hook_layer']}")
+    if a.record and health["mode"] != "real":
+        raise SystemExit("--record needs a real-mode server: the mock must replay real outputs")
 
     results, t_all = [], time.perf_counter()
     for i in range(a.repeat):
@@ -232,12 +246,24 @@ def main(argv=None):
             rec = r["recommendation"]
             print(f"  {'SHIP   ' if rec else 'NO BUTTON'}  {r['goal']!r} on {r['prompt']!r}"
                   + (f" -> #{rec['feature_id']} at {rec['strength']:g}" if rec else ""))
+    if a.record:
+        firsts = [r for r in results[:len(goals)] if r.get("raw") and not r["failures"]]
+        with open(a.record, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump({"note": "Auto-Lab chains recorded on the real server by "
+                               "server/scripts/autolab_check.py --record. The mock replays "
+                               "them (marked simulated); do not edit by hand.",
+                       "run_id": health["run_id"], "rule": rule_dict(),
+                       "goals": [r["raw"] for r in firsts]}, fh, indent=1, ensure_ascii=False)
+            fh.write("\n")
+        skipped = len(goals) - len(firsts)
+        print(f"recorded {len(firsts)} goal(s) to {a.record}"
+              + (f"; {skipped} skipped because a call failed" if skipped else ""))
+    for r in results:
+        r.pop("raw", None)
     if a.json:
         with open(a.json, "w", encoding="utf-8") as fh:
-            json.dump({"url": a.url, "health": health, "rule": {
-                "seed": SEED, "candidates": CANDIDATES, "max_density": MAX_DENSITY,
-                "strengths": STRENGTHS, "rise_min": RISE_MIN, "ratio_min": RATIO_MIN},
-                "total_s": total, "results": results}, fh, indent=1, ensure_ascii=False)
+            json.dump({"url": a.url, "health": health, "rule": rule_dict(),
+                       "total_s": total, "results": results}, fh, indent=1, ensure_ascii=False)
         print(f"wrote {a.json}")
     return 1 if failed else 0
 

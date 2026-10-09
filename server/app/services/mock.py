@@ -9,6 +9,8 @@ them, still marked [simulated]; anything else gets a filler stand-in. Tokens her
 rough word split, not GPT-2 tokens, so counts and divergence indices differ from real mode.
 Feature activations (X1) follow the same rule: the recorded max and mean for a recorded
 text, a deterministic stand-in otherwise.
+Auto-Lab: /features/search and /steer/sweep requests that match a goal recorded on the real
+server in demo/autolab_examples.json return those responses, simulated and tagged.
 """
 import contextlib
 import hashlib
@@ -64,6 +66,25 @@ def load_examples(path=EXAMPLES_PATH) -> dict:
     return out
 
 
+AUTOLAB_PATH = REPO_ROOT / "demo" / "autolab_examples.json"
+
+
+def load_autolab_examples(path=None) -> list:
+    """The Auto-Lab goals recorded on the real server (autolab_check.py --record): for each,
+    the search request and response and every sweep request and response. Empty if the file
+    is missing; the mock then gives stand-ins."""
+    try:
+        data = json.loads((path or AUTOLAB_PATH).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return data.get("goals") or []
+
+
+def _tag(prompt, text):
+    """The [simulated] tag after the prompt, as in every other mock text."""
+    return prompt + SIMULATED_TAG + text[len(prompt):] if text.startswith(prompt) else text
+
+
 def load_multi_examples(path=EXAMPLES_PATH) -> list:
     """The W5 entries ("multi") of demo/phase4_examples.json, the only source for the mock."""
     try:
@@ -83,6 +104,7 @@ class MockRuntime:
         self.d_sae = db.one("SELECT COUNT(*) AS n FROM features")["n"]
         self._examples = load_examples() if examples is None else examples
         self._multi = load_multi_examples() if examples is None else []
+        self._autolab = load_autolab_examples() if examples is None else []
         self._generated = OrderedDict()  # token ids -> how they were made, for X1 activations
 
     def count_tokens(self, text: str) -> int:
@@ -126,6 +148,33 @@ class MockRuntime:
         ids = [_seed("tok", p) % VOCAB for p in prompt_pieces + new_pieces]
         self._remember(ids, (prompt, seed, max_new_tokens), spec, max_activation)
         return steering_checks().Generation("".join(pieces), ids, len(prompt_pieces), pieces)
+
+    def recorded_search(self, query, top_n, max_density, sort):
+        """Auto-Lab: the recorded /features/search response for this exact query, density
+        cut and sort (top_n may be smaller than recorded), else None."""
+        for g in self._autolab:
+            req = g["search_request"]
+            if (req["query"], req.get("max_density"), req.get("sort", "activation")) != \
+                    (query, max_density, sort) or top_n > req.get("top_n", 10):
+                continue
+            return {**g["search"], "simulated": True, "features": g["search"]["features"][:top_n]}
+        return None
+
+    def recorded_sweep(self, prompt, feature_id, strengths, seed, max_new_tokens):
+        """Auto-Lab: the recorded /steer/sweep response (with activations) for this exact
+        request, texts tagged [simulated], else None."""
+        want = (prompt, feature_id, [float(s) for s in strengths], seed, max_new_tokens)
+        for g in self._autolab:
+            for sw in g["sweeps"]:
+                req = sw["request"]
+                if (req["prompt"], req["feature_id"], [float(s) for s in req["strengths"]],
+                        req["seed"], req["max_new_tokens"]) != want:
+                    continue
+                res = sw["response"]
+                return {**res, "baseline_text": _tag(prompt, res["baseline_text"]),
+                        "results": [{**r, "text": _tag(prompt, r["text"])}
+                                    for r in res["results"]]}
+        return None
 
     def recorded_multi(self, prompt, seed, max_new_tokens, steers, with_single_controls):
         """W5: the recorded multi example from demo/phase4_examples.json when the request

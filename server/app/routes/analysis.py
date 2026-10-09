@@ -206,6 +206,10 @@ def search(req: SearchRequest, db: Database = Depends(get_db), meta: dict = Depe
     if n > SEARCH_MAX_TOKENS:
         raise ApiError("TEXT_TOO_LONG",
                        f"query is {n} tokens; the limit is {SEARCH_MAX_TOKENS}")
+    recorded = getattr(runtime, "recorded_search", None)  # mock: demo/autolab_examples.json
+    out = recorded(req.query, req.top_n, req.max_density, req.sort) if recorded else None
+    if out is not None:
+        return SearchResponse(**out)
     tokens = strip_prefix(all_active(runtime, meta, SEARCH_PREFIX + req.query), SEARCH_PREFIX)
     agg = drop_dense(db, aggregate(tokens), req.max_density)
     info = dictionary(db, agg) if req.sort == "relative" else {}

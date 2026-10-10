@@ -1,13 +1,13 @@
 # ModelChooser: run the app on another model
 Owner: Anand (UI); Prabodh (the second model and its server)
 Branch: dev-anand (side experiment; merged only if it fully works)
-User sees: with one model's server running, the app looks as it did before, with no chooser. When more than one server answers, the status pill in the top bar (Mock, Live, Sample data) gets a ▾ and opens a menu titled "Run every page on". Each row is a model: its name, layer, number of features and mode, all read from that server's /health, and an "experimental" tag for a model marked experimental. Choosing one reloads the same page on that model. Then every page (Features, Inspect, Steer, Auto-Lab, Microscope, Metrics, the home page) calls that model's server. On an experimental model the "experimental" tag also shows in the status pill and in the footer, next to the model name. A chosen model whose server stops answering stays in the menu as "not responding", so there is a way back.
+User sees: with one model's server running, the app looks as it did before, with no chooser. When more than one server answers, the status pill in the top bar (Mock, Live, Sample data) gets a ▾ and opens a menu titled "Run every page on". Each row is a model: its name, layer, number of features and mode, all read from that server's /health, and an "experimental" tag for a model marked experimental. Choosing one reloads the same page on that model. Then every page (Features, Inspect, Steer, Auto-Lab, Microscope, Metrics, the home page) calls that model's server. The footer has one "Model" line, "Model: <model_name> · layer <layer> · <d_sae> features · k=<k>", read from /health; a part the server did not send is left out. On an experimental model the "experimental" tag also shows in the status pill and next to that line, with one more line under it: "Smaller training run than GPT-2, so expect weaker features." No numbers about the second model are typed into the app. A chosen model whose server stops answering stays in the menu as "not responding", so there is a way back.
 Endpoint / data used: no new endpoint. Each model is its own server with its own database, answering the same endpoints. `GET /api/v1/health` on every model when the app loads, with a 2.5 s limit; a model that does not answer is not offered.
 
 How it works
 - `web/src/lib/models.ts` lists the models: `{ id, label, apiBase, experimental }`.
   - `gpt2` on `http://127.0.0.1:8000`, the default. `NEXT_PUBLIC_API_BASE`, when set, still overrides it.
-  - `neo` on `http://127.0.0.1:8001`, experimental.
+  - `neo` on `http://127.0.0.1:8001`, experimental. Its optional `fillers` entry (`gpt-neo-125m`) is the name in its filler file.
   - `label` is for people reading the file. The screen shows `model_name` and `hook_layer` from /health, so no model name is written in the app.
 - The model is in the address as `?model=<id>`.
   - No `?model=` (or an unknown id) means the default model, so existing links, the demo and shared links made before the chooser open as they did.
@@ -28,10 +28,10 @@ Keyed per model (a model without an entry gets none of another model's)
   - Without an entry there are no buttons: the page says no prompts or goals were tested on this model, asks for a typed prompt and goal, and runs them live.
   - The time estimate is left out, because that model was not timed.
   - The foot says the ✓ thresholds were tuned on another model's runs and are untested on this one.
-- Filler lists: `web/public/autolab-fillers/<id>.json`.
-  - `web/scripts/copy-fillers.mjs` copies them unchanged from `demo/autolab_fillers.json` (the default model) and `demo/autolab_fillers_<id>.json`. It runs before `npm run dev` and `npm run build`, and only reads `demo/`.
+- Filler lists: `web/public/autolab-fillers/<name>.json`, where `<name>` is the model's `fillers` entry in `models.ts`, or its id when it has none (`gpt2` for the default model).
+  - `web/scripts/copy-fillers.mjs` copies them unchanged from `demo/autolab_fillers.json` (the default model) and `demo/autolab_fillers_<name>.json`. It runs before `npm run dev` and `npm run build`, and only reads `demo/`.
   - Auto-Lab and the Features page ("Your words") load the current model's list.
-  - With no file yet, nothing is dropped, and both screens say the model has no filler list yet. When Prabodh adds `demo/autolab_fillers_<id>.json`, the next `npm run dev` or `npm run build` picks it up with no code change.
+  - With no file yet, nothing is dropped, and both screens say the model has no filler list yet. When Prabodh adds `demo/autolab_fillers_gpt-neo-125m.json`, the next `npm run dev` or `npm run build` picks it up with no code change.
 - Not keyed: example sentences that are only inputs, run live on whichever model is chosen: the home page sentence and the Inspect pair. Saved steering examples come from each server's own database.
 
 Real demo example (feature ids, prompt, strength): none for the second model; nothing was recorded on it. The default model keeps all of its recordings unchanged.
@@ -48,6 +48,6 @@ How to test without the second model: start the usual server on 8000, and a seco
 NEURONLENS_MODE=mock NEURONLENS_DB=contracts/fixtures/sample.db uvicorn app.main:app --app-dir server --port 8001
 ```
 
-The chooser, the experimental tag and `?model=` switching then show. Both test servers report the same `model_name`, because both are the same mock code. A mock server also replays GPT-2's recorded Auto-Lab runs for the recorded goal words, so on such a test server use other words.
+The chooser, the experimental tag and `?model=` switching then show. Both test servers report the model name of their own database. To see two different names, point the second one at a copy of the sample database with `meta.model_name` changed, kept outside the repository. A mock server also replays GPT-2's recorded Auto-Lab runs for the recorded goal words, so on such a test server use other words.
 
 Status: working on dev-anand (typecheck and build pass; tested with mock servers on 8000 and 8001)

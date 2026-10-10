@@ -11,6 +11,9 @@ export type ModelEntry = {
   apiBase: string;
   /** Shown with an "experimental" tag next to its name. */
   experimental: boolean;
+  /** The name in this model's filler file, demo/autolab_fillers_<fillers>.json (the short form of its
+   *  Hugging Face name, as server/scripts/autolab_check.py --find-fillers is run for it). Defaults to `id`. */
+  fillers?: string;
 };
 
 // NEXT_PUBLIC_API_BASE, when set, still points the first model somewhere else, as before the chooser
@@ -18,7 +21,7 @@ const envBase = process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "").replace(/\
 
 export const MODELS: readonly ModelEntry[] = [
   { id: "gpt2", label: "GPT-2 small", apiBase: envBase || "http://127.0.0.1:8000", experimental: false },
-  { id: "neo", label: "Second model", apiBase: "http://127.0.0.1:8001", experimental: true },
+  { id: "neo", label: "Second model", apiBase: "http://127.0.0.1:8001", experimental: true, fillers: "gpt-neo-125m" },
 ];
 
 /** The model a link without ?model= opens, so existing links and the demo stay as they were. */

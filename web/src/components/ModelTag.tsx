@@ -1,6 +1,7 @@
 "use client";
 
 import { fmtInt } from "@/lib/format";
+import { modelLabel } from "@/lib/models";
 import { useHealth } from "./HealthProvider";
 import { ExperimentalTag } from "./ModelChooser";
 import { useModels } from "./ModelProvider";
@@ -16,7 +17,7 @@ export function ModelTag() {
   const { current } = useModels();
   if (!h) return null;
   const parts = [
-    h.model_name,
+    modelLabel(h.model_name),
     h.hook_layer != null && `layer ${h.hook_layer}`,
     h.d_sae != null && `${fmtInt(h.d_sae)} features`,
     h.k != null && `k=${h.k}`,

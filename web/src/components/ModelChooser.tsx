@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { fmtInt } from "@/lib/format";
+import { modelLabel } from "@/lib/models";
 import { chooseModel, useChoices, useModels } from "./ModelProvider";
 import s from "./ModelChooser.module.css";
 
@@ -62,7 +63,7 @@ export function ModelMenu({ onClose }: { onClose: () => void }) {
             </span>
             <span className={s.main}>
               <span className={s.nameRow}>
-                <span className={s.name}>{health ? health.model_name : entry.id}</span>
+                <span className={s.name}>{health ? modelLabel(health.model_name) : entry.id}</span>
                 {entry.experimental && <ExperimentalTag />}
               </span>
               <span className={s.sub}>

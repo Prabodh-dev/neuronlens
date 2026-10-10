@@ -3,6 +3,7 @@ from collections import defaultdict
 import numpy as np
 import torch
 
+from .modelutil import backbone, unembedding
 from .sae import TopKSAE
 from .textdecode import token_pieces
 
@@ -19,7 +20,7 @@ def load_sae(path, device="cuda"):
 
 @torch.no_grad()
 def _acts(model, col, sae, ids, mu, scale):
-    model.transformer(ids)  # fills col.out through the hook
+    backbone(model)(ids)  # fills col.out through the hook
     h = col.out[:, 1:, :].float()  # position p -> index p-1
     B, T1, d = h.shape
     acts, _ = sae.encode((h.reshape(-1, d) - mu) * scale)
@@ -94,7 +95,7 @@ def build_examples(model, col, tok, sae, ck, seqs, S, device="cuda", batch=4):
 @torch.no_grad()
 def logit_attribution(model, tok, sae, top=10, chunk=512):
     """Direct effect of each decoder direction on the output logits."""
-    WU = model.lm_head.weight.float()  # (V, d)
+    WU = unembedding(model).float()  # (V, d)
     out = {}
     for s in range(0, sae.d_sae, chunk):
         eff = sae.W_dec[s:s + chunk].float() @ WU.T  # (c, V)

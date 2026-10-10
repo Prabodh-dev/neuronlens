@@ -101,3 +101,7 @@ Two scripts build data files for the app (they run on the GPU machine, write to 
 - Checkpoints and the real database are not in git (data/ is ignored); they are shared by link.
 - Prior work: see the Disclosures section of the root README.md for what existed before the hackathon and what was built during it.
 - Honest limits: GPT-2 small and one layer; the strongest features are word-piece features; some features are ambiguous; steering too hard breaks text.
+
+## Second model (experiment)
+
+`--model` (default `gpt2`) on `scripts/run_training.py` selects another Hugging Face model; `scripts/compat_check.py` checks one before training; `--tokens`, `--measure` and `--minutes` set and size the token budget. All model-layout code is in `neuronlens/modelutil.py`. GPT-2 runs as before. Steps, file names and limits are in `docs/features/MultiModel.md`.

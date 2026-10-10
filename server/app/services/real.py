@@ -49,6 +49,18 @@ class RealRuntime:
     def d_sae(self) -> int:
         return self._rt.d_sae
 
+    @property
+    def model_name(self) -> str:
+        return self._rt.model_name
+
+    @property
+    def hook_layer(self) -> int:
+        return self._rt.hook_layer
+
+    @property
+    def d_model(self) -> int:
+        return self._rt.d_model
+
     def generate(self, prompt, max_new_tokens, seed, steering=None):
         with self._lock:
             return self._rt.generate(prompt, max_new_tokens, seed, steering)

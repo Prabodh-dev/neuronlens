@@ -6,6 +6,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { FeaturePicker, type PickedFeature } from "@/components/FeaturePicker";
 import { isMockModel, useHealth } from "@/components/HealthProvider";
 import { RunNote } from "@/components/RunNote";
+import { useModelData } from "@/components/useModelData";
+import type { SteerDemo } from "@/lib/model-data";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api, serverHas, type ApiError } from "@/lib/api/client";
 import type { SteerCheckResponse, SteerCompareResponse, SteerMode, SteerRequest, SteeringExample } from "@/lib/api/types";
@@ -34,12 +36,6 @@ type Shown = {
 };
 type Tab = "compare" | "sweep" | "prompt" | "combine";
 
-// the demo runs checked on the GPU (demo/phase4_examples.json, seed 42); a click reruns them live.
-// #1863 stays a recorded example only: it depends on the prompt and touches a hot-button topic.
-const DEMOS = [
-  { id: 3446, prompt: "The band walked on stage and", mode: "amplify" as SteerMode, strength: 0.5 },
-  { id: 13, prompt: "The acrobat hung", mode: "amplify" as SteerMode, strength: 0.5 },
-];
 
 export default function SteerPage() {
   return (
@@ -50,6 +46,7 @@ export default function SteerPage() {
 }
 
 function Steer() {
+  const demos = useModelData()?.steerDemos ?? [];
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -127,7 +124,7 @@ function Steer() {
     await compareWith({ feature_id: feature.feature_id, mode, strength: mode === "amplify" ? strength : 0, prompt, seed, max_new_tokens: maxTokens });
   }
 
-  async function loadDemo(d: (typeof DEMOS)[number]) {
+  async function loadDemo(d: SteerDemo) {
     let label: string | null = null;
     try {
       label = (await api.feature(d.id)).label;
@@ -166,14 +163,17 @@ function Steer() {
         <div>
           <h1>Steer</h1>
           <p className="lede">Turn one feature up or off. Same seed, two outputs.</p>
-          <div className={s.demos}>
-            <span className="small muted">Saved runs:</span>
-            {DEMOS.map((d) => (
-              <button key={d.id} type="button" className={s.demo} onClick={() => loadDemo(d)} disabled={steer.loading || check.loading}>
-                <span className="mono">#{d.id}</span> {d.mode === "amplify" ? "up" : "off"} · “{d.prompt.length > 26 ? `${d.prompt.slice(0, 26)}…` : d.prompt}”
-              </button>
-            ))}
-          </div>
+          {/* this model's runs checked earlier (lib/model-data.ts); none on a model nothing was checked on */}
+          {!!demos.length && (
+            <div className={s.demos}>
+              <span className="small muted">Saved runs:</span>
+              {demos.map((d) => (
+                <button key={d.id} type="button" className={s.demo} onClick={() => loadDemo(d)} disabled={steer.loading || check.loading}>
+                  <span className="mono">#{d.id}</span> {d.mode === "amplify" ? "up" : "off"} · “{d.prompt.length > 26 ? `${d.prompt.slice(0, 26)}…` : d.prompt}”
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

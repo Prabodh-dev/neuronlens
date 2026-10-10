@@ -918,3 +918,34 @@
     display: none;
   }
 }
+
+/* about this model, under the key numbers */
+.about {
+  max-width: var(--col);
+  margin-inline: auto;
+  padding: 90px var(--gutter) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.aboutName {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: clamp(26px, 3.2vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+.aboutPoints {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+.aboutPoints li::before {
+  content: "– ";
+  color: var(--faint);
+}

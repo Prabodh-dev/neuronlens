@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { HealthProvider } from "@/components/HealthProvider";
 import { ModelGate } from "@/components/ModelGate";
+import { ModelProvider } from "@/components/ModelProvider";
 import { ModelTag } from "@/components/ModelTag";
 import { TopBar } from "@/components/TopBar";
 import "./globals.css";
@@ -22,18 +23,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
-        <HealthProvider>
-          <TopBar />
-          <main id="main">
-            <ModelGate>{children}</ModelGate>
-          </main>
-          <footer className={s.footer}>
-            <div className={s.footInner}>
-              <span>{t("note.limit")}</span>
-              <ModelTag />
-            </div>
-          </footer>
-        </HealthProvider>
+        <ModelProvider>
+          <HealthProvider>
+            <TopBar />
+            <main id="main">
+              <ModelGate>{children}</ModelGate>
+            </main>
+            <footer className={s.footer}>
+              <div className={s.footInner}>
+                <span>{t("note.limit")}</span>
+                <ModelTag />
+              </div>
+            </footer>
+          </HealthProvider>
+        </ModelProvider>
       </body>
     </html>
   );

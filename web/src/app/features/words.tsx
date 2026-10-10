@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FeatureTitle } from "@/components/FeatureBits";
 import { EmptyState, ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
-import { dropFillers, FILLERS } from "@/lib/autolab-fillers";
+import { dropFillers, loadFillers } from "@/lib/autolab-fillers";
 import { showToken } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import s from "./explorer.module.css";
@@ -20,10 +20,12 @@ const TOP = 10;
 export function WordsResults({ q }: { q: string }) {
   const query = q.trim();
   const { data, error, loading, reload } = useApi(
-    (sig) =>
-      api
-        .featureSearch({ query, top_n: TOP + FILLERS.size, max_density: COMMON, sort: "activation" }, sig)
-        .then((r) => ({ ...r, features: dropFillers(r.features).slice(0, TOP) })),
+    async (sig) => {
+      // this model's filler list (none yet on some models: then nothing is dropped)
+      const fillers = await loadFillers();
+      const r = await api.featureSearch({ query, top_n: TOP + (fillers?.size ?? 0), max_density: COMMON, sort: "activation" }, sig);
+      return { ...r, features: dropFillers(r.features, fillers).slice(0, TOP), fillers: fillers?.size ?? null };
+    },
     query ? `w8:${query}` : null,
   );
 
@@ -98,8 +100,9 @@ export function WordsResults({ q }: { q: string }) {
           )}
           <div className={s.wordFoot}>
             <span className="small muted">
-              Shows which features fired on your words, not what the words mean. Features that fire on more than 1% of all tokens are left out, and so
-              are {FILLERS.size} that fire on almost any words. Ranked by raw activation.
+              Shows which features fired on your words, not what the words mean. Features that fire on more than 1% of all tokens are left out
+              {data.fillers === null ? " (this model has no filler list yet)" : `, and so are ${data.fillers} that fire on almost any words`}. Ranked by raw
+              activation.
             </span>
           </div>
         </div>

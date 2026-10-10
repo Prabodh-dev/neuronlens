@@ -32,7 +32,7 @@ npm install
 npm run dev
 ```
 
-The web app opens on http://localhost:3000 and calls the server at `http://localhost:8000/api/v1` by default. See `server/README.md` and `web/README.md` for the rest.
+The web app opens on http://localhost:3000 and calls the server at `http://127.0.0.1:8000/api/v1` by default (a second model, when one runs, is picked in the app: docs/features/ModelChooser.md). See `server/README.md` and `web/README.md` for the rest.
 
 ## Running in real mode
 
@@ -93,7 +93,7 @@ Flags: `--db` (default `../data/neuronlens.db`), `--rebuild-examples` (required 
 
 ## Pages and demo start-up
 
-The web app has six pages: Microscope, Features, Inspect, Steer, Auto-Lab and Metrics. The exact commands to start the back end and front end on the demo machine are in [docs/demo-startup.md](docs/demo-startup.md).
+The web app has six pages: Microscope, Features, Inspect, Steer, Auto-Lab and Metrics. The exact commands to start the back end and front end on the demo machine, and the optional second model on port 8001, are in [docs/demo-startup.md](docs/demo-startup.md).
 
 ## Claims policy
 

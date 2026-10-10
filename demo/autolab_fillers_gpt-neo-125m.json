@@ -1,0 +1,79 @@
+{
+ "note": "Filler features: features that come back from /features/search for many unrelated words. Written by server/scripts/autolab_check.py --find-fillers on the real server; Auto-Lab drops them from the candidates. Do not edit by hand.",
+ "date": "2026-10-10",
+ "run_id": "gpt-neo-125m-l8-k32",
+ "words": 200,
+ "search": {
+  "leading_space": true,
+  "top_n": 8,
+  "max_density": 0.01
+ },
+ "cutoff": {
+  "share": 0.1,
+  "more_than_words": 20.0
+ },
+ "fillers": [
+  {
+   "feature_id": 1969,
+   "label": "close bracket – after text",
+   "count": 198,
+   "share": 0.99
+  },
+  {
+   "feature_id": 8743,
+   "label": "vertical line – markdown divider",
+   "count": 53,
+   "share": 0.265
+  },
+  {
+   "feature_id": 3856,
+   "label": "hyphen – within a word",
+   "count": 47,
+   "share": 0.235
+  },
+  {
+   "feature_id": 1773,
+   "label": "new – programming object",
+   "count": 26,
+   "share": 0.13
+  },
+  {
+   "feature_id": 9037,
+   "label": "name – email addresses",
+   "count": 22,
+   "share": 0.11
+  }
+ ],
+ "near_misses": [
+  {
+   "feature_id": 196,
+   "label": "kindle – in a list of verbs",
+   "count": 20,
+   "share": 0.1
+  },
+  {
+   "feature_id": 4564,
+   "label": "tab – ui interface element",
+   "count": 19,
+   "share": 0.095
+  },
+  {
+   "feature_id": 5739,
+   "label": "remote – directory paths",
+   "count": 19,
+   "share": 0.095
+  },
+  {
+   "feature_id": 10845,
+   "label": "url fragments – website domains",
+   "count": 17,
+   "share": 0.085
+  },
+  {
+   "feature_id": 8074,
+   "label": "bo – word pieces",
+   "count": 13,
+   "share": 0.065
+  }
+ ]
+}

@@ -64,7 +64,8 @@ def main(argv=None):
     from neuronlens.interpret import load_sae
     device = "cuda" if torch.cuda.is_available() else "cpu"
     sae, ck = load_sae(str(ckpt), device)
-    model, tok = load_model(device)
+    from neuronlens.modelutil import model_name_from_ck
+    model, tok = load_model(device, model_name_from_ck(ck))
     col = Collector(model, ck["layer"])
     seqs = token_sequences(tok, a.data_dir, seed=a.seed)
     counter = cf.CofireCounter(sae.d_sae, device, a.row_block, a.accumulate)

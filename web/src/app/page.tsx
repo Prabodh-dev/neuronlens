@@ -6,10 +6,17 @@ import { CountUp } from "@/components/CountUp";
 import { isSampleData, useHealth } from "@/components/HealthProvider";
 import { DEMO_TEXT, LiveDemo } from "@/components/landing/LiveDemo";
 import { NeuronArt } from "@/components/landing/NeuronArt";
+import { ModelPicker } from "@/components/landing/ModelPicker";
 import { Tour } from "@/components/landing/Tour";
+import { usePickerState } from "@/components/ModelProvider";
+import { useModelData } from "@/components/useModelData";
 import s from "@/components/landing/landing.module.css";
 import { api } from "@/lib/api/client";
 import { fmtInt, showToken } from "@/lib/format";
+import { modelInfo } from "@/lib/model-info";
+import { modelLabel } from "@/lib/models";
+import { ExperimentalTag } from "@/components/ModelChooser";
+import { useModels } from "@/components/ModelProvider";
 import { tokenColors } from "@/lib/heat";
 import { useApi } from "@/lib/useApi";
 
@@ -37,8 +44,6 @@ function useReveal<T extends HTMLElement>() {
   return setEl;
 }
 
-// shown in "one neuron, many ideas" when the database has them; otherwise the first named ones
-const IDEAS = [1863, 3587, 3446, 9558, 4289];
 
 // server and browser trig can differ in the last digits; round so hydration matches
 const round = (v: number) => Math.round(v * 100) / 100;
@@ -51,7 +56,7 @@ const RINGS = [
   { r: 82, n: 26 },
 ];
 
-export default function Landing() {
+function Landing() {
   const { data: h } = useHealth();
   const sample = isSampleData(h);
   const names = useApi((sig) => api.features({ status: "named", sort: "max_activation", order: "desc", limit: 60 }, sig), "landing:names");
@@ -62,10 +67,13 @@ export default function Landing() {
   const demoPeak = Math.max(1e-6, ...(demo.data?.tokens ?? []).filter((t) => !t.is_outlier_position).map((t) => t.features[0]?.activation ?? 0));
 
   const named = useMemo(() => (names.data?.items ?? []).filter((f) => f.label).map((f) => ({ id: f.feature_id, label: f.label! })), [names.data]);
+  // "one neuron, many ideas": this model's picks (lib/model-data.ts) when the database has them, otherwise
+  // the first named ones
+  const picks = useModelData()?.ideas;
   const ideas = useMemo(() => {
-    const pref = IDEAS.map((id) => named.find((n) => n.id === id)).filter(Boolean) as typeof named;
+    const pref = (picks ?? []).map((id) => named.find((n) => n.id === id)).filter(Boolean) as typeof named;
     return (pref.length >= 5 ? pref : named).slice(0, 5);
-  }, [named]);
+  }, [named, picks]);
 
   const live = useReveal<HTMLElement>();
   const split = useReveal<HTMLElement>();
@@ -74,6 +82,7 @@ export default function Landing() {
 
   // sizes come from /health only, never hard-coded
   const total = h ? fmtInt(h.d_sae) : null;
+  const { current } = useModels();
 
   return (
     <div className={s.landing}>
@@ -102,7 +111,7 @@ export default function Landing() {
               <b>
                 L<CountUp to={h.hook_layer} />
               </b>
-              <span>layer of {h.model_name}</span>
+              <span>layer of {modelLabel(h.model_name)}</span>
             </div>
             <div className={s.stat}>
               <b>{ceRec !== null ? <CountUp to={ceRec * 100} decimals={1} suffix="%" /> : "–"}</b>
@@ -112,6 +121,22 @@ export default function Landing() {
           </div>
         )}
       </section>
+
+      {/* what this model is: its description from lib/model-info.ts, the name from /health */}
+      {h && current && (
+        <section className={s.about} aria-label="About this model">
+          <span className="eyebrow">Model</span>
+          <h2 className={s.aboutName}>
+            {modelLabel(h.model_name)} {current.experimental && <ExperimentalTag />}
+          </h2>
+          <p className={s.lead}>{modelInfo(current.id).summary}</p>
+          <ul className={s.aboutPoints}>
+            {modelInfo(current.id).points.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* one sentence, live */}
       {!demo.error && (
@@ -309,4 +334,13 @@ export default function Landing() {
       </section>
     </div>
   );
+}
+
+/** The home page. With one model answering it is the landing page, as before. With two or more and no
+ *  ?model= in the address it is the model picker first; choosing a model opens this landing page on it. */
+export default function Home() {
+  const state = usePickerState();
+  if (state === "pick") return <ModelPicker />;
+  if (state === "wait") return <div aria-hidden="true" style={{ minHeight: "100vh" }} />;
+  return <Landing />;
 }

@@ -221,6 +221,10 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ours, ck = load_sae(os.path.expanduser(a.ours), device)
     layer = ck["layer"]
+    from neuronlens.modelutil import model_name_from_ck
+    if model_name_from_ck(ck) != "gpt2":
+        raise SystemExit(f"the published SAE is for GPT-2 small; this checkpoint is for "
+                         f"{model_name_from_ck(ck)}; refusing to compare")
     if layer != a.published_layer:
         raise SystemExit(f"hook mismatch: our SAE hooks the output of block {layer} but the "
                          f"published SAE is for layer {a.published_layer}; refusing to compare")

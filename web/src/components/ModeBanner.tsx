@@ -1,6 +1,6 @@
 "use client";
 
-import { API_BASE } from "@/lib/api/client";
+import { apiBase } from "@/lib/api/client";
 import { t } from "@/lib/copy";
 import { useHealth } from "./HealthProvider";
 import s from "./ModeBanner.module.css";
@@ -11,7 +11,7 @@ export function ModeBanner() {
   let text: string | null = null;
   let kind: "warn" | "off" = "warn";
   if (error) {
-    text = t("banner.offline", { url: API_BASE });
+    text = t("banner.offline", { url: apiBase() });
     kind = "off";
   } else if (h?.is_synthetic) text = t("banner.synthetic");
   else if (h?.mode === "mock") text = t("banner.mock");

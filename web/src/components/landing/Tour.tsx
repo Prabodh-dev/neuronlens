@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useHealth } from "@/components/HealthProvider";
-import { API_BASE, api } from "@/lib/api/client";
+import { useModels } from "@/components/ModelProvider";
+import { useModelData } from "@/components/useModelData";
+import { api, apiBase } from "@/lib/api/client";
 import type { FeatureDetail, FeatureListItem, Health, InspectResponse, SteerMode } from "@/lib/api/types";
 import { t as copy } from "@/lib/copy";
 import { diffWords } from "@/lib/diff";
 import { fmtInt, readable, showToken } from "@/lib/format";
+import { modelLabel } from "@/lib/models";
+import type { SteerRun } from "@/lib/model-data";
 import { growCell, neuronSprites, pulse } from "./neuronShape";
 import s from "./tour.module.css";
 
@@ -17,8 +21,6 @@ import s from "./tour.module.css";
  *  feature is a point of light; up close each one is drawn as a neuron (the shape is an illustration).
  *  Everything on screen comes from the server: features, /inspect, /steer, examples, metrics. */
 
-// stops the tour visits when the database has them; otherwise the strongest named features
-const PREFERRED = [1863, 3587, 3446];
 const PAGE = 200;
 const TAU = Math.PI * 2;
 
@@ -37,9 +39,6 @@ type Run = {
   verdict: string;
 };
 
-// the demo's headline steering run, checked on the GPU (demo/phase4_examples.json): #3446 "music"
-// up 0.5 on this prompt reads 0.00 to 12.44. At 1.0 it drifts, so the tour uses 0.5.
-const HEADLINE = { feature_id: 3446, mode: "amplify" as SteerMode, strength: 0.5, prompt: "The band walked on stage and", seed: 42, max_new_tokens: 60 };
 type Scene =
   | { kind: "overview"; chapter: string; dur: number }
   | { kind: "read"; chapter: string; dur: number }
@@ -77,15 +76,18 @@ function useNeurons(enabled: boolean) {
   return items;
 }
 
-/** Up to three named features to visit. */
-function useStops(named: Named[] | null) {
+/** Up to three named features to visit: this model's picks first (lib/model-data.ts), when the database
+ *  has them, then the strongest named features. Waits until the page knows its model. */
+function useStops(named: Named[] | null, prefer: number[] | null) {
   const [stops, setStops] = useState<{ list: FeatureDetail[] } | null>(null);
-  const key = named ? named.map((n) => n.id).join(",") : null;
+  const key = named && prefer ? `${prefer.join(",")}|${named.map((n) => n.id).join(",")}` : null;
   useEffect(() => {
     if (key === null) return;
+    const [pre, rest] = key.split("|");
+    const PREFERRED = pre ? pre.split(",").map(Number) : [];
     const ctl = new AbortController();
     (async () => {
-      const ids = key ? key.split(",").map(Number) : [];
+      const ids = rest ? rest.split(",").map(Number) : [];
       const want = [...PREFERRED, ...ids.filter((id) => !PREFERRED.includes(id))];
       const list: FeatureDetail[] = [];
       for (const id of want) {
@@ -104,12 +106,13 @@ function useStops(named: Named[] | null) {
   return stops;
 }
 
-/** The steering chapter: the headline run through /steer/check, so it shows the text and the feature's
- *  activation on it. Live on the model in real mode, simulated in mock mode (and labelled so). */
-function useHeadline(enabled: boolean) {
+/** The steering chapter: this model's headline run (lib/model-data.ts) through /steer/check, so it shows
+ *  the text and the feature's activation on it. Live on the model in real mode, simulated in mock mode
+ *  (and labelled so). A model with no checked run has no steering chapter. */
+function useHeadline(enabled: boolean, HEADLINE: SteerRun | null) {
   const [out, setOut] = useState<{ f: FeatureDetail; run: Run } | null>(null);
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !HEADLINE) return;
     const ctl = new AbortController();
     Promise.all([api.feature(HEADLINE.feature_id, ctl.signal), api.steerCheck(HEADLINE, ctl.signal)])
       .then(([f, r]) => {
@@ -133,7 +136,7 @@ function useHeadline(enabled: boolean) {
         // model not loaded or the call failed: the chapter is left out, never filled from storage
       });
     return () => ctl.abort();
-  }, [enabled]);
+  }, [enabled, HEADLINE]);
   return out;
 }
 
@@ -168,9 +171,13 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
   const router = useRouter();
   const { error: offline } = useHealth();
   const neurons = useNeurons(!!h);
-  const stops = useStops(named);
+  const picks = useModelData();
+  const { current: model } = useModels();
+  const stops = useStops(named, picks ? picks.tourStops : null);
   const real = h?.mode === "real";
-  const headline = useHeadline(!!h && !h.is_synthetic);
+  const headline = useHeadline(!!h && !h.is_synthetic, picks?.tourSteer ?? null);
+  // the model's name comes from its /health, never from the code
+  const name = h ? modelLabel(h.model_name) : "the model";
   const tokens = useMemo(() => demo?.tokens ?? [], [demo]);
   const frames = useMemo<Frame[]>(
     () =>
@@ -887,11 +894,11 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
   const k = `${at}-${sc?.kind}`;
   const tryIt = `/inspect?text=${encodeURIComponent(tokens.map((t) => t.text).join(""))}`;
   // the header (and its banner) steps aside during the tour, so the tour carries the mode line itself
-  const mode = offline ? copy("banner.offline", { url: API_BASE }) : h?.is_synthetic ? copy("banner.synthetic") : h?.mode === "mock" ? copy("banner.mock") : null;
+  const mode = offline ? copy("banner.offline", { url: apiBase() }) : h?.is_synthetic ? copy("banner.synthetic") : h?.mode === "mock" ? copy("banner.mock") : null;
 
   return (
-    <div className={s.tour} data-scene={sc?.kind} role="region" aria-label="Guided tour of the features inside GPT-2">
-      <h1 className="visually-hidden">NeuronLens: put GPT-2 under a lens</h1>
+    <div className={s.tour} data-scene={sc?.kind} role="region" aria-label={`Guided tour of the features inside ${name}`}>
+      <h1 className="visually-hidden">NeuronLens: put {name} under a lens</h1>
       <canvas ref={canvasRef} className={s.canvas} aria-hidden="true" />
       <div className={s.shadeEdges} aria-hidden="true" />
       <div className={s.shadeCenter} data-on={sc?.kind === "overview" || sc?.kind === "outro" ? "1" : "0"} aria-hidden="true" />
@@ -905,9 +912,12 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       {/* opening and closing: big text in the middle of the field */}
       {sc?.kind === "overview" && (
         <div className={s.center} key={`c-${k}`}>
-          <span className={s.eyebrow}>{h ? `NeuronLens · ${h.model_name} · layer ${h.hook_layer}` : "NeuronLens"}</span>
+          <span className={s.eyebrow}>
+            {h ? `NeuronLens · ${modelLabel(h.model_name)} · layer ${h.hook_layer}` : "NeuronLens"}
+            {h && model?.experimental && " · experimental"}
+          </span>
           <p className={s.hero}>
-            Put GPT-2 <span className={s.dim}>under a lens.</span>
+            Put {name} <span className={s.dim}>under a lens.</span>
           </p>
           <p className={s.sub}>{h ? `${total} features. Each dot is one the model learned.` : "Waiting for the server…"}</p>
           <div className={s.ctas}>
@@ -927,7 +937,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
             <>
               <p className={`${s.hero} ${s.big}`}>{(ceRec * 100).toFixed(1)}%</p>
               <p className={s.sub}>
-                of GPT-2&apos;s next-word ability is kept when our {total} features replace layer {h?.hook_layer}.
+                of {name}&apos;s next-word ability is kept when our {total} features replace layer {h?.hook_layer}.
               </p>
             </>
           ) : (

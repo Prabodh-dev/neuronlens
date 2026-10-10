@@ -535,3 +535,21 @@ def test_all_slots_dead_key_work_moves(tmp_path):
                                       log=lines.append, batch=10)
     assert (done, failed) == (60, 0)  # the dead key's batches were answered by the others
     assert 0 < len(dead.calls) <= auto_label.MAX_SERVER_FAILS
+
+
+def test_system_prompt_names_the_database_model(tmp_path):
+    import sqlite3
+    path = _db(tmp_path)
+    con = auto_label.connect_ro(path)
+    assert auto_label.system_prompt(con) is auto_label.SYSTEM   # gpt2 layer 8: unchanged
+    con.close()
+    rw = sqlite3.connect(path)
+    rw.execute("UPDATE meta SET value='EleutherAI/gpt-neo-125M' WHERE key='model_name'")
+    rw.execute("UPDATE meta SET value='6' WHERE key='hook_layer'")
+    rw.commit()
+    rw.close()
+    con = auto_label.connect_ro(path)
+    text = auto_label.system_prompt(con)
+    con.close()
+    assert "EleutherAI/gpt-neo-125M (layer 6)" in text and "GPT-2 small" not in text
+    assert text.split("(layer 6)", 1)[1] == auto_label.SYSTEM.split("(layer 8)", 1)[1]

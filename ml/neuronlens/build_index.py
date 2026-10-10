@@ -7,6 +7,7 @@ import sqlite3
 import numpy as np
 
 from .activations import Collector, load_model, token_sequences
+from .modelutil import DEFAULT_MODEL, model_name_from_ck
 from .interpret import build_examples, load_sae, logit_attribution, scan
 
 # meta.schema_version written into every database; MAJOR.MINOR as in contracts/schema.sql
@@ -33,10 +34,13 @@ def _training_curve(run_dir):
 
 
 def build(ckpt_path, out_db, schema_path, n_seqs=3000, labels_path="labels.json",
-          data_dir="~/data/fineweb/sample/10BT", device="cuda"):
+          data_dir="~/data/fineweb/sample/10BT", device="cuda", model_name=None, notes=None):
     ckpt_path = os.path.expanduser(ckpt_path)
     sae, ck = load_sae(ckpt_path, device)
-    model, tok = load_model(device)
+    model_name = model_name or model_name_from_ck(ck)
+    # the default call stays exactly as it was for GPT-2
+    model, tok = (load_model(device) if model_name == DEFAULT_MODEL
+                  else load_model(device, model_name))
     col = Collector(model, ck["layer"])
     seqs = list(itertools.islice(token_sequences(tok, data_dir, seed=123), n_seqs))
     print("sequences:", len(seqs))
@@ -62,13 +66,13 @@ def build(ckpt_path, out_db, schema_path, n_seqs=3000, labels_path="labels.json"
     con = sqlite3.connect(out_db)
     con.executescript(open(schema_path).read())
 
-    meta = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "model_name": "gpt2",
+    meta = {"schema_version": SCHEMA_VERSION, "run_id": run_id, "model_name": model_name,
             "hook_layer": ck["layer"], "d_model": ck["d_model"], "d_sae": F,
             "k": ck["k"], "created_at": now, "is_synthetic": "false"}
     con.executemany("INSERT INTO meta VALUES (?,?)", [(k, str(v)) for k, v in meta.items()])
     con.execute("INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (run_id, "gpt2", ck["layer"], ck["d_model"], F, ck["k"],
-                 ck["cfg"].get("n_train_activations"), os.path.basename(ckpt_path), now, None))
+                (run_id, model_name, ck["layer"], ck["d_model"], F, ck["k"],
+                 ck["cfg"].get("n_train_activations"), os.path.basename(ckpt_path), now, notes))
 
     rows = []
     for f in range(F):

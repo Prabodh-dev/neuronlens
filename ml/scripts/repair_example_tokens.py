@@ -98,7 +98,8 @@ def rebuild(a):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     sae, ck = load_sae(os.path.expanduser(a.ckpt), device)
-    model, tok = load_model(device)
+    from neuronlens.modelutil import model_name_from_ck
+    model, tok = load_model(device, model_name_from_ck(ck))
     col = Collector(model, ck["layer"])
     seqs = list(itertools.islice(
         token_sequences(tok, a.data_dir, seed=a.seed), a.n_seqs))  # same as build_index

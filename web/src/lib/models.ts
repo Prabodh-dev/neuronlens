@@ -41,6 +41,10 @@ export function currentModel(): ModelEntry {
   return chosen;
 }
 
+/** The name shown on screen for a server's `model_name` (from /health): "gpt2" reads "GPT-2 small",
+ *  anything else is shown as the server returned it. */
+export const modelLabel = (modelName: string): string => (modelName === "gpt2" ? "GPT-2 small" : modelName);
+
 /** The base every API call of this model uses. */
 export const apiV1 = (m: ModelEntry): string => `${m.apiBase}/api/v1`;
 

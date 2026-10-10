@@ -11,6 +11,7 @@ import type { FeatureDetail, FeatureListItem, Health, InspectResponse, SteerMode
 import { t as copy } from "@/lib/copy";
 import { diffWords } from "@/lib/diff";
 import { fmtInt, readable, showToken } from "@/lib/format";
+import { modelLabel } from "@/lib/models";
 import type { SteerRun } from "@/lib/model-data";
 import { growCell, neuronSprites, pulse } from "./neuronShape";
 import s from "./tour.module.css";
@@ -176,7 +177,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
   const real = h?.mode === "real";
   const headline = useHeadline(!!h && !h.is_synthetic, picks?.tourSteer ?? null);
   // the model's name comes from its /health, never from the code
-  const name = h?.model_name ?? "the model";
+  const name = h ? modelLabel(h.model_name) : "the model";
   const tokens = useMemo(() => demo?.tokens ?? [], [demo]);
   const frames = useMemo<Frame[]>(
     () =>
@@ -912,7 +913,7 @@ export function Tour({ h, named, demo, ceRec }: { h: Health | null; named: Named
       {sc?.kind === "overview" && (
         <div className={s.center} key={`c-${k}`}>
           <span className={s.eyebrow}>
-            {h ? `NeuronLens · ${h.model_name} · layer ${h.hook_layer}` : "NeuronLens"}
+            {h ? `NeuronLens · ${modelLabel(h.model_name)} · layer ${h.hook_layer}` : "NeuronLens"}
             {h && model?.experimental && " · experimental"}
           </span>
           <p className={s.hero}>

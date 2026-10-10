@@ -11,6 +11,7 @@ import { useModelData } from "@/components/useModelData";
 import s from "@/components/landing/landing.module.css";
 import { api } from "@/lib/api/client";
 import { fmtInt, showToken } from "@/lib/format";
+import { modelLabel } from "@/lib/models";
 import { tokenColors } from "@/lib/heat";
 import { useApi } from "@/lib/useApi";
 
@@ -104,7 +105,7 @@ export default function Landing() {
               <b>
                 L<CountUp to={h.hook_layer} />
               </b>
-              <span>layer of {h.model_name}</span>
+              <span>layer of {modelLabel(h.model_name)}</span>
             </div>
             <div className={s.stat}>
               <b>{ceRec !== null ? <CountUp to={ceRec * 100} decimals={1} suffix="%" /> : "–"}</b>

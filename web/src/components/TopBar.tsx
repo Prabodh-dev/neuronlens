@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { fmtInt } from "@/lib/format";
+import { modelLabel } from "@/lib/models";
 import { isMockModel, isSampleData, useHealth } from "./HealthProvider";
 import { Logo } from "./Logo";
 import { ExperimentalTag, ModelMenu, useCanChoose } from "./ModelChooser";
@@ -126,7 +127,7 @@ export function TopBar() {
                 data-kind={error ? "off" : sim ? "sim" : "live"}
                 label={
                   h
-                    ? `${isSampleData(h) ? "Sample data" : isMockModel(h) ? "Mock" : "Live"}: ${h.model_name}${experimental ? " (experimental)" : ""}, layer ${h.hook_layer}, ${fmtInt(h.d_sae)} features, k ${h.k}`
+                    ? `${isSampleData(h) ? "Sample data" : isMockModel(h) ? "Mock" : "Live"}: ${modelLabel(h.model_name)}${experimental ? " (experimental)" : ""}, layer ${h.hook_layer}, ${fmtInt(h.d_sae)} features, k ${h.k}`
                     : error
                       ? "Offline"
                       : undefined
@@ -141,7 +142,7 @@ export function TopBar() {
                 )}
                 {h && (
                   <span className={s.chip} aria-hidden="true">
-                    {h.model_name} · L{h.hook_layer} · {fmtInt(h.d_sae)} · k={h.k}
+                    {modelLabel(h.model_name)} · L{h.hook_layer} · {fmtInt(h.d_sae)} · k={h.k}
                   </span>
                 )}
                 {canChoose && (

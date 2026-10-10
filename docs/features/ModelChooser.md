@@ -8,7 +8,7 @@ How it works
 - `web/src/lib/models.ts` lists the models: `{ id, label, apiBase, experimental }`.
   - `gpt2` on `http://127.0.0.1:8000`, the default. `NEXT_PUBLIC_API_BASE`, when set, still overrides it.
   - `neo` on `http://127.0.0.1:8001`, experimental. Its optional `fillers` entry (`gpt-neo-125m`) is the name in its filler file.
-  - `label` is for people reading the file. The screen shows `model_name` and `hook_layer` from /health, so no model name is written in the app.
+  - `label` is for people reading the file. The screen shows `model_name` and `hook_layer` from /health. `modelLabel()` in the same file only makes the name friendly: `gpt2` reads "GPT-2 small", any other name is shown as the server returned it. Every call, the health probe included, goes to `<apiBase>/api/v1/...`, built in one place (`apiV1`). Cross-port calls need no new header: reads send none that triggers a CORS preflight, and each server must list the page's origin in `NEURONLENS_CORS_ORIGINS` (default `http://localhost:3000`).
 - The model is in the address as `?model=<id>`.
   - No `?model=` (or an unknown id) means the default model, so existing links, the demo and shared links made before the chooser open as they did.
   - The model is read once when the page loads and stays fixed until it reloads. Choosing another model reloads the page, so one page never mixes two servers' answers or cached results.

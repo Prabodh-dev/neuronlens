@@ -1,13 +1,29 @@
-import data from "./autolab-fillers.json";
+import { currentModel } from "./models";
 
-/* Features that come back from the search for many unrelated words (several fire on the first query
-   word, whatever it is), so they are dropped from the search results in Auto-Lab and on the Features
-   page ("Your words"). autolab-fillers.json is an unchanged copy of demo/autolab_fillers.json, which
-   Mirdul's server/scripts/autolab_check.py --find-fillers measured on Prabodh's laptop (200 common
-   words, kept if they came back for more than 10% of them). Copy it again whenever it is regenerated;
-   the script and the mock read the same ids. */
-export const FILLERS: ReadonlySet<number> = new Set(data.fillers.map((f) => f.feature_id));
+/* Filler features: they come back from the search for many unrelated words (several fire on the first
+   query word, whatever it is), so Auto-Lab and the Features page ("Your words") drop them. Each model has
+   its own list, measured on its server with server/scripts/autolab_check.py --find-fillers and kept in
+   demo/autolab_fillers.json (the default model) or demo/autolab_fillers_<id>.json; scripts/copy-fillers.mjs
+   copies them unchanged to public/autolab-fillers/<id>.json, which is what this loads. A model without a
+   list gets null: nothing is dropped, and the screen says it has no filler list yet. */
 
-export function dropFillers<T extends { feature_id: number }>(features: T[]): T[] {
-  return features.filter((f) => !FILLERS.has(f.feature_id));
+export type Fillers = ReadonlySet<number>;
+
+const cache = new Map<string, Promise<Fillers | null>>();
+
+/** The filler ids of a model (default: this page's), or null when it has no filler list yet. */
+export function loadFillers(id: string = currentModel().id): Promise<Fillers | null> {
+  let p = cache.get(id);
+  if (!p) {
+    p = fetch(`/autolab-fillers/${encodeURIComponent(id)}.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { fillers?: { feature_id: number }[] } | null) => (Array.isArray(d?.fillers) ? new Set(d.fillers.map((f) => f.feature_id)) : null))
+      .catch(() => null);
+    cache.set(id, p);
+  }
+  return p;
+}
+
+export function dropFillers<T extends { feature_id: number }>(features: T[], fillers: Fillers | null): T[] {
+  return fillers ? features.filter((f) => !fillers.has(f.feature_id)) : features;
 }

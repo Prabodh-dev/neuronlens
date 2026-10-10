@@ -144,6 +144,17 @@
   font-size: 18px;
   line-height: 1;
 }
+.untested {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px dashed var(--line-3);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.ownWide {
+  width: min(460px, 100%) !important;
+}
 .own {
   min-height: 48px;
   width: 240px;

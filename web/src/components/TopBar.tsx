@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { fmtInt } from "@/lib/format";
 import { isMockModel, isSampleData, useHealth } from "./HealthProvider";
 import { Logo } from "./Logo";
+import { ExperimentalTag, ModelMenu, useCanChoose } from "./ModelChooser";
+import { useModels } from "./ModelProvider";
 import { ModeBanner } from "./ModeBanner";
 import s from "./TopBar.module.css";
 
@@ -57,7 +59,10 @@ export function TopBar() {
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => setOpen(false), [path]);
+  useEffect(() => {
+    setOpen(false);
+    setModels(false);
+  }, [path]);
 
   useEffect(() => {
     if (!immersive) return;
@@ -75,6 +80,10 @@ export function TopBar() {
   }
 
   const sim = h ? isSampleData(h) || isMockModel(h) : false;
+  const experimental = !!useModels().current?.experimental;
+  // with more than one model answering, the pill opens the model menu
+  const canChoose = useCanChoose();
+  const [models, setModels] = useState(false);
 
   return (
     <header
@@ -105,22 +114,44 @@ export function TopBar() {
         </nav>
 
         <div className={s.right}>
-          {/* one pill: server status, then the model it serves */}
+          {/* one pill: server status, then the model it serves; when more than one model's server
+              answers, it also opens the model menu */}
           {(h || error) && (
-            <span
-              className={s.status}
-              data-kind={error ? "off" : sim ? "sim" : "live"}
-              tabIndex={h ? 0 : undefined}
-              aria-label={h ? `${isSampleData(h) ? "Sample data" : isMockModel(h) ? "Mock" : "Live"}: ${h.model_name}, layer ${h.hook_layer}, ${fmtInt(h.d_sae)} features, k ${h.k}` : undefined}
-            >
-              <i aria-hidden="true" />
-              <b>{error ? "Offline" : isSampleData(h!) ? "Sample data" : isMockModel(h!) ? "Mock" : "Live"}</b>
-              {h && (
-                <span className={s.chip} aria-hidden="true">
-                  {h.model_name} · L{h.hook_layer} · {fmtInt(h.d_sae)} · k={h.k}
-                </span>
-              )}
-            </span>
+            <div className={s.pillWrap}>
+              <Pill
+                canChoose={canChoose}
+                open={models}
+                onToggle={() => setModels((o) => !o)}
+                className={s.status}
+                data-kind={error ? "off" : sim ? "sim" : "live"}
+                label={
+                  h
+                    ? `${isSampleData(h) ? "Sample data" : isMockModel(h) ? "Mock" : "Live"}: ${h.model_name}${experimental ? " (experimental)" : ""}, layer ${h.hook_layer}, ${fmtInt(h.d_sae)} features, k ${h.k}`
+                    : error
+                      ? "Offline"
+                      : undefined
+                }
+              >
+                <i aria-hidden="true" />
+                <b>{error ? "Offline" : isSampleData(h!) ? "Sample data" : isMockModel(h!) ? "Mock" : "Live"}</b>
+                {experimental && (
+                  <span className={s.pillExp}>
+                    <ExperimentalTag />
+                  </span>
+                )}
+                {h && (
+                  <span className={s.chip} aria-hidden="true">
+                    {h.model_name} · L{h.hook_layer} · {fmtInt(h.d_sae)} · k={h.k}
+                  </span>
+                )}
+                {canChoose && (
+                  <span className={s.caret} aria-hidden="true">
+                    ▾
+                  </span>
+                )}
+              </Pill>
+              {canChoose && models && <ModelMenu onClose={() => setModels(false)} />}
+            </div>
           )}
           <button className={s.menu} aria-label="Menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
             <span />
@@ -131,5 +162,38 @@ export function TopBar() {
       <span ref={progRef} className={s.progress} aria-hidden="true" />
       <ModeBanner />
     </header>
+  );
+}
+
+/** The status pill: a plain pill, or a button that opens the model menu when there is a model to choose. */
+function Pill(props: {
+  canChoose: boolean;
+  open: boolean;
+  onToggle: () => void;
+  className: string;
+  "data-kind": string;
+  label: string | undefined;
+  children: React.ReactNode;
+}) {
+  const { canChoose, open, onToggle, className, label, children } = props;
+  if (!canChoose)
+    return (
+      <span className={className} data-kind={props["data-kind"]} tabIndex={label ? 0 : undefined} aria-label={label}>
+        {children}
+      </span>
+    );
+  return (
+    <button
+      type="button"
+      className={className}
+      data-kind={props["data-kind"]}
+      data-choose="1"
+      aria-haspopup="menu"
+      aria-expanded={open}
+      aria-label={label ? `${label}. Choose a model` : "Choose a model"}
+      onClick={onToggle}
+    >
+      {children}
+    </button>
   );
 }

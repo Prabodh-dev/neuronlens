@@ -1,4 +1,5 @@
 import { copy, t, type CopyKey } from "../copy";
+import { apiV1, currentModel, type ModelEntry } from "../models";
 import type {
   CofireResponse,
   ErrorBody,
@@ -29,7 +30,10 @@ import type {
   TextCompareResponse,
 } from "./types";
 
-export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000/api/v1").replace(/\/+$/, "");
+/** The chosen model's API (lib/models.ts): every call of this page load goes to its server. */
+export function apiBase(): string {
+  return apiV1(currentModel());
+}
 
 /** Server error codes from the contract, plus the ones the browser can hit on its own. */
 export type ErrorCode = ErrorBody["code"] | "NETWORK" | "HTTP";
@@ -55,12 +59,27 @@ export function errorMessage(e: ApiError): string {
  *  not on every server yet (W5) stays hidden where it is missing. */
 export async function serverHas(path: string, signal?: AbortSignal): Promise<boolean> {
   try {
-    const r = await fetch(`${API_BASE.replace(/\/api\/v\d+$/, "")}/openapi.json`, { signal });
+    const r = await fetch(`${currentModel().apiBase}/openapi.json`, { signal });
     if (!r.ok) return false;
     const spec = (await r.json()) as { paths?: Record<string, unknown> };
     return Object.keys(spec.paths ?? {}).some((p) => p.endsWith(path));
   } catch {
     return false;
+  }
+}
+
+/** A model's /health, or null when its server does not answer within `ms` (the chooser lists only
+ *  models that answer). */
+export async function probeHealth(m: ModelEntry, ms = 2500): Promise<Health | null> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(`${apiV1(m)}/health`, { signal: ctl.signal });
+    return r.ok ? ((await r.json()) as Health) : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -83,7 +102,7 @@ async function request<T>(path: string, init: RequestInit = {}, signal?: AbortSi
   }, timeoutMs);
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, {
+    res = await fetch(apiBase() + path, {
       ...init,
       signal: ctl.signal,
       // only a request with a body says it is JSON: on a GET that header makes the browser send an
@@ -93,7 +112,7 @@ async function request<T>(path: string, init: RequestInit = {}, signal?: AbortSi
   } catch (e) {
     if (timedOut) throw new ApiError("NETWORK", `The server did not answer within ${timeoutMs / 1000} s.`, 0);
     if ((e as Error).name === "AbortError") throw e;
-    throw new ApiError("NETWORK", `Cannot reach ${API_BASE}.`, 0);
+    throw new ApiError("NETWORK", `Cannot reach ${apiBase()}.`, 0);
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);

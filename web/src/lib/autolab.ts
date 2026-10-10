@@ -1,7 +1,7 @@
 import { api } from "./api/client";
 import type { Example } from "./api/types";
 import type { AutoLabGoal } from "./autolab-presets";
-import { dropFillers } from "./autolab-fillers";
+import { dropFillers, loadFillers } from "./autolab-fillers";
 
 /* Auto-Lab: for a goal and a prompt, find the features that fired on the goal's words, try each one at
    every strength of the Every strength tab, and tag each strength. The model calls (search, sweeps) run
@@ -30,9 +30,6 @@ export const MAX_PIECES_PER_WORD = 2;
 export const AUTOLAB_SEED = 42;
 export const AUTOLAB_LEN = 60; // the Every strength tab's default length
 export const AUTOLAB_CANDIDATES = 5;
-/** What the screen says a full run takes ("about N seconds"): timed UI runs on Prabodh's laptop took 20 to
- *  25 s (Mirdul's script, about 14 s). Never lower than real runs take; lower it only after timing again. */
-export const AUTOLAB_ETA_S = 20;
 /** The Every strength tab's strengths without the unsteered 0: the columns before the first sweep lands. */
 export const AUTOLAB_STRENGTHS = [0.25, 0.5, 0.75, 1, 1.5, 2];
 const MAX_DENSITY = 0.01; // as W8: without it very common features fill the search
@@ -49,7 +46,8 @@ export type Verdict =
   | { status: "recommended"; row: Row; cell: Cell; worked: number }
   | { status: "unreliable" } // worked cells, but none stable
   | { status: "nothing" };
-export type Report = { goal: AutoLabGoal; prompt: string; seed: number; simulated: boolean; rows: Row[]; verdict: Verdict };
+/** `fillers`: how many filler features this model's list holds, or null when it has no list yet. */
+export type Report = { goal: AutoLabGoal; prompt: string; seed: number; simulated: boolean; fillers: number | null; rows: Row[]; verdict: Verdict };
 /** Progress: `rows` holds every row scored so far, the one being tried last. */
 export type Step = { stage: "search" } | { stage: "feature"; i: number; n: number; candidates: Candidate[]; rows: Row[] };
 
@@ -82,7 +80,7 @@ export function pickBest(rows: Row[]): Verdict {
   return { status: anyWorked ? "unreliable" : "nothing" };
 }
 
-const END = "<|endoftext|>"; // GPT-2's break between documents
+const END = "<|endoftext|>"; // the tokenizer's break between documents
 
 /** A few words around the peak of a feature's top example, kept within the peak's own document. */
 export function snippet(ex: Example | undefined): Snippet | null {
@@ -108,10 +106,13 @@ export type Stopped = { stop: "pieces"; tokens: string[] } | { stop: "nomatch" }
 export async function runAutoLab(goal: AutoLabGoal, prompt: string, signal: AbortSignal, onStep: (s: Step) => void): Promise<Report | Stopped> {
   onStep({ stage: "search" });
   // a leading space, so the first word gets the token it has mid-sentence
-  const found = await api.featureSearch({ query: " " + goal.words.trim(), top_n: SEARCH_TOP, max_density: MAX_DENSITY, sort: "activation" }, signal);
+  const [found, fillers] = await Promise.all([
+    api.featureSearch({ query: " " + goal.words.trim(), top_n: SEARCH_TOP, max_density: MAX_DENSITY, sort: "activation" }, signal),
+    loadFillers(), // this model's list (a file next to the app, not a server call)
+  ]);
   const words = goal.words.trim().split(/\s+/).length;
   if (found.tokens.length / words > MAX_PIECES_PER_WORD) return { stop: "pieces", tokens: found.tokens };
-  const picked = dropFillers(found.features).slice(0, AUTOLAB_CANDIDATES);
+  const picked = dropFillers(found.features, fillers).slice(0, AUTOLAB_CANDIDATES);
   if (picked.length < MIN_CANDIDATES) return { stop: "nomatch" };
 
   // Each candidate's name and top example (database reads, no model) are asked for all at once, beside
@@ -168,5 +169,5 @@ export async function runAutoLab(goal: AutoLabGoal, prompt: string, signal: Abor
   }
   await reads; // long done by now: they ran beside the sweeps
   const final = rows.map(named);
-  return { goal, prompt, seed: AUTOLAB_SEED, simulated: found.simulated, rows: final, verdict: pickBest(final) };
+  return { goal, prompt, seed: AUTOLAB_SEED, simulated: found.simulated, fillers: fillers?.size ?? null, rows: final, verdict: pickBest(final) };
 }

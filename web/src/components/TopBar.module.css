@@ -229,7 +229,39 @@
   transform: translateY(-3.25px) rotate(-45deg);
 }
 
+/* the status pill as the model chooser's button */
+.pillWrap {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+.status[data-choose="1"] {
+  font: inherit;
+  font-size: 12.5px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.status[data-choose="1"]:hover,
+.status[data-choose="1"][aria-expanded="true"] {
+  border-color: var(--ink-2);
+  background: rgb(255 255 255 / 0.04);
+}
+.caret {
+  margin-left: -2px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink-2);
+  transition: transform 0.2s var(--ease);
+}
+.status[aria-expanded="true"] .caret {
+  transform: rotate(180deg);
+}
 @media (max-width: 760px) {
+  /* on a phone the tag is in the model menu and the footer, so the bar keeps room */
+  .pillExp {
+    display: none;
+  }
   .inner {
     grid-template-columns: 1fr auto;
     gap: 12px;

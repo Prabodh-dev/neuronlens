@@ -15,9 +15,12 @@ export type AutoLabPresets = {
   tuned: boolean;
 };
 
+// the three prompts the second model shares with the first (they are inputs, not recordings)
+const PROMPTS = ["The band walked on stage and", "The man walked into the room and", "She opened the door and"];
+
 const PRESETS: Record<string, AutoLabPresets> = {
   gpt2: {
-    prompts: ["The band walked on stage and", "The man walked into the room and", "She opened the door and"],
+    prompts: PROMPTS,
     // all 6 goals ship after the laptop test (Prabodh); the words are the ones recorded in
     // demo/autolab_examples.json, so the mock replays the real runs for them
     goals: [
@@ -31,6 +34,19 @@ const PRESETS: Record<string, AutoLabPresets> = {
     // timed UI runs on Prabodh's laptop took 20 to 25 s (Mirdul's script, about 14 s)
     etaSeconds: 20,
     tuned: true,
+  },
+  // the second model (experimental): Auto-Lab was checked on six goals there and three are offered. No
+  // runs are recorded for it, so every run is live; not yet timed in the app, so the estimate is a round
+  // figure above the checked runs. The ✓ thresholds were tuned on GPT-2 runs.
+  neo: {
+    prompts: PROMPTS,
+    goals: [
+      { label: "Music", words: "music", icon: "♪" },
+      { label: "Courts and law", words: "court law", icon: "⚖︎" },
+      { label: "Weather", words: "weather rain", icon: "☂︎" },
+    ],
+    etaSeconds: 30,
+    tuned: false,
   },
 };
 

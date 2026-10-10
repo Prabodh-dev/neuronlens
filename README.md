@@ -93,7 +93,7 @@ Flags: `--db` (default `../data/neuronlens.db`), `--rebuild-examples` (required 
 
 ## Pages and demo start-up
 
-The web app has six pages: Microscope, Features, Inspect, Steer, Auto-Lab and Metrics. The exact commands to start the back end and front end on the demo machine are in [docs/demo-startup.md](docs/demo-startup.md).
+The web app has six pages: Microscope, Features, Inspect, Steer, Auto-Lab and Metrics. The exact commands to start the back end and front end on the demo machine, and the optional second model on port 8001, are in [docs/demo-startup.md](docs/demo-startup.md).
 
 ## Claims policy
 

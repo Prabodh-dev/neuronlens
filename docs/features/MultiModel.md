@@ -1,11 +1,23 @@
 # MultiModel: a second small model (experiment)
-Owner: Prabodh (ML); Mirdul (labels, server run); Anand only if the web app is pointed at it
-Branch: dev-prabodh
-User sees: Nothing in the main demo. A second server on port 8001 serves the same pages for another model, labelled experimental.
+Owner: Prabodh (ML); Mirdul (labels, server run); Anand (model chooser in the web app)
+Branch: neo-integration (ML and server side from dev-prabodh, web side from dev-anand)
+User sees: A second model offered next to GPT-2 in the app, labelled experimental, when its server on port 8001 is running. With only the GPT-2 server up the app is unchanged.
 Endpoint / data used: the existing endpoints, unchanged. Own files: `data/neuronlens-neo.db`, a checkpoint under `~/runs/`, `demo/autolab_fillers_<model>.json`.
-Real demo example (feature ids, prompt, strength): none yet. Examples recorded for GPT-2 do not carry over; feature numbers mean different things in each model.
-Honest limit shown on screen: "Experimental: a second model with its own sparse autoencoder. Its numbers are its own measurements and are not compared as better or worse than GPT-2."
-Status: experiment (code and tests on tiny random models; nothing trained or run on real data yet)
+Real demo example (feature ids, prompt, strength): none recorded. Examples recorded for GPT-2 do not carry over; feature numbers mean different things in each model. Auto-Lab runs live on it with three goal buttons.
+Honest limit shown on screen: the "experimental" tag and the line "Smaller training run than GPT-2, so expect weaker features." Its metrics are its own measurements.
+Status: included in the app as experimental (trained, evaluated, indexed and labelled; shown through the model chooser)
+
+## Measured results (this model, on its own)
+
+EleutherAI/gpt-neo-125M, layer 8, 12,288 features, k=32, trained on 37.5 million tokens.
+
+- On 256 held-out sequences it keeps 97.46% of next-word ability (ce_recovered 0.9746). FVU is 0.0248. FVU is not comparable across models: it depends on how much the activations vary at the hooked layer, which differs from model to model.
+- 61 of the 12,288 features are dead (0.50%).
+- 12,223 of the 12,227 live features have a label from Gemini: 8,383 named and 3,840 ambiguous. The labels are automatic and were not checked by hand.
+- Auto-Lab was checked on six goals on this model and three are offered: music, court law and weather rain. It runs live; no runs are recorded for it.
+- The filler list (`demo/autolab_fillers_gpt-neo-125m.json`) is cut at features that come back for more than 20 of 200 words (10%); the gap at the cutoff is small (22 words against 20).
+
+These are this model's own measurements. Nothing here is compared with another model.
 
 ## What it is
 
@@ -91,8 +103,8 @@ Each step passes or the model is dropped from the demo; none of them is a perfor
 1. `compat_check.py` prints COMPATIBLE: the token ids match GPT-2's on 50 sentences, the width is 768 and the layer exists, and position 0 stands out from later positions (ratio at least 3, a working threshold that is not calibrated). If the last one fails, dropping position 0 would discard a normal token and the recipe needs a decision before training.
 2. Training finishes and `eval.json` exists. Its FVU and CE recovered are shown as measured.
 3. The database builds, and `/health` on port 8001 reports the model name, layer 8 and sizes 768 and 12,288.
-4. Labels are spot-checked on 50 features, the same way as for GPT-2 (`auto_label.py sheet`).
-5. The filler file exists. Auto-Lab goals recorded for GPT-2 are not assumed to work: each goal is tried on this model before it is shown.
+4. Labels: Gemini labelled the features. They are automatic and were not checked by hand; a spot-check of 50 (`auto_label.py sheet`) is still open.
+5. The filler file exists, and Auto-Lab goals were tried on this model before being shown: six were checked and three are offered.
 
 ## Claims rules
 
@@ -103,7 +115,8 @@ Each step passes or the model is dropped from the demo; none of them is a perfor
 
 ## Limits
 
-- One extra model, one layer (8), one seed, one recipe. Nothing is known yet about how it trains.
-- The web app still has GPT-2 wording on the landing page and a GPT-2 filler copy in `web/src/lib/`; neither was changed here.
-- Real-model behaviour was not run: the code is tested on tiny random GPT-2 and GPT-Neo configs only, with no GPU and no model download.
-- Throughput and time are unmeasured until step 2 is run.
+- One extra model, one layer (8), one seed, one recipe.
+- Labels are automatic and not checked by hand, so some names will be wrong or too broad.
+- The ✓ thresholds of Auto-Lab were tuned on GPT-2 runs; the page says so for this model.
+- The "about 30 seconds" Auto-Lab estimate for this model is a round figure, not a timed measurement.
+- Co-fire counts and recorded steering examples exist for GPT-2 only.

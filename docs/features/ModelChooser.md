@@ -26,13 +26,15 @@ Keyed per model (a model without an entry gets none of another model's)
   - the Combine tab's recorded pair and its note
   - Without an entry: the home page and tour use the model's strongest named features, the tour has no Steering chapter, and the Steer and Combine one-click buttons are not shown.
 - `web/src/lib/autolab-presets.ts`: Auto-Lab's prompt and goal buttons, the "about N seconds" estimate, and whether the ✓ thresholds were tuned on that model.
+  - GPT-2: three prompts, six goal buttons, "about 20 seconds", thresholds tuned on its runs.
+  - The second model (`neo`): the same three prompts and three goal buttons (Music, Courts and law, Weather), "about 30 seconds", thresholds not tuned on it. No runs are recorded for it, so every run is live.
   - Without an entry there are no buttons: the page says no prompts or goals were tested on this model, asks for a typed prompt and goal, and runs them live.
   - The time estimate is left out, because that model was not timed.
   - The foot says the ✓ thresholds were tuned on another model's runs and are untested on this one.
 - Filler lists: `web/public/autolab-fillers/<name>.json`, where `<name>` is the model's `fillers` entry in `models.ts`, or its id when it has none (`gpt2` for the default model).
   - `web/scripts/copy-fillers.mjs` copies them unchanged from `demo/autolab_fillers.json` (the default model) and `demo/autolab_fillers_<name>.json`. It runs before `npm run dev` and `npm run build`, and only reads `demo/`.
   - Auto-Lab and the Features page ("Your words") load the current model's list.
-  - With no file yet, nothing is dropped, and both screens say the model has no filler list yet. When Prabodh adds `demo/autolab_fillers_gpt-neo-125m.json`, the next `npm run dev` or `npm run build` picks it up with no code change.
+  - With no file yet, nothing is dropped, and both screens say the model has no filler list yet. The second model's list, `demo/autolab_fillers_gpt-neo-125m.json`, is in the repository; the next `npm run dev` or `npm run build` copies it to `public/autolab-fillers/gpt-neo-125m.json`, and Auto-Lab then says how many features it leaves out.
 - Not keyed: example sentences that are only inputs, run live on whichever model is chosen: the home page sentence and the Inspect pair. Saved steering examples come from each server's own database.
 
 Real demo example (feature ids, prompt, strength): none for the second model; nothing was recorded on it. The default model keeps all of its recordings unchanged.
@@ -51,4 +53,4 @@ NEURONLENS_MODE=mock NEURONLENS_DB=contracts/fixtures/sample.db uvicorn app.main
 
 The chooser, the experimental tag and `?model=` switching then show. Both test servers report the model name of their own database. To see two different names, point the second one at a copy of the sample database with `meta.model_name` changed, kept outside the repository. A mock server also replays GPT-2's recorded Auto-Lab runs for the recorded goal words, so on such a test server use other words.
 
-Status: working on dev-anand (typecheck and build pass; tested with mock servers on 8000 and 8001)
+Status: included in the app (branch neo-integration): the second model ships as experimental next to GPT-2. Typecheck and build pass; tested with mock servers on 8000 and 8001, and with only the GPT-2 server up (no selector, no Models link).

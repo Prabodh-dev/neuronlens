@@ -1,8 +1,10 @@
 import type { SteerMode } from "./api/types";
+import { withModel } from "./models";
 
 /* S5: shareable links. Everything a result needs travels in the URL, with nothing stored on the server.
    Generation is seeded, so the same feature, prompt, strength, seed, mode and length on the same
-   server and checkpoint give the same result; `run` records which run the link was made on. */
+   server and checkpoint give the same result; `run` records which run the link was made on, and
+   `model` which model (lib/models.ts), left out for the default model so older links read the same. */
 
 export type SteerLink = { feature_id: number; mode: SteerMode; strength: number; seed: number; prompt: string; max_new_tokens: number };
 
@@ -11,7 +13,7 @@ const SEED_MAX = 2147483647;
 
 function withRun(u: URL, run: string | null | undefined) {
   if (run) u.searchParams.set("run", run);
-  return u.toString();
+  return withModel(u).toString();
 }
 
 /** A link that reopens one feature. */

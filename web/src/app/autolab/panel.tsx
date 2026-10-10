@@ -6,7 +6,6 @@ import { ErrorState } from "@/components/States";
 import { ApiError } from "@/lib/api/client";
 import {
   AUTOLAB_CANDIDATES,
-  AUTOLAB_ETA_S,
   AUTOLAB_LEN,
   AUTOLAB_SEED,
   AUTOLAB_STRENGTHS,
@@ -21,8 +20,9 @@ import {
   type Verdict,
 } from "@/lib/autolab";
 import { isBlockedGoal } from "@/lib/autolab-blocklist";
-import { FILLERS } from "@/lib/autolab-fillers";
-import { AUTOLAB_GOALS, AUTOLAB_PROMPTS, type AutoLabGoal } from "@/lib/autolab-presets";
+import { useAutoLabPresets } from "@/components/useModelData";
+import { loadFillers } from "@/lib/autolab-fillers";
+import type { AutoLabGoal } from "@/lib/autolab-presets";
 import { featureName, showToken } from "@/lib/format";
 import { steerLink } from "@/lib/share";
 import { after, LiveTag, strengthLabel } from "../steer/checks";
@@ -90,6 +90,19 @@ function CountTo({ to }: { to: number }) {
   return <>{act(v)}</>;
 }
 
+/** How many filler features this model's list holds: undefined while it loads, null when it has none yet. */
+function useFillerCount(): number | null | undefined {
+  const [n, setN] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    loadFillers().then((f) => live && setN(f ? f.size : null));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return n;
+}
+
 function tally(rows: Row[]) {
   const t = { worked: 0, none: 0, breaks: 0 };
   for (const r of rows) for (const c of r.cells) t[c.tag]++;
@@ -97,19 +110,28 @@ function tally(rows: Row[]) {
 }
 
 export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolean; run: string | null }) {
+  // this model's tested prompts and goals (none on a model nothing was tested on: then both are typed)
+  const presets = useAutoLabPresets();
+  const prompts = presets?.prompts ?? [];
+  const goals = presets?.goals ?? [];
   const [p, setP] = useState(0);
   const [g, setG] = useState(0); // a goal button, or -1 for the typed goal
   const [typed, setTyped] = useState("");
+  const [typedPrompt, setTypedPrompt] = useState("");
+  const fillers = useFillerCount();
   const [state, setState] = useState<State>({ kind: "idle" });
   const [log, setLog] = useState<Line[]>([]);
   const [pick, setPick] = useState<Pick | null>(null);
   const ctl = useRef<AbortController | null>(null);
   const running = state.kind === "running";
   const own = typedGoal(typed);
-  const goal = g >= 0 ? AUTOLAB_GOALS[g] : own.goal;
+  const gi = goals.length ? g : -1;
+  const goal = gi >= 0 ? goals[gi] : own.goal;
+  const prompt = prompts.length ? prompts[p] : typedPrompt.trim();
+  const eta = presets?.etaSeconds ?? null;
 
   async function go() {
-    if (!goal || running) return;
+    if (!goal || !prompt || running) return;
     const c = new AbortController();
     ctl.current = c;
     const t0 = performance.now();
@@ -122,7 +144,7 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
     say(`Searching for features that fired on ${goal.label}…`, "info");
     setState({ kind: "running", step: { stage: "search" }, t0 });
     try {
-      const r = await runAutoLab(goal, AUTOLAB_PROMPTS[p], c.signal, (step) => {
+      const r = await runAutoLab(goal, prompt, c.signal, (step) => {
         setState({ kind: "running", step, t0 });
         if (step.stage !== "feature") return;
         if (!found) {
@@ -171,26 +193,43 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
       </div>
 
       <div className={s.setup}>
+        {presets && !prompts.length && (
+          <p className={s.untested}>
+            No prompts or goals were tested on this model yet, so there are no buttons. Type a prompt and a goal, and Auto-Lab runs them live.
+          </p>
+        )}
         <div className={s.group} role="group" aria-label="Prompt">
-          <StepLabel n={1} text="Pick a prompt" />
+          <StepLabel n={1} text={presets && !prompts.length ? "Type a prompt" : "Pick a prompt"} />
           <div className={s.row}>
-            {AUTOLAB_PROMPTS.map((t, i) => (
+            {prompts.map((t, i) => (
               <button key={t} type="button" className={s.choice} aria-pressed={p === i} onClick={() => setP(i)} disabled={running}>
                 “{t}”
               </button>
             ))}
+            {presets && !prompts.length && (
+              <input
+                className={`${s.own} ${s.ownWide}`}
+                value={typedPrompt}
+                maxLength={120}
+                placeholder="✎ the start of a sentence, e.g. She opened the door and"
+                aria-label="Your own prompt"
+                data-on={typedPrompt.trim() ? "1" : undefined}
+                disabled={running}
+                onChange={(e) => setTypedPrompt(e.target.value)}
+              />
+            )}
           </div>
         </div>
 
         <div className={s.group} role="group" aria-label="Goal">
-          <StepLabel n={2} text="Pick a goal" />
+          <StepLabel n={2} text={presets && !goals.length ? "Type a goal" : "Pick a goal"} />
           <div className={s.row}>
-            {AUTOLAB_GOALS.map((x, i) => (
+            {goals.map((x, i) => (
               <button
                 key={x.label}
                 type="button"
                 className={`${s.choice} ${s.goal}`}
-                aria-pressed={g === i}
+                aria-pressed={gi === i}
                 onClick={() => {
                   setG(i);
                   setTyped("");
@@ -209,10 +248,10 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
               className={s.own}
               value={typed}
               maxLength={60}
-              placeholder="✎ or type 1 to 3 words"
+              placeholder={goals.length ? "✎ or type 1 to 3 words" : "✎ 1 to 3 words"}
               aria-label="Your own goal, 1 to 3 words"
-              aria-invalid={g < 0 && !!own.problem}
-              data-on={g < 0 && !!own.goal ? "1" : undefined}
+              aria-invalid={gi < 0 && !!own.problem}
+              data-on={gi < 0 && !!own.goal ? "1" : undefined}
               disabled={running}
               onChange={(e) => {
                 // typing selects the typed goal; an empty box leaves Run disabled until a button is picked
@@ -231,29 +270,34 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
               }}
             />
           </div>
-          {g < 0 && own.problem && <p className={s.problem}>{own.problem}</p>}
+          {gi < 0 && own.problem && <p className={s.problem}>{own.problem}</p>}
         </div>
 
         <div className={s.group}>
           <StepLabel n={3} text="Run it" />
           {running ? (
-            <RunStatus step={state.step} t0={state.t0} rows={liveRows} log={log} onCancel={() => ctl.current?.abort()} />
+            <RunStatus step={state.step} t0={state.t0} rows={liveRows} log={log} eta={eta} onCancel={() => ctl.current?.abort()} />
           ) : (
             <div className={s.runRow}>
-              <button type="button" className={s.run} onClick={go} disabled={!goal}>
+              <button type="button" className={s.run} onClick={go} disabled={!goal || !prompt}>
                 <span className={s.runGlyph} aria-hidden="true">
                   ▶
                 </span>
                 Run Auto-Lab
               </button>
               <span className={s.runSub}>
-                {goal ? (
+                {goal && prompt ? (
                   <>
                     {goal.icon && `${goal.icon} `}
-                    {goal.label} on “{AUTOLAB_PROMPTS[p]}” · seed {AUTOLAB_SEED} · up to {AUTOLAB_CANDIDATES * AUTOLAB_STRENGTHS.length} tests · about {AUTOLAB_ETA_S} seconds
+                    {goal.label} on “{prompt}” · seed {AUTOLAB_SEED} · up to {AUTOLAB_CANDIDATES * AUTOLAB_STRENGTHS.length} tests
+                    {eta !== null && ` · about ${eta} seconds`}
                   </>
-                ) : (
+                ) : !prompt ? (
+                  "Type a prompt"
+                ) : goals.length ? (
                   "Pick a goal or type one"
+                ) : (
+                  "Type a goal"
                 )}
               </span>
             </div>
@@ -305,7 +349,11 @@ export function AutoLabPanel({ simulatedServer, run }: { simulatedServer: boolea
       <div className={s.foot}>
         <b>A test on this prompt, not a fix.</b>
         <span>
-          One seed ({AUTOLAB_SEED}), {AUTOLAB_LEN} tokens, and up to {AUTOLAB_CANDIDATES} features that fired most on the goal&apos;s words, leaving out {FILLERS.size} that fire on almost any words.
+          One seed ({AUTOLAB_SEED}), {AUTOLAB_LEN} tokens, and up to {AUTOLAB_CANDIDATES} features that fired most on the goal&apos;s words
+          {fillers === null
+            ? "; this model has no filler list yet, so none are left out."
+            : fillers !== undefined && `, leaving out ${fillers} that fire on almost any words.`}
+          {presets && !presets.tuned && " The ✓ thresholds were tuned on another model's runs and are untested on this one."}
           {simulated && " Mock mode: these results are simulated, not from the model."}
         </span>
       </div>
@@ -341,7 +389,7 @@ function Tally({ rows, big = false }: { rows: Row[]; big?: boolean }) {
   );
 }
 
-function RunStatus({ step, t0, rows, log, onCancel }: { step: Step; t0: number; rows: Row[]; log: Line[]; onCancel: () => void }) {
+function RunStatus({ step, t0, rows, log, eta, onCancel }: { step: Step; t0: number; rows: Row[]; log: Line[]; eta: number | null; onCancel: () => void }) {
   const [now, setNow] = useState(() => performance.now());
   useEffect(() => {
     const id = setInterval(() => setNow(performance.now()), 200);
@@ -356,7 +404,7 @@ function RunStatus({ step, t0, rows, log, onCancel }: { step: Step; t0: number; 
       <div className={s.statusTop}>
         <span className={s.spinner} aria-hidden="true" />
         <b>
-          {label} <span className={s.eta}>about {AUTOLAB_ETA_S} seconds in all</span>
+          {label} {eta !== null && <span className={s.eta}>about {eta} seconds in all</span>}
         </b>
         <span className={s.clock}>{Math.floor((now - t0) / 1000)} s</span>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>

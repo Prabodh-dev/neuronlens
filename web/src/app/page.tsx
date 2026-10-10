@@ -7,6 +7,7 @@ import { isSampleData, useHealth } from "@/components/HealthProvider";
 import { DEMO_TEXT, LiveDemo } from "@/components/landing/LiveDemo";
 import { NeuronArt } from "@/components/landing/NeuronArt";
 import { Tour } from "@/components/landing/Tour";
+import { useModelData } from "@/components/useModelData";
 import s from "@/components/landing/landing.module.css";
 import { api } from "@/lib/api/client";
 import { fmtInt, showToken } from "@/lib/format";
@@ -37,8 +38,6 @@ function useReveal<T extends HTMLElement>() {
   return setEl;
 }
 
-// shown in "one neuron, many ideas" when the database has them; otherwise the first named ones
-const IDEAS = [1863, 3587, 3446, 9558, 4289];
 
 // server and browser trig can differ in the last digits; round so hydration matches
 const round = (v: number) => Math.round(v * 100) / 100;
@@ -62,10 +61,13 @@ export default function Landing() {
   const demoPeak = Math.max(1e-6, ...(demo.data?.tokens ?? []).filter((t) => !t.is_outlier_position).map((t) => t.features[0]?.activation ?? 0));
 
   const named = useMemo(() => (names.data?.items ?? []).filter((f) => f.label).map((f) => ({ id: f.feature_id, label: f.label! })), [names.data]);
+  // "one neuron, many ideas": this model's picks (lib/model-data.ts) when the database has them, otherwise
+  // the first named ones
+  const picks = useModelData()?.ideas;
   const ideas = useMemo(() => {
-    const pref = IDEAS.map((id) => named.find((n) => n.id === id)).filter(Boolean) as typeof named;
+    const pref = (picks ?? []).map((id) => named.find((n) => n.id === id)).filter(Boolean) as typeof named;
     return (pref.length >= 5 ? pref : named).slice(0, 5);
-  }, [named]);
+  }, [named, picks]);
 
   const live = useReveal<HTMLElement>();
   const split = useReveal<HTMLElement>();

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { FeaturePicker, type PickedFeature } from "@/components/FeaturePicker";
+import { useModelData } from "@/components/useModelData";
 import { ErrorState, Skeleton } from "@/components/States";
 import { api } from "@/lib/api/client";
 import type { MultiSteerRequest, MultiSteerResponse } from "@/lib/api/types";
 import { featureName } from "@/lib/format";
+import type { CombinePair } from "@/lib/model-data";
 import { useAction } from "@/lib/useApi";
 import { after, LiveTag, strengthLabel } from "./checks";
 import s from "./steer.module.css";
@@ -15,18 +17,18 @@ import s from "./steer.module.css";
    readings show which concepts were active in the finished text, nothing more (docs/features/W5.md).
    Seed and strength are always shown. */
 
-// the recorded pair (demo/phase4_examples.json, "multi"), found by an automated search
-const PAIR = { ids: [4280, 9530], strength: 0.5, prompt: "The man walked into the room and", seed: 42, maxTokens: 60 };
 const STRENGTHS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3]; // up to the steering cap of 3
 type Slot = { f: PickedFeature | null; strength: number };
 const empty = (): Slot => ({ f: null, strength: 0.5 });
 const act = (v: number) => v.toFixed(2);
 
-const isPair = (r: MultiSteerResponse) =>
-  r.prompt === PAIR.prompt &&
-  r.seed === PAIR.seed &&
-  r.steers.length === PAIR.ids.length &&
-  r.steers.every((x) => PAIR.ids.includes(x.feature_id) && x.strength === PAIR.strength);
+// this model's recorded pair (lib/model-data.ts), found by an automated search; none on other models
+const isPair = (r: MultiSteerResponse, pair: CombinePair | null) =>
+  !!pair &&
+  r.prompt === pair.prompt &&
+  r.seed === pair.seed &&
+  r.steers.length === pair.ids.length &&
+  r.steers.every((x) => pair.ids.includes(x.feature_id) && x.strength === pair.strength);
 
 export function CombinePanel(props: {
   prompt: string;
@@ -35,6 +37,7 @@ export function CombinePanel(props: {
   onSetup: (v: { prompt: string; seed: number; maxTokens: number }) => void;
 }) {
   const { prompt, seed, maxTokens } = props;
+  const PAIR = useModelData()?.combinePair ?? null;
   const [slots, setSlots] = useState<Slot[]>([empty(), empty()]);
   const [labels, setLabels] = useState<Record<number, string | null>>({});
   const combine = useAction((body: MultiSteerRequest, sig) => api.steerMulti(body, sig));
@@ -55,6 +58,7 @@ export function CombinePanel(props: {
   }
 
   async function loadPair() {
+    if (!PAIR) return;
     const fs = await Promise.all(
       PAIR.ids.map((id) =>
         api
@@ -82,9 +86,12 @@ export function CombinePanel(props: {
       </div>
       <div className="card-pad stack">
         <p className="small muted">Turn two or three features up together, with the prompt and seed on the left. Each one is also run alone.</p>
-        <button type="button" className={s.demo} style={{ alignSelf: "flex-start" }} onClick={loadPair} disabled={combine.loading}>
-          <span className="mono">#4280 + #9530</span> up {strengthLabel(PAIR.strength)} · “The man walked into…”
-        </button>
+        {PAIR && (
+          <button type="button" className={s.demo} style={{ alignSelf: "flex-start" }} onClick={loadPair} disabled={combine.loading}>
+            <span className="mono">{PAIR.ids.map((id) => `#${id}`).join(" + ")}</span> up {strengthLabel(PAIR.strength)} · “
+            {PAIR.prompt.length > 22 ? `${PAIR.prompt.slice(0, 22)}…` : PAIR.prompt}”
+          </button>
+        )}
         <ol className={s.slots}>
           {slots.map((x, i) => (
             <li key={i} className={s.slot}>
@@ -132,13 +139,13 @@ export function CombinePanel(props: {
           </div>
         )}
       </div>
-      {res && <CombineResult res={res} labels={labels} busy={combine.loading} />}
+      {res && <CombineResult res={res} labels={labels} busy={combine.loading} pair={PAIR} />}
     </section>
   );
 }
 
-function CombineResult({ res, labels, busy }: { res: MultiSteerResponse; labels: Record<number, string | null>; busy: boolean }) {
-  const found = isPair(res);
+function CombineResult({ res, labels, busy, pair }: { res: MultiSteerResponse; labels: Record<number, string | null>; busy: boolean; pair: CombinePair | null }) {
+  const found = isPair(res, pair);
   const alone = new Map((res.single_feature_runs ?? []).map((r) => [r.feature_id, r]));
   const strengthOf = (id: number) => res.steers.find((x) => x.feature_id === id)?.strength;
   return (
@@ -215,8 +222,7 @@ function CombineResult({ res, labels, busy }: { res: MultiSteerResponse; labels:
       </div>
       <div className={s.foot}>
         <span className="small muted">
-          {found &&
-            "This pair was picked by a search from 100 pairs, and it depends on the prompt: on “The woman looked at him and” only one of the two went up. "}
+          {found && pair?.note}
           Each number is the feature&apos;s highest reading on the new text, re-read without steering: it shows which concepts were active, not whether the
           text is better. Alone: that feature turned up by itself, same prompt, seed and strength. The loop warning catches repetition, not all poor text.
         </span>

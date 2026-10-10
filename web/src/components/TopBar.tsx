@@ -112,6 +112,11 @@ export function TopBar() {
               </Link>
             );
           })}
+          {canChoose && (
+            <Link href="/models" className={s.link} aria-current={path === "/models" ? "page" : undefined} onPointerEnter={hover}>
+              Models
+            </Link>
+          )}
         </nav>
 
         <div className={s.right}>

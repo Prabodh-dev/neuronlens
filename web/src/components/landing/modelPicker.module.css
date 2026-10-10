@@ -1,4 +1,4 @@
-/* the model picker, in the landing page's black and white and its tile look */
+/* the model selector: a turning sphere per model, in the landing page's black and white */
 @keyframes rise {
   from {
     opacity: 0;
@@ -13,11 +13,11 @@
   max-width: var(--col);
   min-height: calc(100vh - var(--head-h, 64px));
   margin-inline: auto;
-  padding: 120px var(--gutter) 90px;
+  padding: 110px var(--gutter) 90px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 44px;
+  gap: 36px;
 }
 .head {
   display: flex;
@@ -41,41 +41,54 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
-.card {
+.choice {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
-  padding: 26px 26px 22px;
+  padding: 18px 26px 22px;
   border-radius: 22px;
-  border: 1px solid var(--line);
-  background: linear-gradient(180deg, #0a0a0a, #050505);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
   animation: rise 0.8s var(--ease) both;
-  transition: border-color 0.3s, transform 0.4s var(--ease);
+  transition: border-color 0.3s, background 0.3s;
 }
-.card:hover:not(:disabled),
-.card:focus-visible {
-  border-color: rgb(255 255 255 / 0.32);
-  transform: translateY(-3px);
+.choice:hover:not(:disabled),
+.choice:focus-visible {
+  border-color: var(--line-3);
+  background: linear-gradient(180deg, #0a0a0a, #050505);
 }
-.card:focus-visible {
+.choice:focus-visible {
   outline: none;
   box-shadow: var(--ring);
 }
-.card:disabled {
+.choice:disabled {
   cursor: default;
   opacity: 0.55;
+}
+.sphere {
+  align-self: center;
+  width: min(100%, 250px);
+  margin-bottom: 4px;
 }
 .tagRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+}
+.here {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .name {
   font-size: clamp(26px, 3.2vw, 40px);
@@ -137,14 +150,14 @@
   border-bottom: 1px solid var(--line-3);
   transition: border-color 0.2s;
 }
-.card:hover:not(:disabled) .open {
+.choice:hover:not(:disabled) .open {
   border-color: #fff;
 }
 .open span {
   display: inline-block;
   transition: transform 0.3s var(--ease);
 }
-.card:hover:not(:disabled) .open span {
+.choice:hover:not(:disabled) .open span {
   transform: translateX(4px);
 }
 @media (max-width: 760px) {
@@ -152,12 +165,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .wrap {
-    padding-top: 96px;
+    padding-top: 90px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .head,
-  .card {
+  .choice {
     animation: none;
   }
 }

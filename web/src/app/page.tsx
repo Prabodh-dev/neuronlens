@@ -6,12 +6,17 @@ import { CountUp } from "@/components/CountUp";
 import { isSampleData, useHealth } from "@/components/HealthProvider";
 import { DEMO_TEXT, LiveDemo } from "@/components/landing/LiveDemo";
 import { NeuronArt } from "@/components/landing/NeuronArt";
+import { ModelPicker } from "@/components/landing/ModelPicker";
 import { Tour } from "@/components/landing/Tour";
+import { usePickerState } from "@/components/ModelProvider";
 import { useModelData } from "@/components/useModelData";
 import s from "@/components/landing/landing.module.css";
 import { api } from "@/lib/api/client";
 import { fmtInt, showToken } from "@/lib/format";
+import { modelInfo } from "@/lib/model-info";
 import { modelLabel } from "@/lib/models";
+import { ExperimentalTag } from "@/components/ModelChooser";
+import { useModels } from "@/components/ModelProvider";
 import { tokenColors } from "@/lib/heat";
 import { useApi } from "@/lib/useApi";
 
@@ -51,7 +56,7 @@ const RINGS = [
   { r: 82, n: 26 },
 ];
 
-export default function Landing() {
+function Landing() {
   const { data: h } = useHealth();
   const sample = isSampleData(h);
   const names = useApi((sig) => api.features({ status: "named", sort: "max_activation", order: "desc", limit: 60 }, sig), "landing:names");
@@ -77,6 +82,7 @@ export default function Landing() {
 
   // sizes come from /health only, never hard-coded
   const total = h ? fmtInt(h.d_sae) : null;
+  const { current } = useModels();
 
   return (
     <div className={s.landing}>
@@ -115,6 +121,22 @@ export default function Landing() {
           </div>
         )}
       </section>
+
+      {/* what this model is: its description from lib/model-info.ts, the name from /health */}
+      {h && current && (
+        <section className={s.about} aria-label="About this model">
+          <span className="eyebrow">Model</span>
+          <h2 className={s.aboutName}>
+            {modelLabel(h.model_name)} {current.experimental && <ExperimentalTag />}
+          </h2>
+          <p className={s.lead}>{modelInfo(current.id).summary}</p>
+          <ul className={s.aboutPoints}>
+            {modelInfo(current.id).points.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* one sentence, live */}
       {!demo.error && (
@@ -312,4 +334,13 @@ export default function Landing() {
       </section>
     </div>
   );
+}
+
+/** The home page. With one model answering it is the landing page, as before. With two or more and no
+ *  ?model= in the address it is the model picker first; choosing a model opens this landing page on it. */
+export default function Home() {
+  const state = usePickerState();
+  if (state === "pick") return <ModelPicker />;
+  if (state === "wait") return <div aria-hidden="true" style={{ minHeight: "100vh" }} />;
+  return <Landing />;
 }

@@ -8,7 +8,7 @@ import { DEFAULT_MODEL, MODELS, currentModel, withModel, type ModelEntry } from 
 
 /** One model of lib/models.ts and its /health: undefined while asking, null when it did not answer. */
 export type Probe = { entry: ModelEntry; health: Health | null | undefined };
-type Models = { current: ModelEntry | null; probes: Probe[] };
+type Models = { current: ModelEntry | null; probes: Probe[]; explicit: boolean | null };
 
 const ModelContext = createContext<Models | null>(null);
 
@@ -17,10 +17,13 @@ const ModelContext = createContext<Models | null>(null);
  *  (its presets and recorded examples) waits for it rather than showing the default model's first. */
 export function ModelProvider({ children }: { children: React.ReactNode }) {
   const [current, setCurrent] = useState<ModelEntry | null>(null);
+  // whether the address named a model (?model=...) when the page loaded; null until it has loaded
+  const [explicit, setExplicit] = useState<boolean | null>(null);
   const [probes, setProbes] = useState<Probe[]>(() => MODELS.map((entry) => ({ entry, health: undefined })));
 
   useEffect(() => {
     setCurrent(currentModel());
+    setExplicit(new URLSearchParams(window.location.search).has("model"));
     let live = true;
     MODELS.forEach((m) =>
       probeHealth(m).then((health) => live && setProbes((ps) => ps.map((p) => (p.entry.id === m.id ? { ...p, health } : p)))),
@@ -31,7 +34,7 @@ export function ModelProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ModelContext.Provider value={{ current, probes }}>
+    <ModelContext.Provider value={{ current, probes, explicit }}>
       {children}
       <Suspense fallback={null}>
         <KeepModelInUrl />
@@ -73,4 +76,23 @@ export function useChoices(): Probe[] {
 export function chooseModel(m: ModelEntry) {
   const path = window.location.pathname.startsWith("/features/") ? "/features" : window.location.pathname;
   window.location.assign(withModel(new URL(path, window.location.origin), m).toString());
+}
+
+/** What the home page shows first: "wait" until it is known whether more than one model answers, "pick"
+ *  (the model picker) when the address names no model and two or more answer, otherwise "go" (the
+ *  landing page, exactly as before the picker). One server answering never shows the picker. */
+export function usePickerState(): "wait" | "pick" | "go" {
+  const { current, probes, explicit } = useModels();
+  if (current === null || explicit === null) return "wait";
+  if (explicit) return "go";
+  if (probes.some((p) => p.health === undefined)) return "wait";
+  return probes.filter((p) => p.health).length >= 2 ? "pick" : "go";
+}
+
+/** Opens the landing page on the model picked in the picker. The model is named in the address even for
+ *  the default one (?model=gpt2), which is what tells the home page a choice was made. */
+export function pickModel(m: ModelEntry) {
+  const url = new URL("/", window.location.origin);
+  url.searchParams.set("model", m.id);
+  window.location.assign(url.toString());
 }

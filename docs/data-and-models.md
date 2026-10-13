@@ -31,7 +31,7 @@ The commands, in order, are in [ml/README.md](../ml/README.md) (GPT-2) and [feat
 2. Train: `ml/scripts/run_training.py ml/configs/gpt2-small.yaml` (100 million activations, k = 32, 12,288 features). The Neo config is `ml/configs/gpt-neo-125m.yaml`; its run used 37.5 million tokens.
 3. Evaluate: `ml/scripts/run_evals.py`.
 4. Build the database: `ml/scripts/make_index.py`, which scans 3,000 sequences and writes the schema in `contracts/schema.sql`.
-5. Name the features: `ml/scripts/auto_label.py` (needs `GEMINI_API_KEY` in the environment or a git-ignored `.env`). Labels can differ between runs; the repository does not contain the labels used for the numbers in the README except for the 16 hand-written entries in `ml/labels.json`.
+5. Name the features: `ml/scripts/auto_label.py` (needs `pip install -r ml/requirements-labelling.txt` and `GEMINI_API_KEY` in the environment or a git-ignored `.env`). Labels can differ between runs; the repository does not contain the labels used for the numbers in the README except for the 16 hand-written entries in `ml/labels.json`.
 6. Optional data files: `ml/scripts/build_cofire.py` and `ml/scripts/build_map.py` ([phase4-data-files.md](phase4-data-files.md)).
 7. Start the server in real mode: [demo-startup.md](demo-startup.md).
 

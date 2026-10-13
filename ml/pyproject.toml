@@ -3,6 +3,7 @@ name = "neuronlens"
 version = "0.1.0"
 description = "TopK sparse autoencoder interpretability toolkit for GPT-2 small"
 requires-python = ">=3.11"
+license = "MIT"
 dependencies = [
     "torch",
     "transformers",
@@ -13,7 +14,7 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

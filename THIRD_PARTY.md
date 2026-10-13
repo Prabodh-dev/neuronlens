@@ -20,13 +20,13 @@ Licenses come from each package's metadata (PyPI for Python, `node_modules/*/pac
 | pytest | server and ml tests | MIT |
 | httpx | server tests | BSD-3-Clause |
 
-Imported by the code but not listed in the requirements files:
+Imported by the code but not listed in the main requirements files (`google-genai` has its own file):
 
 | Package | Used by | License |
 | --- | --- | --- |
 | pyarrow | `ml/neuronlens/activations.py` (installed as a dependency of `datasets`) | Apache-2.0 |
 | huggingface_hub | `ml/scripts/compare_published.py` (installed as a dependency of `transformers`) | Apache-2.0 |
-| google-genai | `ml/scripts/auto_label.py`, only when you label with Gemini | Apache-2.0 |
+| google-genai | `ml/scripts/auto_label.py`, only when you label with Gemini; listed in `ml/requirements-labelling.txt` | Apache-2.0 |
 | umap-learn | `ml/scripts/build_map.py`, optional | BSD (PyPI gives no more detail than "BSD"; check the license file of the version you install) |
 
 ## Web (`web/package.json`)
@@ -51,5 +51,4 @@ No direct dependency has a copyleft or unknown license. Items that need a look:
 - **Python-2.0, transitive (npm).** `argparse@2.0.1`, a build-time dependency. Permissive.
 - **PyTorch CUDA wheels.** The default `pip install torch` for Linux pulls `nvidia-*` CUDA packages under NVIDIA's own license terms, not an open-source license. The CPU build from `https://download.pytorch.org/whl/cpu` does not. Read the NVIDIA terms before redistributing an environment or container image that includes them. This was not reviewed here.
 - **`web/package.json` had no `license` field**, so license checkers reported the web app as UNLICENSED. It now says MIT.
-- **`ml/pyproject.toml` has no `license` field.**
 - **Unpinned Python requirements.** A new release can change a license.

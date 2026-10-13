@@ -30,6 +30,7 @@ Needs a CUDA GPU (developed on an RTX 4070 Laptop GPU, 8 GB, in WSL2).
 
     cd ml
     pip install -r requirements.txt
+    pip install -r requirements-labelling.txt   # only for scripts/auto_label.py (google-genai, Gemini API key)
     PYTHONPATH=. python scripts/run_training.py configs/gpt2-small.yaml
     PYTHONPATH=. python scripts/make_index.py --ckpt <ckpt> --out ../data/neuronlens.db --schema ../contracts/schema.sql --n-seqs <n> --labels labels.json --data-dir <fineweb-dir>
     PYTHONPATH=. python scripts/browse.py --top 10

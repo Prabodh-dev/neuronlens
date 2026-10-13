@@ -79,7 +79,7 @@ Open http://localhost:3000. Real mode needs a GPU, a checkpoint and a database b
 | `web/` | Next.js app |
 | `ml/` | Training, evaluation and index-building code |
 | `demo/` | Recorded examples and Auto-Lab filler lists |
-| `docs/` | Feature cards, decisions, data and model notes; original design notes in `docs/archive/` |
+| `docs/` | Feature cards, decisions, data and model notes |
 
 ## Team
 

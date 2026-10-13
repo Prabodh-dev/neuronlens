@@ -1,4 +1,4 @@
-// The copy deck from docs/archive/APP_BUILD_GUIDE.md Appendix A, word for word.
+// User-facing wording, kept in one place.
 export const copy = {
   "app.name": "NeuronLens",
   "app.tagline": "See what's inside a language model.",

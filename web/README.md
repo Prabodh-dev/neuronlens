@@ -23,7 +23,7 @@ Never hand-write them. Regenerate after every contract change.
 
 ## Copy
 
-User-facing wording from the copy deck (docs/archive/APP_BUILD_GUIDE.md Appendix A) lives in `src/lib/copy.ts`.
+User-facing wording lives in `src/lib/copy.ts`.
 
 ## Running on the real data
 

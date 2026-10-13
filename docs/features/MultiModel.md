@@ -1,9 +1,7 @@
 # MultiModel: a second small model (experiment)
-Owner: Prabodh (ML); Mirdul (labels, server run); Anand (model chooser in the web app)
-Branch: neo-integration (ML and server side from dev-prabodh, web side from dev-anand)
 User sees: A second model offered next to GPT-2 in the app, labelled experimental, when its server on port 8001 is running. With only the GPT-2 server up the app is unchanged.
 Endpoint / data used: the existing endpoints, unchanged. Own files: `data/neuronlens-neo.db`, a checkpoint under `~/runs/`, `demo/autolab_fillers_<model>.json`.
-Real demo example (feature ids, prompt, strength): none recorded. Examples recorded for GPT-2 do not carry over; feature numbers mean different things in each model. Auto-Lab runs live on it with three goal buttons.
+Recorded example (feature ids, prompt, strength): none recorded. Examples recorded for GPT-2 do not carry over; feature numbers mean different things in each model. Auto-Lab runs live on it with three goal buttons.
 Honest limit shown on screen: the "experimental" tag and the line "Smaller training run than GPT-2, so expect weaker features." Its metrics are its own measurements.
 Status: included in the app as experimental (trained, evaluated, indexed and labelled; shown through the model chooser)
 
@@ -41,7 +39,7 @@ The checkpoint remembers its model (`cfg.model_name`), so the index build, the e
 
 ## Run it end to end
 
-Run each line from the repo root in WSL with the venv active. The GPT-2 labels in `ml/labels.json` belong to GPT-2 features and must not be used for this model.
+Run each line from the repo root with the venv active. The GPT-2 labels in `ml/labels.json` belong to GPT-2 features and must not be used for this model.
 
 1. Check the model (tokenizer, shape, position-0 effect):
 
@@ -79,7 +77,7 @@ PYTHONPATH=ml python ml/scripts/make_index.py --ckpt ~/runs/gpt-neo-125m-l8-k32/
 PYTHONPATH=ml python ml/scripts/run_evals.py --ckpt ~/runs/gpt-neo-125m-l8-k32/final.pt --db data/neuronlens-neo.db
 ```
 
-7. Labels (Mirdul, with his own keys): `ml/scripts/auto_label.py` takes any database through `--db`, and names the model and layer from the database's meta rows in its prompt.
+7. Labels (with your own Gemini API key): `ml/scripts/auto_label.py` takes any database through `--db`, and names the model and layer from the database's meta rows in its prompt.
 8. Start the server on port 8001:
 
 ```
@@ -98,7 +96,7 @@ python server/scripts/autolab_check.py --url http://127.0.0.1:8001 --find-filler
 
 ## Gates
 
-Each step passes or the model is dropped from the demo; none of them is a performance target.
+Each step passes or the model is dropped from the app; none of them is a performance target.
 
 1. `compat_check.py` prints COMPATIBLE: the token ids match GPT-2's on 50 sentences, the width is 768 and the layer exists, and position 0 stands out from later positions (ratio at least 3, a working threshold that is not calibrated). If the last one fails, dropping position 0 would discard a normal token and the recipe needs a decision before training.
 2. Training finishes and `eval.json` exists. Its FVU and CE recovered are shown as measured.

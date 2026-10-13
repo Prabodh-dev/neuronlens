@@ -26,7 +26,7 @@ The comparison with the published GPT-2 layer-8 SAE is in the section below.
 
 ## Run
 
-Needs a CUDA GPU (developed on an RTX 4070 Laptop, 8 GB, in WSL2).
+Needs a CUDA GPU (developed on an RTX 4070 Laptop GPU, 8 GB, in WSL2).
 
     cd ml
     pip install -r requirements.txt
@@ -45,8 +45,8 @@ Compares our SAE with OpenAI's TopK SAE for GPT-2 small, `resid_post_mlp` layer 
 
 Results: Result (256 sequences, seed 999): ours FVU 0.1626, CE recovered 0.9858; OpenAI v5_32k L8 FVU 0.4307, CE recovered 0.9454. Not equal capacity or data: 12,288 vs 32,768 latents, different training data. The published SAE's registry metadata lists variance explained 0.74 on its own data, so the gap partly reflects data shift; the adapter was not cross-checked against OpenAI's own code.
 
-## Phase 4: steering checks
-`neuronlens/steering_checks.py` holds the functions behind the Phase 4 steering endpoints. Steering is a test of what a feature does, not a fix; every function runs the baseline and the steered text with the same seed, and the steering maths is unchanged.
+## Steering checks
+`neuronlens/steering_checks.py` holds the functions behind the steering endpoints. Steering is a test of what a feature does, not a fix; every function runs the baseline and the steered text with the same seed, and the steering maths is unchanged.
 
 - X1 `steering_check`: baseline text, steered text, whether they differ, and the target feature's activation on each text (re-encoded without steering; it reads the feature on the finished text and does not judge the output).
 - X3 `seed_matched_compare`: token-by-token comparison; reports `first_divergence_index`, the tokens before it, the tokens from it onward, and `tokens_changed` counted from there. The raw percent is also returned, with a note that it overstates the direct effect because later tokens drift.
@@ -54,7 +54,7 @@ Results: Result (256 sequences, seed 999): ours FVU 0.1626, CE recovered 0.9858;
 - X4 `prompt_only_baseline`: what the model writes from the prompt alone.
 - W5 `multi_steering_check`: 2 or 3 features steered together (amplify only, directions summed in one hook), compared with the baseline; one activation reading per feature on the finished text. `scripts/phase4_demo.py --combine` runs it from the command line.
 
-Exact inputs, outputs, error cases and example JSON are in `docs/phase4-ml-api.md`. To produce demo examples on the GPU machine (reads the database read-only, writes `demo/phase4_examples.json`):
+Exact inputs, outputs, error cases and example JSON are in `docs/phase4-ml-api.md`. To produce example runs on the GPU machine (reads the database read-only, writes `demo/phase4_examples.json`):
 
     cd ml
     export NEURONLENS_DB=../data/neuronlens.db NEURONLENS_CKPT=../data/gpt2-l8-k32.pt
@@ -66,7 +66,7 @@ To try other features without editing code, use explore mode. It runs each `--fe
 
     PYTHONPATH=. python scripts/phase4_demo.py --feature 7 --feature 13 --prompt "He turned the picture" --strengths 0,0.5,0.75,1,1.5,2 [--mode ablate] [--explore-out PATH]
 
-## Search for a W5 demo example
+## Search for a W5 example
 `scripts/find_pairs.py` looks for two features that both read "higher" when steered together on the same prompt, with no loop warning. It runs on the GPU machine in real mode and only reads the database.
 
     cd ml
@@ -77,7 +77,7 @@ To try other features without editing code, use explore mode. It runs each `--fe
 - Stage 2 steers pairs of qualifying candidates together at 0.25 and 0.5 (the same strength on both) on the prompts where both singles worked. A pair works when both read "higher", there is no loop warning and the text differs from the baseline. Working pairs are ranked by the smaller of the two activation changes.
 - Output: a summary on screen and `demo/pairs_search.json` (scratch, ignored by git). It prints a progress line every 10 generations. The rules are in `neuronlens/pair_search.py`. In the manual runs before the search no pair worked, so a search can end with no working pair; the pair recorded in `docs/phase4-ml-api.md` (W5) came from a larger search of this kind.
 
-## Phase 4 data files
+## Data files
 Two scripts build data files for the app (they run on the GPU machine, write to the git-ignored `data/` folder, and do not touch the database). Details, fields and limits are in `docs/phase4-data-files.md`.
 
 - `scripts/build_cofire.py`: how often two features fired on the same tokens in a sample (default 500,000 tokens); top 10 partners per feature by Jaccard. A run with `--tokens 3000000 --seed 999` (unseen text) took about 5.6 minutes and gave a 6.5 MB file; 12,250 of 12,288 features have partners. Small samples are weak: 500,000 tokens gave counts of only 5 to 20 for the features checked.
@@ -98,8 +98,7 @@ Two scripts build data files for the app (they run on the GPU machine, write to 
 
 ## Notes
 
-- Checkpoints and the real database are not in git (data/ is ignored); they are shared by link.
-- Prior work: see the Disclosures section of the root README.md for what existed before the hackathon and what was built during it.
+- Checkpoints and the real database are not in git (data/ is ignored); rebuild them with the steps below, see also `docs/data-and-models.md`.
 - Honest limits: GPT-2 small and one layer; the strongest features are word-piece features; some features are ambiguous; steering too hard breaks text.
 
 ## Second model (experiment)

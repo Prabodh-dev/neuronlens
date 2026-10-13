@@ -1,7 +1,5 @@
 # Web
 
-Owner: Anand. Branch: `anand`.
-
 Next.js frontend for the core path: Explore (C1), Feature detail (C2), Inspect (C3), Steer (C4) and Metrics (C5).
 
 Commands:
@@ -25,7 +23,7 @@ Never hand-write them. Regenerate after every contract change.
 
 ## Copy
 
-User-facing wording from the copy deck (docs/APP_BUILD_GUIDE.md Appendix A) lives in `src/lib/copy.ts`.
+User-facing wording from the copy deck (docs/archive/APP_BUILD_GUIDE.md Appendix A) lives in `src/lib/copy.ts`.
 
 ## Running on the real data
 
@@ -34,9 +32,9 @@ User-facing wording from the copy deck (docs/APP_BUILD_GUIDE.md Appendix A) live
    This is still mock mode: the banner says Inspect and Steer are simulated; everything else is real.
 3. For live Inspect and Steer, on the GPU machine also set `NEURONLENS_MODE=real` and `NEURONLENS_CKPT=<path>`.
    The banner disappears when the server reports real mode and a non-synthetic database.
-4. If the web app runs on another machine, set `NEXT_PUBLIC_API_BASE` (for example `http://<gpu-laptop>:8000/api/v1`) in
+4. If the web app runs on another machine, set `NEXT_PUBLIC_API_BASE` (for example `http://<gpu-machine>:8000/api/v1`) in
    `web/.env.local` and restart `npm run dev`; the server's `NEURONLENS_CORS_ORIGINS` must include the web address.
-5. On the demo machine, add `NEXT_PUBLIC_MODEL_ONLY=1` to `web/.env.local` and restart `npm run dev`. The pages then show
+5. To never show mock data, add `NEXT_PUBLIC_MODEL_ONLY=1` to `web/.env.local` and restart `npm run dev`. The pages then show
    only when the server runs the trained model on the real database; otherwise a "Not running on the model" screen
    says what to fix.
 

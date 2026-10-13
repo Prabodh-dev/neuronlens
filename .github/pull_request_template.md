@@ -1,17 +1,15 @@
-## What changed
+## What changed and why
 
-## Feature ID (e.g. C2, X1, W4)
+Fixes #
 
 ## How I tested it
-- [ ] Ran in mock mode
-- [ ] Ran in real mode, or n/a
-- [ ] Server tests or web build pass
+- [ ] Server tests: `python -m pytest server/tests`
+- [ ] ML tests, if `ml/` changed: `cd ml && python -m pytest tests --ignore=tests/test_evals.py`
+- [ ] Web, if `web/` changed: `npm run typecheck && npm run build`
+- [ ] Tried it in mock mode, or in real mode (say which), or n/a
 
-## Contract
-- [ ] No contract change
-- [ ] Contract change approved by Prabodh
-
-## Merge checklist
-- [ ] No .db / .pt / .env / node_modules committed
-- [ ] No dummy data or unsupported claim on screen
-- [ ] main merged into my branch first
+## Checklist
+- [ ] No change to `contracts/`, or the change was agreed in an issue
+- [ ] No `.db`, `.pt`, `.env`, API key or `node_modules` committed
+- [ ] Docs updated where behaviour changed
+- [ ] Wording follows CONTRIBUTING.md: steering is a test, no "proves" or "detects", no comparison between models

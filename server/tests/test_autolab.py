@@ -95,7 +95,7 @@ def test_ship_needs_2_of_3_prompts():
 
 
 def test_rule_constants():
-    """The README and Anand's UI copy these; change them together."""
+    """The README and the web UI copy these; change them together."""
     assert (al.RISE_MIN, al.RATIO_MIN, al.SEED, al.CANDIDATES, al.MAX_DENSITY,
             al.SHIP_MIN_PROMPTS, al.SEARCH_TOP_N, al.MIN_CANDIDATES, al.FILLER_SHARE) == \
         (3.0, 2.0, 42, 5, 0.01, 2, 8, 3, 0.10)
@@ -245,10 +245,10 @@ def test_chain_on_mock(recorded, monkeypatch):
     assert (rec["status"], rec["feature_id"], rec["strength"]) == (al.RECOMMENDED, 3446, 0.5)
 
 
-# ---------- --replay and Prabodh's recorded run (demo/autolab_examples.json) ----------
+# ---------- --replay and the recorded run (demo/autolab_examples.json) ----------
 
 def _replay_recording():
-    """Prabodh's recording, scored the way the chain scores it: with the filler list."""
+    """The recording, scored the way the chain scores it: with the filler list."""
     return al.replay(str(mock.AUTOLAB_PATH), al.load_fillers(al.FILLERS_PATH))[1]
 
 
@@ -349,7 +349,7 @@ def test_search_request_leading_space_top_8():
 
 
 def test_fillers_on_the_recorded_run():
-    """In Prabodh's run, #1375 peaked on the first query word (token 0, right after the
+    """In the recorded run, #1375 peaked on the first query word (token 0, right after the
     newline prefix) in every goal it showed up in."""
     found = al.fillers(_replay_recording())
     assert {1375, 5023, 3356} <= set(found)
@@ -514,7 +514,7 @@ def test_missing_filler_list_drops_nothing(tmp_path):
 
 # ---------- guard: more than 2 query tokens a word is "no good match" ----------
 
-# token pieces as GPT-2 splits these queries (with the leading space), from Prabodh's check
+# token pieces as GPT-2 splits these queries (with the leading space), from a check
 PIECES = {"asdgf": [" as", "d", "g", "f"],                   # 4 pieces for 1 word
           "mnbvc kjh": [" mn", "b", "vc", " k", "j", "h"],   # 6 pieces for 2 words
           "cooking food": [" cook", "ing", " food"]}          # 3 pieces for 2 words

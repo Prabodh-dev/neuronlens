@@ -49,7 +49,7 @@ export class ApiError extends Error {
   }
 }
 
-/** The copy-deck message for an error (docs/APP_BUILD_GUIDE.md Appendix A). */
+/** The copy-deck message for an error (docs/archive/APP_BUILD_GUIDE.md Appendix A). */
 export function errorMessage(e: ApiError): string {
   const key = `error.${e.code}`;
   return key in copy ? t(key as CopyKey, { message: e.message }) : t("error.generic");

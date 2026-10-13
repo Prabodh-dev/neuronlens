@@ -2,9 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A sparse autoencoder explorer for GPT-2 small. NeuronLens finds the internal features of a language model, names them, and lets you turn one up to see what changes.
-
-Built by Team Yvl at HACKERING 2.0 (Open Innovation track). Released under the MIT license.
+A sparse autoencoder explorer for language models. NeuronLens finds a model's internal features, names them, and lets you turn one up to see what changes. It currently ships with GPT-2 small, plus an experimental GPT-Neo-125M run.
 
 ## What it does
 
@@ -17,7 +15,7 @@ Built by Team Yvl at HACKERING 2.0 (Open Innovation track). Released under the M
 
 ## How it works
 
-1. GPT-2 small stays frozen. At layer 8, each token is a vector of 768 numbers.
+1. The language model stays frozen (GPT-2 small in the main run). At layer 8, each token is a vector of 768 numbers.
 2. A TopK sparse autoencoder (k = 32, 12,288 features) is trained to rebuild that vector from only its 32 strongest features. It was trained on about 100 million tokens of FineWeb-Edu.
 3. A scan over 3 million tokens records where each feature fires hardest. Next-word effects come straight from the weights.
 4. An LLM (Gemini) names each feature from its strongest sentences and next-word effects. These labels are auto-generated and not hand-checked. Uncertain ones are marked ambiguous.

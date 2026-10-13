@@ -25,7 +25,7 @@ Everything the app shows in real mode can be rebuilt from the code in `ml/`. Wit
 
 ## How to rebuild
 
-The commands, in order, are in [ml/README.md](../ml/README.md) (GPT-2) and [features/MultiModel.md](features/MultiModel.md) (GPT-Neo-125M, with the exact lines for each step):
+The commands, in order, are in [ml/README.md](../ml/README.md) (GPT-2) and [features/multi-model.md](features/multi-model.md) (GPT-Neo-125M, with the exact lines for each step):
 
 1. Put the FineWeb-Edu `sample-10BT` parquet files in a folder. The scripts read `*.parquet` from `--data-dir`, default `~/data/fineweb/sample/10BT`.
 2. Train: `ml/scripts/run_training.py ml/configs/gpt2-small.yaml` (100 million activations, k = 32, 12,288 features). The Neo config is `ml/configs/gpt-neo-125m.yaml`; its run used 37.5 million tokens.

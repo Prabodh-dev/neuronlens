@@ -62,7 +62,7 @@ Open http://localhost:3000. Real mode needs a GPU, a checkpoint and a database b
 
 - Real-mode start-up: [docs/demo-startup.md](docs/demo-startup.md)
 - Server and API: [server/README.md](server/README.md)
-- Training, indexing and the second model: [ml/README.md](ml/README.md) and [docs/features/MultiModel.md](docs/features/MultiModel.md)
+- Training, indexing and the second model: [ml/README.md](ml/README.md) and [docs/features/multi-model.md](docs/features/multi-model.md)
 - Web app: [web/README.md](web/README.md)
 - Data and models, and their terms: [docs/data-and-models.md](docs/data-and-models.md)
 - Design decisions: [docs/decisions.md](docs/decisions.md)

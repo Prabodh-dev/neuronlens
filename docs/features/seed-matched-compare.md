@@ -1,4 +1,4 @@
-# X3: Seed-matched compare
+# Seed-matched compare
 User sees: The shared start of the baseline and steered text, the token where they begin to differ, and the text from there in each run.
 Endpoint / data used: /api/v1/steer/compare
 Recorded example (feature ids, prompt, strength): feature 13, prompt "The acrobat hung", amplify 0.5, seed 42; divergence at new token 4.

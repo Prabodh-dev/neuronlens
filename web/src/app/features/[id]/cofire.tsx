@@ -8,7 +8,7 @@ import { useApi } from "@/lib/useApi";
 import s from "./detail.module.css";
 
 /** W4: the features that fired on the same tokens as this one in a token sample, with the counts and
- *  the sample size. Shared tokens only, never a claim about meaning (docs/features/W4.md). The panel is
+ *  the sample size. Shared tokens only, never a claim about meaning (docs/features/co-fire-partners.md). The panel is
  *  hidden when the server has no co-fire data for this feature. */
 export function Cofire({ id }: { id: number }) {
   const { data, error, loading, reload } = useApi((sig) => api.cofire(id, sig), `cofire:${id}`);

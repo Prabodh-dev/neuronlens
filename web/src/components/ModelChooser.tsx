@@ -17,7 +17,7 @@ export function useCanChoose(): boolean {
   return useChoices().length >= 2;
 }
 
-/** The model chooser (docs/features/ModelChooser.md), opened from the status pill in the top bar. Each
+/** The model chooser (docs/features/model-chooser.md), opened from the status pill in the top bar. Each
  *  model's name, layer and size come from its own /health. Choosing one reloads the page on it
  *  (?model=<id>). */
 export function ModelMenu({ onClose }: { onClose: () => void }) {

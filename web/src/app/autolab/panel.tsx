@@ -30,7 +30,7 @@ import s from "./autolab.module.css";
 
 /* Auto-Lab: pick a prompt and a goal (a button, or 1 to 3 typed words), press Run. The run and its tags
    are in lib/autolab.ts (rule v2, as server/scripts/autolab_check.py); this is the screen
-   (docs/features/AutoLab.md), on its own page (/autolab). The grid fills
+   (docs/features/auto-lab.md), on its own page (/autolab). The grid fills
    in live, with the unsteered control first; once done, every cell can be clicked to see its readings
    and the rule behind its tag. A mock server's results are labelled Simulated, and
    NEXT_PUBLIC_MODEL_ONLY=1 blocks them on the demo machine. Candidates are "features that fired on

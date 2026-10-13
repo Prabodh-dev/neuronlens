@@ -1,4 +1,4 @@
-# S5: Shareable links
+# Shareable links
 User sees: "Copy link" on the feature page copies a link that reopens that feature. "Copy link" on a live result on the Steer page copies a link that reruns that exact result: opening it fills in the feature, mode, strength, prompt, seed and length, and runs the comparison and the activation check. When a link was made on another run than the server's, a note says the result can differ.
 Endpoint / data used: URL parameters only, nothing stored on the server: `/features/{id}?run=…` and `/steer?feature=…&mode=…&strength=…&seed=…&len=…&prompt=…&run=…`. Opening a steering link calls the same `/steer/compare` and `/steer/check` as a normal run; generation is seeded, so the same server and checkpoint give the same text.
 Recorded example (feature ids, prompt, strength): #3446, "The band walked on stage and", up 0.5, seed 42, 60 tokens (in mock mode the link reruns the recorded result: splits after token 12, 0.00 -> 12.44). To test on real data: open the result, copy its link, open it in a new tab, and check the text and numbers match.

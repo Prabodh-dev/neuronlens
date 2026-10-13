@@ -1,4 +1,4 @@
-# X6: Sentence report
+# Sentence report
 User sees: Inspect page, "By sentence" tab: each sentence of the text with its most active features, a strength bar for each (relative_to_max: share of the feature's peak in the dictionary) and how many tokens it was active on.
 Endpoint / data used: `POST /api/v1/inspect/report` (`sentences[].features[]`: `max_activation`, `relative_to_max`, `tokens_active`).
 Recorded example (feature ids, prompt, strength): Real-mode check: #1863 ranks first on the Supreme Court sentence.

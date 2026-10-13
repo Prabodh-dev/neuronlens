@@ -14,7 +14,7 @@ import s from "./steer.module.css";
 
 /* W5 (POST /steer/multi): two or three features turned up together on one prompt, with each one run
    alone beside it, shown as activation numbers only (their texts can be harsh: server/README.md). The
-   readings show which concepts were active in the finished text, nothing more (docs/features/W5.md).
+   readings show which concepts were active in the finished text, nothing more (docs/features/multi-concept-steering.md).
    Seed and strength are always shown. */
 
 const STRENGTHS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3]; // up to the steering cap of 3

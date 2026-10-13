@@ -1,4 +1,4 @@
-# <ID>: <name>
+# <name>
 User sees:
 Endpoint / data used:
 Recorded example (feature ids, prompt, strength):

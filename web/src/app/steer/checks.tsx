@@ -12,7 +12,7 @@ import s from "./steer.module.css";
 
 /* Phase 4 steering checks on the Steer page: X1 the feature's activation on the finished text, X3 where
    the runs split, X2 every strength, X4 prompt only. Each shows its honest limit under the result
-   (docs/features/X1.md to X4.md). Seed and strength are always shown next to steered text. */
+   (docs/features/steering-check.md to prompt-only-baseline.md). Seed and strength are always shown next to steered text. */
 
 /** The new text after the prompt. */
 export function after(full: string, prompt: string) {

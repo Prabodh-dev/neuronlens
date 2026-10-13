@@ -1,4 +1,4 @@
-# W5: Multi-concept steering
+# Multi-concept steering
 User sees: Two or three features steered together on one prompt: the baseline and the combined text, a loop warning, and for each feature whether it appears more, less or about the same in the combined text.
 Endpoint / data used: `POST /api/v1/steer/multi`, on multi_steering_check in ml/neuronlens/steering_checks.py (docs/phase4-ml-api.md, section W5).
 Recorded example (feature ids, prompt, strength): features 4280 ("that – support that claim") + 9530 ("sin – moral wrongdoing"), prompt "The man walked into the room and", amplify 0.5 on both, seed 42. 4280 went 0.00 -> 4.20 and 9530 went 0.00 -> 5.89 (both "higher"); steered alone at 0.5 they read 2.29 and 4.45. Steered text: " saw the man that had been talking, and had accused the man of making a false statement, claiming he was a Christian. A ..." (shortened). Found by an automated search (600 candidates, 100 pairs) and checked on held-out prompts: both rose together on 2 of 3. Details in docs/phase4-ml-api.md, W5.

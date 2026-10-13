@@ -1,4 +1,4 @@
-# X7: Two-text compare
+# Two-text compare
 User sees: Inspect page, "Two texts" tab: text A and text B, then the ten features whose highest activation differs most between them, with a bar for each text (share of the feature's peak) and "more in A" or "more in B" with the difference.
 Endpoint / data used: `POST /api/v1/inspect/compare` (`features[]`: `max_activation_a/b`, `relative_to_max_a/b`, `difference`).
 Recorded example (feature ids, prompt, strength): not recorded yet (a real-mode check confirmed the signs); the "Try a pair" button uses "The band walked on stage and played a new song." against "The judge walked into court and read the new ruling."

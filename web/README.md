@@ -12,7 +12,7 @@ npm run dev
 
 The app expects the server on `http://127.0.0.1:8000/api/v1`. To use another address, copy `.env.example` to
 `.env.local` and set `NEXT_PUBLIC_API_BASE`. A second model's server, when one runs (on `http://127.0.0.1:8001`),
-shows up in the model chooser; the list of models is `src/lib/models.ts` (docs/features/ModelChooser.md).
+shows up in the model chooser; the list of models is `src/lib/models.ts` (docs/features/model-chooser.md).
 
 Rule: generate types from `contracts/openapi.json`; never hand-write response types.
 

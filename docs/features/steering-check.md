@@ -1,4 +1,4 @@
-# X1: Steering check
+# Steering check
 User sees: The baseline text and the steered text for one feature side by side, whether they differ, and the feature's activation on each text (higher, lower or about the same).
 Endpoint / data used: /api/v1/steer/check
 Recorded example (feature ids, prompt, strength): feature 3446, prompt "The band walked on stage and", amplify 0.5, seed 42; activation 0.00 to 12.44 (higher).

@@ -1,4 +1,4 @@
-# W4: Co-fire partners
+# Co-fire partners
 User sees: For one feature, the features that fired on the same tokens most often in a sample, with the counts and the sample size.
 Endpoint / data used: `GET /api/v1/features/{feature_id}/cofire`, reading the co-fire data file (data/cofire.json, built by ml/scripts/build_cofire.py).
 Recorded example (feature ids, prompt, strength): feature 1863 ("supreme – supreme court") with partners "supreme – court or command" (158 co-fires, Jaccard 0.17) and "courts – legal system" (90); 3,000,000-token sample, seed 999.

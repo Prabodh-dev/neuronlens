@@ -1,4 +1,4 @@
-# W8: Search by your words
+# Search by your words
 User sees: Features page, "Your words" next to "Name" on the search box: type a few words, press Enter, and see "Features that fired most on your words": the query's tokens as the model split them, then each feature with a bar for its share of its own peak (relative_to_max) and the token it fired on most. Searching by name stays as it was.
 Endpoint / data used: `POST /api/v1/features/search` with `max_density: 0.01` always sent and no toggle (server/README.md: without it, very common features fill every result); `top_n` 10 plus the number of Auto-Lab fillers, `sort` activation; the fillers (`web/public/autolab-fillers/<model id>.json`, features that fire on the first word of almost any query) are dropped and the first 10 shown.
 Recorded example (feature ids, prompt, strength): The real-mode check (server/README.md, server/scripts/w8_check.py): with max_density 0.01, "music", "court ruling" and "recipe for pasta" all found sensible features.

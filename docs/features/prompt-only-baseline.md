@@ -1,4 +1,4 @@
-# X4: Prompt-only baseline
+# Prompt-only baseline
 User sees: What the model writes from the prompt alone, with no steering, shown apart from the steered runs.
 Endpoint / data used: /api/v1/steer/prompt-only
 Recorded example (feature ids, prompt, strength): prompt "The acrobat hung", seed 42 (no feature, no strength): the prompt-only text is the same as the baseline text of the X1 and X3 examples (" his head and walked toward the door, but had no idea where he was going. ...", shortened).

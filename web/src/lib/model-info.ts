@@ -1,4 +1,4 @@
-/* What the model picker says about each model (docs/features/ModelChooser.md): a short description and
+/* What the model picker says about each model (docs/features/model-chooser.md): a short description and
    what the pages do on it. Keyed by model id (lib/models.ts), like lib/model-data.ts. No number is written
    here: names, layers and sizes come from the server's /health. Nothing here ranks or compares models. */
 

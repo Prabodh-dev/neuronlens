@@ -6,7 +6,7 @@ import { useHealth } from "./HealthProvider";
 import { ExperimentalTag } from "./ModelChooser";
 import { useModels } from "./ModelProvider";
 
-/** The one line shown for an experimental model (docs/features/ModelChooser.md). */
+/** The one line shown for an experimental model (docs/features/model-chooser.md). */
 export const EXPERIMENTAL_NOTE = "Smaller training run than GPT-2, so expect weaker features.";
 
 /** "Model: <model_name> · layer <layer> · <d_sae> features · k=<k>", every part read from /health so

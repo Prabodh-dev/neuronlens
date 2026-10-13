@@ -1,4 +1,4 @@
-/* The models NeuronLens can run on (docs/features/ModelChooser.md). Each model is its own server with
+/* The models NeuronLens can run on (docs/features/model-chooser.md). Each model is its own server with
    its own database, and they all answer the same endpoints, so a page only changes which server it
    calls. The name shown on screen always comes from that server's /health (model_name, hook_layer),
    never from this list: `label` is only for people reading this file. */

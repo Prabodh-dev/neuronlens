@@ -104,4 +104,4 @@ Two scripts build data files for the app (they run on the GPU machine, write to 
 
 ## Second model (experiment)
 
-`--model` (default `gpt2`) on `scripts/run_training.py` selects another Hugging Face model; `scripts/compat_check.py` checks one before training; `--tokens`, `--measure` and `--minutes` set and size the token budget. All model-layout code is in `neuronlens/modelutil.py`. GPT-2 runs as before. Steps, file names and limits are in `docs/features/MultiModel.md`.
+`--model` (default `gpt2`) on `scripts/run_training.py` selects another Hugging Face model; `scripts/compat_check.py` checks one before training; `--tokens`, `--measure` and `--minutes` set and size the token budget. All model-layout code is in `neuronlens/modelutil.py`. GPT-2 runs as before. Steps, file names and limits are in `docs/features/multi-model.md`.

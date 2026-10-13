@@ -4,7 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB = "contracts/fixtures/sample.db"
-DEFAULT_COFIRE = {"real": "data/cofire.json",                      # W4, built by Prabodh
+DEFAULT_COFIRE = {"real": "data/cofire.json",                      # W4, built by ml/scripts/build_cofire.py
                   "mock": "server/app/fixtures/mock_cofire.json"}  # a few real entries
 
 

@@ -11,7 +11,7 @@
     #    neuronlens.db.bak3 (refuses if that file exists). Answered ids are not re-asked.
     #    A reviewed JSON can also be written with:
     python scripts/auto_label.py apply --db ../data/neuronlens.db --labels ../data/auto_labels.json
-    # 4. the 50-feature spot-check sheet for Prabodh
+    # 4. the 50-feature spot-check sheet for review
     python scripts/auto_label.py sheet --db ../data/neuronlens.db --out ../data/spotcheck.csv
 
 Rules: only live features with label_status 'unlabelled' and no label are ever proposed or
@@ -55,7 +55,7 @@ WINDOW = 12          # tokens shown on each side of the peak
 MAX_ATTEMPTS = 3     # tries per feature across all servers
 MAX_SERVER_FAILS = 5 # consecutive failures before a server is dropped
 
-# Prabodh's label standard. Labels never contain quote marks, so neither do the examples.
+# The label standard. Labels never contain quote marks, so neither do the examples.
 SYSTEM = """You name features of a sparse autoencoder trained on GPT-2 small (layer 8).
 For each feature you get its top text examples (the token where it fires is marked with [[ ]]),
 and the tokens it makes more or less likely to come next.

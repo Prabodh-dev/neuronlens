@@ -23,7 +23,7 @@ export const WORKED = { minRise: 3.0, minRatio: 2 } as const;
 const SEARCH_TOP = 8;
 export const MIN_CANDIDATES = 3;
 /** Pieces per word above which the words are not ones the model knows: the search's query tokens
- *  divided by the words typed. Prabodh measured 3 to 4 for 7 random-letter inputs, 1 to 1.5 for 9 real
+ *  divided by the words typed. Measured 3 to 4 for 7 random-letter inputs, 1 to 1.5 for 9 real
  *  words and the 6 goal buttons; score thresholds cannot tell them apart (fragment features fire strongly). */
 export const MAX_PIECES_PER_WORD = 2;
 

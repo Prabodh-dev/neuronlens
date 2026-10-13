@@ -1,8 +1,8 @@
-# Phase 4 data files: co-fire counts (W4) and the 2D map (W7)
+# Data files: co-fire counts (W4) and the 2D map (W7)
 
-For Mirdul. Two JSON files built by Prabodh on the GPU laptop. Neither goes into the database, and neither is in git. This file lists where they are, the exact fields, how they were built and what they can and cannot say. The endpoint shape and the file location below are proposals, not decisions.
+Two JSON files built on a GPU machine. Neither goes into the database, and neither is in git. This file lists where they are, the exact fields, how they were built and what they can and cannot say. The co-fire file is served by `GET /api/v1/features/{feature_id}/cofire`; the map file (W7) is not served by the app. The map's endpoint shape below is a proposal.
 
-Both files have been built once on the GPU laptop; what those runs showed is in "What the real runs showed" below. The JSON snippets in the field descriptions use example values, not values from those runs. The real examples are in their own section.
+Both files have been built once on a GPU machine; what those runs showed is in "What the real runs showed" below. The JSON snippets in the field descriptions use example values, not values from those runs. The real examples are in their own section.
 
 ## Files
 
@@ -82,7 +82,7 @@ Coordinates are shifted to the centre of their bounding box and scaled by one co
 
 ## How they were built
 
-Run from `ml/` on the GPU laptop with the checkpoint. The real runs used these settings:
+Run from `ml/` on a GPU machine with the checkpoint. The real runs used these settings:
 
 ```
 export NEURONLENS_CKPT=../data/gpt2-l8-k32.pt
@@ -92,7 +92,7 @@ PYTHONPATH=. python scripts/build_map.py --seed 42
 
 The script defaults are `--tokens 500000 --seed 42`. The real co-fire run used seed 999, which is text the SAE was not trained on (seed 42 is the training stream), and 3,000,000 tokens.
 
-Measured on the GPU laptop, one run each: the co-fire run took about 5.6 minutes and wrote 6.5 MB; the map run (PCA to 50 dimensions, then UMAP to 2D, seed 42) took about 78 seconds of CPU and wrote 0.18 MB. These are single runs, not benchmarks.
+Measured on a GPU machine, one run each: the co-fire run took about 5.6 minutes and wrote 6.5 MB; the map run (PCA to 50 dimensions, then UMAP to 2D, seed 42) took about 78 seconds of CPU and wrote 0.18 MB. These are single runs, not benchmarks.
 
 - **Co-fire.** The same token pipeline as the final scan: FineWeb-Edu sequences of 1,024 tokens, GPT-2 small, the output of `transformer.h[8]`, position 0 of each sequence dropped (the code is shared with `interpret.scan`, not copied). For every token, each pair of active features is counted. The 12,288 x 12,288 count matrix is about 600 MB; it is kept in host memory and filled in row blocks computed on the GPU, so the GPU holds one block at a time. `--db` is opened read-only and only used to blank dead features.
 - **Map.** The 12,288 decoder directions (unit norm) are reduced to 50 dimensions with PCA, then to 2D with UMAP (cosine distance, 15 neighbours, minimum distance 0.1). Without umap-learn the script uses PCA to 2D alone and says so in `method`. No model or data is loaded.

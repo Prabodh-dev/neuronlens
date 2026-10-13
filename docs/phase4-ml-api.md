@@ -1,6 +1,6 @@
-# Phase 4: ML functions for the new endpoints
+# Steering checks: ML functions behind the endpoints
 
-For Mirdul. These are the ML-side functions behind the Phase 4 steering endpoints (X1 to X4). They live in `ml/neuronlens/steering_checks.py`. This file lists the exact inputs and outputs so the fields can be added to `contracts/` and `server/` by the people who own them. Nothing in `contracts/` was edited.
+These are the ML-side functions behind the steering-check endpoints (X1 to X4, and W5 for combined steering). They live in `ml/neuronlens/steering_checks.py`, and `server/app/routes/steering.py` calls them. This file lists the exact inputs and outputs.
 
 Steering is a test of what a feature does, not a fix. A steered output is never presented as an improvement. The steering maths is unchanged: amplify adds `strength x max_activation x decoder direction` at every position except position 0; ablate subtracts the feature's own activation.
 
@@ -122,7 +122,7 @@ Example values for the new fields. These numbers are example values, not measure
 
 ### Limits of the activation check
 
-Observed on the GPU laptop, seed 42: one feature each and a few prompts. These are observations, not general rules. The numbers are the maximum activation over the new tokens, `target_activation_baseline` to `target_activation_steered`.
+Observed on a GPU machine, seed 42: one feature each and a few prompts. These are observations, not general rules. The numbers are the maximum activation over the new tokens, `target_activation_baseline` to `target_activation_steered`.
 
 - A feature that already fires near its maximum cannot show an increase. Feature 1863 on `The lawyers argued before the` had a baseline activation of 18.57 (its `max_activation` is about 19.7), so amplify reads "about the same".
 - For ablate, the check re-encodes the finished text, so if the concept's word is still in the text the feature still fires. Feature 1863 with ablate read "about the same" on two prompts (18.57 to 18.57, and 18.89 to 18.89).
@@ -320,7 +320,7 @@ Left out because it was not recorded in the run: `new_tokens`.
 
 `multi_steering_check(rt, prompt, steers, max_new_tokens=60, seed=42, with_single_controls=False)`
 
-Steers 2 or 3 features together and compares the result with the baseline. The endpoint is not decided: Mirdul proposes it, Prabodh signs off. Nothing here was added to `contracts/` or `server/`.
+Steers 2 or 3 features together and compares the result with the baseline. The server exposes it as `POST /api/v1/steer/multi`.
 
 **How the directions combine.** The directions are summed in the same forward hook. For each steer, `strength x max_activation x decoder direction` is added at every position except position 0, and the terms are added together. Amplify only; there is no ablate in a combination. The terms are summed in order of feature id, so the order of `steers` in the request does not change the result. With one non-zero strength (the others at 0) the hook output is identical to the single-feature hook, and the result should match X1 for that feature; this was tested bitwise on a toy model and on random tensors, not on the real model. The single-feature maths and X1 to X4 are unchanged.
 
@@ -412,7 +412,7 @@ What a real demo example needs: both features clearly "higher" on the same promp
 
 ### Real demo example
 
-Observed on the GPU laptop: amplify, strength 0.5 on both features, seed 42. The pair is feature 4280 ("that – support that claim") and feature 9530 ("sin – moral wrongdoing"). It was picked by an automated search (600 candidate features, 100 pairs) and then checked on held-out prompts; both features rose together on 2 of 3 held-out prompts.
+Observed on a GPU machine: amplify, strength 0.5 on both features, seed 42. The pair is feature 4280 ("that – support that claim") and feature 9530 ("sin – moral wrongdoing"). It was picked by an automated search (600 candidate features, 100 pairs) and then checked on held-out prompts; both features rose together on 2 of 3 held-out prompts.
 
 | Prompt | 4280 | 9530 | Result |
 | --- | --- | --- | --- |
@@ -464,7 +464,7 @@ The recorded readings and steered text (shortened with "..."; fields that were n
 
 ## Timing
 
-Two measurements, both on one GPU laptop:
+Two measurements, both on one GPU machine:
 
 - A script run of 8 generations of 60 new tokens (one baseline plus 7 strengths) took 15.1 seconds of wall time. That run included loading the model, so it overstated the cost of a call. It is not used for the estimates below.
 - Through the running server in real mode with the model already loaded (warm): a sweep for feature 13, prompt `The acrobat hung`, strengths `[0, 0.5, 1]`, 60 new tokens, seed 42 (one baseline plus three steered generations, 4 generations in total) took 2.66 seconds of wall time for the whole HTTP request. That is about 0.65 seconds per generation.

@@ -21,7 +21,7 @@ const PROMPTS = ["The band walked on stage and", "The man walked into the room a
 const PRESETS: Record<string, AutoLabPresets> = {
   gpt2: {
     prompts: PROMPTS,
-    // all 6 goals ship after the laptop test (Prabodh); the words are the ones recorded in
+    // all 6 goals ship; the words are the ones recorded in
     // demo/autolab_examples.json, so the mock replays the real runs for them
     goals: [
       { label: "Music", words: "music", icon: "♪" },
@@ -31,7 +31,7 @@ const PRESETS: Record<string, AutoLabPresets> = {
       { label: "Weather", words: "weather rain", icon: "☂︎" },
       { label: "Sports", words: "sports game", icon: "⚽︎" },
     ],
-    // timed UI runs on Prabodh's laptop took 20 to 25 s (Mirdul's script, about 14 s)
+    // timed UI runs took 20 to 25 s (the check script, about 14 s)
     etaSeconds: 20,
     tuned: true,
   },

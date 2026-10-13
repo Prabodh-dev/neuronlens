@@ -565,7 +565,7 @@ def main(argv=None):
                 print(f"  repeat {i + 1}: {goal!r} {res['total_s']:.1f}s")
             if res["total_s"] > WARN_S:
                 print(f"  WARNING: this chain took {res['total_s']:.1f}s, over {WARN_S:g}s. "
-                      "Tell Prabodh right away.")
+                      "Check for other load on the GPU.")
     total = time.perf_counter() - t_all
 
     times = [r["total_s"] for r in results]

@@ -1,14 +1,12 @@
 # Server
 
-Owner: Mirdul. Branch: `mirdul`.
-
 FastAPI server. Mock mode (default) reads `contracts/fixtures/sample.db` read-only.
 
-Rule: build against `contracts/schema.sql`; mock mode first.
+Build against `contracts/schema.sql`; use mock mode first.
 
 Text limit: `/inspect` text and `/steer` prompt are capped at 256 tokens (`TEXT_TOO_LONG`). Mock mode counts words, real mode counts GPT-2 tokens, so a text near the limit can pass in mock and fail in real.
 
-Phase 4 steering checks (fields in `docs/phase4-ml-api.md`; the code is `ml/neuronlens/steering_checks.py`):
+Steering checks (fields in `docs/phase4-ml-api.md`; the code is `ml/neuronlens/steering_checks.py`):
 
 - `POST /steer/check` (X1): baseline vs steered plus the target feature's activation on each finished text (re-encoded without steering) and a verdict: higher, lower or about the same. It says whether the feature fires on the result, not whether the output is better.
 - `POST /steer/compare` (X3): seed-matched baseline vs steered, compared token by token.
@@ -46,9 +44,9 @@ Auto-Lab (the UI runs this chain client-side; the server adds nothing but `with_
 - Check: `python server/scripts/autolab_check.py --goal "music" --prompt "The band walked on stage and" -v` prints the features × strengths table, the recommendation and the time. `--goals-file goals.txt` runs several goals (one per line, `goal words | prompt`), `--repeat 5` runs them back to back for timing (target under 35 s a chain; it warns over 40 s and lists any failed or timed-out call), `--json` saves the results. `--replay demo/autolab_examples.json` re-scores a recorded file with the current rule, with no server (the file keeps the raw search and sweep responses). `--fillers` lists features in the search results for 2 or more goals and the query token each peaked on (token 0 is the first query word, right after the newline prefix). `--search-only` and `--sort relative` are search experiments, not the UI chain; they cannot be recorded.
 - Filler list (`demo/autolab_fillers.json`): features that come back from search for many unrelated words, whatever the goal (for example #1375 and #5023 fire on the first query word). It is measured, not hand-picked: `python server/scripts/autolab_check.py --find-fillers demo/autolab_fillers.json` (real server only) searches 200 common words the same way as a goal (leading space, top 8) and writes every feature that came back for more than 10% of them, with its count, the cutoff and the date. Regenerate it after a new checkpoint or a change to search, then re-record `demo/autolab_examples.json`. The chain and `--replay` drop these ids; with no file, nothing is dropped. The default URL is `http://127.0.0.1:8000`: on Windows, `localhost` adds about 2 s to every call.
 - Mock: search and sweep requests that match a goal in `demo/autolab_examples.json` return the recorded real responses, marked simulated; anything else gets a stand-in. That file is written on the real server with `autolab_check.py --goals-file goals.txt --record demo/autolab_examples.json` (it refuses a mock server), and a test fails if the mock and the file differ.
-- `demo/autolab_examples.json` was recorded on Prabodh's laptop (real server, run gpt2-l8-k32, layer 8, seed 42) with the new selection (leading space, top 8, the 9 fillers in `demo/autolab_fillers.json` dropped, first 5 kept): 6 goals × 3 prompts, mean 13.4 s a chain. `demo/autolab_fillers.json` was measured on the same laptop (200 words, cutoff more than 10%).
+- `demo/autolab_examples.json` was recorded on a development machine (real server, run gpt2-l8-k32, layer 8, seed 42) with the new selection (leading space, top 8, the 9 fillers in `demo/autolab_fillers.json` dropped, first 5 kept): 6 goals × 3 prompts, mean 13.4 s a chain. `demo/autolab_fillers.json` was measured on the same machine (200 words, cutoff more than 10%).
 
-Each check holds the model for all its generations (same lock as `/steer`). Rough timing (real mode, warm server, Prabodh's laptop; estimates from two measurements, not benchmarks): about 0.65 s per generation, so a check takes about 1.5 s and a 7-point sweep about 5 s. A call right after server start may be slower. Clients allow 30 s (60 s for a sweep) as generous limits; see Timing in `docs/phase4-ml-api.md`. In mock mode, inputs that match `demo/phase4_examples.json` return those real outputs, still marked `[simulated]`; other inputs get a filler stand-in. Mock tokens are a word split, so counts and divergence indices differ from real mode.
+Each check holds the model for all its generations (same lock as `/steer`). Rough timing (real mode, warm server, development machine; estimates from two measurements, not benchmarks): about 0.65 s per generation, so a check takes about 1.5 s and a 7-point sweep about 5 s. A call right after server start may be slower. Clients allow 30 s (60 s for a sweep) as generous limits; see Timing in `docs/phase4-ml-api.md`. In mock mode, inputs that match `demo/phase4_examples.json` return those real outputs, still marked `[simulated]`; other inputs get a filler stand-in. Mock tokens are a word split, so counts and divergence indices differ from real mode.
 
 ## Run (from the repo root)
 

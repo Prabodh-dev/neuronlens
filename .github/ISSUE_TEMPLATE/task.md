@@ -1,16 +1,18 @@
 ---
-name: Task
-about: A unit of work
+name: Feature or task
+about: Propose a change or a piece of work
 title: ""
-labels: ""
+labels: enhancement
 ---
 
-## Task
-<!-- One imperative sentence -->
+## What
+<!-- One sentence: what should change -->
 
-## Feature ID and owner
+## Why
+<!-- The problem it solves, or the use case -->
 
-## Inputs needed
+## Where
+<!-- Folder or page: server, web, ml, docs. Does it touch contracts/? -->
 
 ## Done when
 <!-- One testable sentence -->
